@@ -42,7 +42,9 @@
 #include "ui/ui.h"
 #include "utils.h"
 #include "debugger/debugger.h"
+#ifdef USE_WIDGET
 #include "widget/widget.h"
+#endif
 
 /* Dock cart inserted? */
 int dck_active = 0;
