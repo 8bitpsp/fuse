@@ -5,27 +5,94 @@
 #include "settings.h"
 #include "ui/ui.h"
 #include "ui/uidisplay.h"
-
-#include "video.h"
+#include "input.h" /* TODO: TEMP */
 
 /* TODO */
+#include "pspui.h"
 #include "ctrl.h"
 #include "util.h"
+#include "perf.h"
+#include "video.h"
 
-extern PspImage *Screen;
+PspImage *Screen = NULL;
 
-/* The size of a 1x1 image in units of
-   DISPLAY_ASPECT WIDTH x DISPLAY_SCREEN_HEIGHT */
-int image_scale;
+static int ScreenX, ScreenY, ScreenW, ScreenH;
+static PspFpsCounter FpsCounter;
 
-/* The height and width of a 1x1 image in pixels */
-int image_width, image_height;
-
-int
-uidisplay_init( int width, int height )
+int uidisplay_init( int width, int height )
 {
-  image_width = width; image_height = height;
-  image_scale = width / DISPLAY_ASPECT_WIDTH;
+  /* Initialize screen buffer */
+  if (!(Screen = pspImageCreateVram(512, DISPLAY_SCREEN_HEIGHT,
+    PSP_IMAGE_INDEXED)))
+      return 1;
+
+  Screen->Viewport.X = DISPLAY_BORDER_WIDTH / 2;
+  Screen->Viewport.Y = DISPLAY_BORDER_HEIGHT;
+  Screen->Viewport.Width = DISPLAY_WIDTH / 2;
+  Screen->Viewport.Height = DISPLAY_HEIGHT;
+  Screen->PalSize = 16;
+
+  /* Initialize color palette */
+  const unsigned char rgb_colours[16][3] = 
+  {
+    {   0,   0,   0 },
+    {   0,   0, 192 },
+    { 192,   0,   0 },
+    { 192,   0, 192 },
+    {   0, 192,   0 },
+    {   0, 192, 192 },
+    { 192, 192,   0 },
+    { 192, 192, 192 },
+    {   0,   0,   0 },
+    {   0,   0, 255 },
+    { 255,   0,   0 },
+    { 255,   0, 255 },
+    {   0, 255,   0 },
+    {   0, 255, 255 },
+    { 255, 255,   0 },
+    { 255, 255, 255 },
+  };
+
+  int i;
+  for (i = 0; i < 16; i++) 
+  {
+    unsigned char red, green, blue, grey;
+
+    red   = rgb_colours[i][0];
+    green = rgb_colours[i][1];
+    blue  = rgb_colours[i][2];
+
+    /* Addition of 0.5 is to avoid rounding errors */
+    grey = ( 0.299 * red + 0.587 * green + 0.114 * blue ) + 0.5;
+
+    Screen->Palette[i] = RGB(red, green, blue);
+  }
+
+  /* Set up viewing ratios */
+  float ratio;
+  switch (psp_options.display_mode)
+  {
+  default:
+  case DISPLAY_MODE_UNSCALED:
+    ScreenW = Screen->Viewport.Width;
+    ScreenH = Screen->Viewport.Height;
+    break;
+  case DISPLAY_MODE_FIT_HEIGHT:
+    ratio = (float)SCR_HEIGHT / (float)Screen->Viewport.Height;
+    ScreenW = (float)Screen->Viewport.Width * ratio - 2;
+    ScreenH = SCR_HEIGHT;
+    break;
+  case DISPLAY_MODE_FILL_SCREEN:
+    ScreenW = SCR_WIDTH - 3;
+    ScreenH = SCR_HEIGHT;
+    break;
+  }
+
+  ScreenX = (SCR_WIDTH / 2) - (ScreenW / 2);
+  ScreenY = (SCR_HEIGHT / 2) - (ScreenH / 2);
+
+  /* Init performance counter */
+  pspPerfInitFps(&FpsCounter);
 
   display_refresh_all();
   return 0;
@@ -34,9 +101,23 @@ uidisplay_init( int width, int height )
 void uidisplay_frame_end()
 {
   pspVideoBegin();
-  pspVideoPutImage(Screen, 0, 0, Screen->Viewport.Width, Screen->Viewport.Height);
+  pspVideoPutImage(Screen, ScreenX, ScreenY, ScreenW, ScreenH);
+
+  if (psp_options.show_fps)
+  {
+    static char fps_display[32];
+    sprintf(fps_display, " %3.02f", pspPerfGetFps(&FpsCounter));
+
+    int width = pspFontGetTextWidth(&PspStockFont, fps_display);
+    int height = pspFontGetLineHeight(&PspStockFont);
+
+    pspVideoFillRect(SCR_WIDTH - width, 0, SCR_WIDTH, height, PSP_COLOR_BLACK);
+    pspVideoPrint(&PspStockFont, SCR_WIDTH - width, 0, fps_display, PSP_COLOR_WHITE);
+  }
+
   pspVideoEnd();
   pspVideoSwapBuffers();
+
   static SceCtrlData pad;
 
   /* Check the input */
@@ -47,39 +128,46 @@ void uidisplay_frame_end()
       == (PSP_CTRL_SELECT | PSP_CTRL_START))
         pspUtilSaveVramSeq("", "game");
 #endif
+    if (pad.Buttons & PSP_CTRL_START)
+      keyboard_press(INPUT_KEY_0);
+    else
+      keyboard_release(INPUT_KEY_0);
+    if (pad.Buttons & PSP_CTRL_UP)
+      keyboard_press(INPUT_KEY_p);
+    else
+      keyboard_release(INPUT_KEY_p);
+    if (pad.Buttons & PSP_CTRL_DOWN)
+      keyboard_press(INPUT_KEY_l);
+    else
+      keyboard_release(INPUT_KEY_l);
+    if (pad.Buttons & PSP_CTRL_LEFT)
+      keyboard_press(INPUT_KEY_q);
+    else
+      keyboard_release(INPUT_KEY_q);
+    if (pad.Buttons & PSP_CTRL_RIGHT)
+      keyboard_press(INPUT_KEY_w);
+    else
+      keyboard_release(INPUT_KEY_w);
+    if (pad.Buttons & PSP_CTRL_SQUARE)
+      keyboard_press(INPUT_KEY_space);
+    else
+      keyboard_release(INPUT_KEY_space);
+  }
+}
+
+int uidisplay_end()
+{
+  if (Screen) 
+  {
+    pspImageDestroy(Screen);
+    Screen = NULL;
   }
 
-}
-
-void
-uidisplay_area( int x, int y, int w, int h )
-{
-/*
-  Screen->Viewport.X = x;
-  Screen->Viewport.Y = y;
-  Screen->Viewport.Width = w;
-  Screen->Viewport.Height = h;
-*/
-}
-
-int
-uidisplay_hotswap_gfx_mode( void )
-{
-  /* Redraw the entire screen... */
-  display_refresh_all();
-
-  return 0;
-}
-
-int
-uidisplay_end( void )
-{
   return 0;
 }
 
 /* Set one pixel in the display */
-void
-uidisplay_putpixel( int x, int y, int colour )
+void uidisplay_putpixel(int x, int y, int colour)
 {
   if( machine_current->timex ) {
 /* TODO 
@@ -97,13 +185,12 @@ uidisplay_putpixel( int x, int y, int colour )
 
 /* Print the 8 pixels in `data' using ink colour `ink' and paper
    colour `paper' to the screen at ( (8*x) , y ) */
-void
-uidisplay_plot8( int x, int y, libspectrum_byte data,
-		 libspectrum_byte ink, libspectrum_byte paper )
+void uidisplay_plot8(int x, int y, libspectrum_byte data,
+                     libspectrum_byte ink, libspectrum_byte paper)
 {
   x <<= 3;
 
-  if( machine_current->timex ) {
+  if (machine_current->timex) {
 /* TODO
     int i;
 
@@ -144,16 +231,16 @@ uidisplay_plot8( int x, int y, libspectrum_byte data,
 
 /* Print the 16 pixels in `data' using ink colour `ink' and paper
    colour `paper' to the screen at ( (16*x) , y ) */
-void
-uidisplay_plot16( int x, int y, libspectrum_word data,
-		  libspectrum_byte ink, libspectrum_byte paper )
+void uidisplay_plot16(int x, int y, libspectrum_word data,
+                      libspectrum_byte ink, libspectrum_byte paper)
 {
   int i;
   x <<= 4; y <<= 1;
 
   u8 *line_start;
 
-  for( i=0; i<2; i++,y++ ) {
+  for (i = 0; i < 2; i++, y++)
+  {
     line_start = (u8*)Screen->Pixels;
     line_start += y * Screen->Width + x;
 
@@ -174,4 +261,14 @@ uidisplay_plot16( int x, int y, libspectrum_word data,
     *line_start++ = ( data & 0x0002 ) ? ink : paper;
     *line_start++ = ( data & 0x0001 ) ? ink : paper;
   }
+}
+
+void uidisplay_area(int x, int y, int w, int h)
+{
+}
+
+int uidisplay_hotswap_gfx_mode()
+{
+  display_refresh_all();
+  return 0;
 }

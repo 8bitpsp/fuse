@@ -113,7 +113,7 @@
 #define PACKAGE_VERSION ""
 
 /* Location of the ROM images */
-#define ROMSDIR "roms"
+#define ROMSDIR "system"
 /* #undef ROMSDIR */
 
 /* Defined if the sound code uses a fifo */
@@ -155,7 +155,7 @@
 /* #undef USE_LIBPNG */
 
 /* Defined if we're using a widget-based UI */
-#define USE_WIDGET 1
+/* #define USE_WIDGET 1 */
 
 /* Version number of package */
 #define VERSION "0.9.0"

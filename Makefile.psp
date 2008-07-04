@@ -2,14 +2,13 @@ PSPSDK=$(shell psp-config --pspsdk-path)
 
 PSPAPP=psp
 LSP=ls
-PORT=ui/psp
 PSPLIB=$(PSPAPP)/psplib
 DATA=$(PSPAPP)/data
 
 PSP_FW_VERSION=200
 export PSP_FW_VERSION
 
-PSP_APP_NAME=FUSE PSP
+PSP_APP_NAME=Fuse PSP
 PSP_APP_VER=0.9.0.1
 
 TARGET=fusepsp
@@ -32,10 +31,6 @@ BUILD_FUSE=debugger/breakpoint.o debugger/command.o debugger/commandl.o \
            debugger/commandy.o debugger/debugger.o debugger/disassemble.o \
            debugger/expression.o \
            z80/z80.o z80/z80_ops.o \
-           widget/browse.o widget/debugger.o widget/error.o widget/filesel.o \
-           widget/memory.o widget/menu.o widget/menu_data.o widget/options.o \
-           widget/picture.o widget/pokefinder.o widget/query.o widget/roms.o \
-           widget/select.o widget/text.o widget/widget.o \
            pokefinder/pokefinder.o \
            machines/pentagon1024.o machines/pentagon512.o machines/pentagon.o \
            machines/scorpion.o machines/spec128.o machines/spec16.o \
@@ -50,18 +45,18 @@ BUILD_FUSE=debugger/breakpoint.o debugger/command.o debugger/commandl.o \
            machine.o memory.o module.o periph.o printer.o profile.o \
            psg.o scld.o screenshot.o settings.o simpleide.o slt.o \
            snapshot.o sound.o ui.o uidisplay.o ula.o utils.o zxatasp.o \
-           zxcf.o menu.o timer/timer.o event.o rzx.o spectrum.o tape.o \
+           zxcf.o timer/timer.o event.o rzx.o spectrum.o tape.o \
            fuse.o \
            compat/dirname.o \
            ui/scaler/scaler.o ui/scaler/scalers16.o ui/scaler/scalers32.o \
            sound/sfifo.o
-BUILD_PORT=$(PORT)/keysyms.o timer/psp.o $(PORT)/paths.o $(PORT)/osname.o \
-           $(PORT)/pspui.o $(PORT)/pspdisplay.o sound/pspsound.o
+BUILD_PORT=ui/psp/keysyms.o timer/psp.o ui/psp/paths.o ui/psp/osname.o \
+           ui/psp/pspui.o ui/psp/pspdisplay.o sound/pspsound.o
 BUILD_APP=$(PSPAPP)/main.o
 
 OBJS=$(BUILD_LS) $(BUILD_APP) $(BUILD_FUSE) $(BUILD_PORT)
 
-DEFINES=-DFUSEDATADIR="\"\"" -DPSP_DEBUG -DSOUND_BUFFER_SIZE=368
+DEFINES=-DFUSEDATADIR="\"system\"" -DPSP_DEBUG -DSOUND_BUFFER_SIZE=368
 BASE_DEFS=-DPSP -DPSP_APP_VER=\"$(PSP_APP_VER)\" -DPSP_APP_NAME="\"$(PSP_APP_NAME)\""
 CFLAGS=-O2 -G0 -Wall $(BASE_DEFS) $(DEFINES)
 CXXFLAGS=$(CFLAGS) -fno-exceptions -fno-rtti
@@ -81,4 +76,3 @@ build_psplib:
 
 clean_psplib:
 	cd $(PSPLIB) ; $(MAKE) clean
-
