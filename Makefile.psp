@@ -1,0 +1,84 @@
+PSPSDK=$(shell psp-config --pspsdk-path)
+
+PSPAPP=psp
+LSP=ls
+PORT=ui/psp
+PSPLIB=$(PSPAPP)/psplib
+DATA=$(PSPAPP)/data
+
+PSP_FW_VERSION=200
+export PSP_FW_VERSION
+
+PSP_APP_NAME=FUSE PSP
+PSP_APP_VER=0.9.0.1
+
+TARGET=fusepsp
+EXTRA_TARGETS=EBOOT.PBP
+PSP_EBOOT_TITLE=$(PSP_APP_NAME) $(PSP_APP_VER)
+#PSP_EBOOT_ICON=$(DATA)/fuse-icon.png
+
+BUILD_LS=$(LSP)/creator.o $(LSP)/crypto.o $(LSP)/csw.o \
+         $(LSP)/bzip2.o $(LSP)/dck.o $(LSP)/ide.o \
+         $(LSP)/libspectrum.o $(LSP)/microdrive.o $(LSP)/plusd.o \
+         $(LSP)/rzx.o $(LSP)/sna.o $(LSP)/snap_accessors.o \
+         $(LSP)/snapshot.o $(LSP)/snp.o $(LSP)/sp.o \
+         $(LSP)/symbol_table.o $(LSP)/szx.o $(LSP)/tap.o \
+         $(LSP)/tape_accessors.o $(LSP)/tape_block.o $(LSP)/tape.o \
+         $(LSP)/tape_set.o $(LSP)/timings.o $(LSP)/tzx_read.o \
+         $(LSP)/tzx_write.o $(LSP)/warajevo_read.o $(LSP)/wav.o \
+         $(LSP)/z80.o $(LSP)/z80em.o $(LSP)/zlib.o $(LSP)/zxs.o \
+         $(LSP)/myglib/ghash.o $(LSP)/myglib/gslist.o
+BUILD_FUSE=debugger/breakpoint.o debugger/command.o debugger/commandl.o \
+           debugger/commandy.o debugger/debugger.o debugger/disassemble.o \
+           debugger/expression.o \
+           z80/z80.o z80/z80_ops.o \
+           widget/browse.o widget/debugger.o widget/error.o widget/filesel.o \
+           widget/memory.o widget/menu.o widget/menu_data.o widget/options.o \
+           widget/picture.o widget/pokefinder.o widget/query.o widget/roms.o \
+           widget/select.o widget/text.o widget/widget.o \
+           pokefinder/pokefinder.o \
+           machines/pentagon1024.o machines/pentagon512.o machines/pentagon.o \
+           machines/scorpion.o machines/spec128.o machines/spec16.o \
+           machines/spec48.o machines/specplus2a.o machines/specplus2.o \
+           machines/specplus3.o machines/specplus3e.o machines/spec_se.o \
+           machines/tc2048.o machines/tc2068.o machines/ts2068.o \
+           disk/beta.o disk/crc.o disk/disk.o disk/fdd.o disk/plusd.o \
+           disk/wd_fdc.o \
+           ui/uijoystick.o \
+           ay.o dck.o display.o divide.o ide.o if1.o \
+           if2.o input.o joystick.o kempmouse.o keyboard.o loader.o \
+           machine.o memory.o module.o periph.o printer.o profile.o \
+           psg.o scld.o screenshot.o settings.o simpleide.o slt.o \
+           snapshot.o sound.o ui.o uidisplay.o ula.o utils.o zxatasp.o \
+           zxcf.o menu.o timer/timer.o event.o rzx.o spectrum.o tape.o \
+           fuse.o \
+           compat/dirname.o \
+           ui/scaler/scaler.o ui/scaler/scalers16.o ui/scaler/scalers32.o \
+           sound/sfifo.o
+BUILD_PORT=$(PORT)/keysyms.o timer/psp.o $(PORT)/paths.o $(PORT)/osname.o \
+           $(PORT)/pspui.o $(PORT)/pspdisplay.o sound/pspsound.o
+BUILD_APP=$(PSPAPP)/main.o
+
+OBJS=$(BUILD_LS) $(BUILD_APP) $(BUILD_FUSE) $(BUILD_PORT)
+
+DEFINES=-DFUSEDATADIR="\"\"" -DPSP_DEBUG -DSOUND_BUFFER_SIZE=368
+BASE_DEFS=-DPSP -DPSP_APP_VER=\"$(PSP_APP_VER)\" -DPSP_APP_NAME="\"$(PSP_APP_NAME)\""
+CFLAGS=-O2 -G0 -Wall $(BASE_DEFS) $(DEFINES)
+CXXFLAGS=$(CFLAGS) -fno-exceptions -fno-rtti
+ASFLAGS=$(CFLAGS)
+INCDIR=. $(PSPLIB) $(LSP)
+LIBDIR=$(PSPLIB)
+LIBS=-lmypsp -lpng -lpspgu -lpsppower -lz -lm -lc -lpspaudio -lpsprtc \
+     -lpspwlan -lpspnet_adhoc -lpspnet_adhocctl -lpspnet_adhocmatching
+
+all: build_psplib
+clean: clean_psplib
+
+include $(PSPSDK)/lib/build.mak
+
+build_psplib:
+	cd $(PSPLIB) ; $(MAKE)
+
+clean_psplib:
+	cd $(PSPLIB) ; $(MAKE) clean
+
