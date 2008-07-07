@@ -61,7 +61,7 @@ BASE_DEFS=-DPSP -DPSP_APP_VER=\"$(PSP_APP_VER)\" -DPSP_APP_NAME="\"$(PSP_APP_NAM
 CFLAGS=-O2 -G0 -Wall $(BASE_DEFS) $(DEFINES)
 CXXFLAGS=$(CFLAGS) -fno-exceptions -fno-rtti
 ASFLAGS=$(CFLAGS)
-INCDIR=. $(PSPLIB) $(LSP)
+INCDIR=. $(PSPLIB) $(LSP) psp
 LIBDIR=$(PSPLIB)
 LIBS=-lmypsp -lpng -lpspgu -lpsppower -lz -lm -lc -lpspaudio -lpsprtc \
      -lpspwlan -lpspnet_adhoc -lpspnet_adhocctl -lpspnet_adhocmatching

@@ -7,8 +7,12 @@
 
 typedef struct psp_options_t
 {
-  unsigned char display_mode;
-  unsigned char show_fps;
+  unsigned char  display_mode;
+  unsigned char  show_fps;
+  unsigned char  limit_frames;
+  unsigned char  control_mode;
+  unsigned char  animate_menu;
+  unsigned short clock_freq;
 } psp_options_t;
 
 extern psp_options_t psp_options;
