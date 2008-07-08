@@ -17,4 +17,6 @@ typedef struct psp_options_t
 
 extern psp_options_t psp_options;
 
+void psp_uidisplay_reinit();
+
 #endif

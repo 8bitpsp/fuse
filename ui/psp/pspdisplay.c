@@ -5,19 +5,18 @@
 #include "settings.h"
 #include "ui/ui.h"
 #include "ui/uidisplay.h"
-#include "input.h" /* TODO: TEMP */
 
 /* TODO */
 #include "pspui.h"
-#include "ctrl.h"
 #include "util.h"
 #include "perf.h"
 #include "video.h"
 
 PspImage *Screen = NULL;
+PspFpsCounter FpsCounter;
+int clear_screen;
 
 static int ScreenX, ScreenY, ScreenW, ScreenH;
-static PspFpsCounter FpsCounter;
 
 int uidisplay_init( int width, int height )
 {
@@ -68,6 +67,14 @@ int uidisplay_init( int width, int height )
     Screen->Palette[i] = RGB(red, green, blue);
   }
 
+  psp_uidisplay_reinit();
+  display_refresh_all();
+
+  return 0;
+}
+
+void psp_uidisplay_reinit()
+{
   /* Set up viewing ratios */
   float ratio;
   switch (psp_options.display_mode)
@@ -91,16 +98,21 @@ int uidisplay_init( int width, int height )
   ScreenX = (SCR_WIDTH / 2) - (ScreenW / 2);
   ScreenY = (SCR_HEIGHT / 2) - (ScreenH / 2);
 
-  /* Init performance counter */
+  /* Reset FPS counter */
   pspPerfInitFps(&FpsCounter);
-
-  display_refresh_all();
-  return 0;
 }
 
 void uidisplay_frame_end()
 {
   pspVideoBegin();
+
+  /* Clear the buffer first, if necessary */
+  if (clear_screen >= 0)
+  {
+    clear_screen--;
+    pspVideoClearScreen();
+  }
+
   pspVideoPutImage(Screen, ScreenX, ScreenY, ScreenW, ScreenH);
 
   if (psp_options.show_fps)
@@ -117,42 +129,6 @@ void uidisplay_frame_end()
 
   pspVideoEnd();
   pspVideoSwapBuffers();
-
-  static SceCtrlData pad;
-
-  /* Check the input */
-  if (pspCtrlPollControls(&pad))
-  {
-#ifdef PSP_DEBUG
-    if ((pad.Buttons & (PSP_CTRL_SELECT | PSP_CTRL_START))
-      == (PSP_CTRL_SELECT | PSP_CTRL_START))
-        pspUtilSaveVramSeq("", "game");
-#endif
-    if (pad.Buttons & PSP_CTRL_START)
-      keyboard_press(INPUT_KEY_0);
-    else
-      keyboard_release(INPUT_KEY_0);
-    if (pad.Buttons & PSP_CTRL_UP)
-      keyboard_press(INPUT_KEY_p);
-    else
-      keyboard_release(INPUT_KEY_p);
-    if (pad.Buttons & PSP_CTRL_DOWN)
-      keyboard_press(INPUT_KEY_l);
-    else
-      keyboard_release(INPUT_KEY_l);
-    if (pad.Buttons & PSP_CTRL_LEFT)
-      keyboard_press(INPUT_KEY_q);
-    else
-      keyboard_release(INPUT_KEY_q);
-    if (pad.Buttons & PSP_CTRL_RIGHT)
-      keyboard_press(INPUT_KEY_w);
-    else
-      keyboard_release(INPUT_KEY_w);
-    if (pad.Buttons & PSP_CTRL_SQUARE)
-      keyboard_press(INPUT_KEY_space);
-    else
-      keyboard_release(INPUT_KEY_space);
-  }
 }
 
 int uidisplay_end()

@@ -13,6 +13,10 @@
 #include "ui/ui.h"
 #include "ui/uijoystick.h"
 #include "utils.h"
+#include "input.h"
+#include "keyboard.h"
+#include "joystick.h"
+#include "string.h"
 
 #include "psplib/ui.h"
 #include "psplib/font.h"
@@ -23,10 +27,11 @@
 
 #include "pspui.h"
 
-#define TAB_OPTIONS   0
-#define TAB_SYSTEM    1
+#define TAB_QUICKLOAD 0
+#define TAB_OPTIONS   1
+#define TAB_SYSTEM    2
 #define TAB_MAX       TAB_SYSTEM
-#define TAB_ABOUT     2
+#define TAB_ABOUT     3
 
 #define OPTION_DISPLAY_MODE  1
 #define OPTION_FRAME_LIMITER 2
@@ -38,15 +43,39 @@
 #define SYSTEM_SCRNSHOT    1
 #define SYSTEM_RESET       2
 
+#define KBD 0x100
+#define JST 0x200
+#define SPC 0x400
+
+#define MAP_BUTTONS 20
+
+#define CODE_MASK(x) (x & 0xff)
+
+#define SPC_MENU  1
+#define SPC_KYBD  2
+
+typedef struct psp_ctrl_map_t
+{
+  unsigned int button_map[MAP_BUTTONS];
+} psp_ctrl_map_t;
+
+typedef struct psp_ctrl_mask_to_index_map_t
+{
+  u64 mask;
+  u8  index;
+} psp_ctrl_mask_to_index_map_t;
+
+static const char *QuickloadFilter[] = { "Z80", '\0' };
+
 static int         OnSplashButtonPress(const struct PspUiSplash *splash,
                                        u32 button_mask);
 static void        OnSplashRender(const void *uiobject, const void *null);
 static const char* OnSplashGetStatusBarText(const struct PspUiSplash *splash);
 
-static int    OnGenericCancel(const void *uiobject, const void* param);
-static void   OnGenericRender(const void *uiobject, const void *item_obj);
-static int    OnGenericButtonPress(const void *browser, const char *path,
-                            u32 button_mask);
+static int  OnGenericCancel(const void *uiobject, const void* param);
+static void OnGenericRender(const void *uiobject, const void *item_obj);
+static int  OnGenericButtonPress(const PspUiFileBrowser *browser, const char *path,
+                                 u32 button_mask);
 
 static int OnMenuOk(const void *menu, const void *item);
 static int OnMenuButtonPress(const struct PspUiMenu *uimenu, PspMenuItem* item, 
@@ -56,7 +85,10 @@ static int OnMenuItemChanged(const struct PspUiMenu *uimenu, PspMenuItem* item,
 
 static void OnSystemRender(const void *uiobject, const void *item_obj);
 
-void psp_display_menu();
+static int OnQuickloadOk(const void *browser, const void *path);
+
+static void psp_display_menu();
+static inline void psp_keyboard_toggle(unsigned int code, int on);
 
 PspUiSplash SplashScreen = 
 {
@@ -64,6 +96,16 @@ PspUiSplash SplashScreen =
   OnGenericCancel,
   OnSplashButtonPress,
   OnSplashGetStatusBarText
+};
+
+PspUiFileBrowser QuickloadBrowser = 
+{
+  OnGenericRender,
+  OnQuickloadOk,
+  OnGenericCancel,
+  OnGenericButtonPress,
+  QuickloadFilter,
+  0
 };
 
 PspUiMenu
@@ -89,6 +131,7 @@ PspUiMenu
 /* Tab labels */
 static const char *TabLabel[] = 
 {
+  "Game",
   "Options",
   "System",
   "About"
@@ -148,15 +191,63 @@ static const PspMenuItemDef
     MENU_END_ITEMS
   };
 
+/* Default configuration */
+static psp_ctrl_map_t default_map =
+{
+  {
+    JST|JOYSTICK_BUTTON_UP,    /* Analog Up    */
+    JST|JOYSTICK_BUTTON_DOWN,  /* Analog Down  */
+    JST|JOYSTICK_BUTTON_LEFT,  /* Analog Left  */
+    JST|JOYSTICK_BUTTON_RIGHT, /* Analog Right */
+    KBD|KEYBOARD_p,            /* D-pad Up     */
+    KBD|KEYBOARD_l,            /* D-pad Down   */
+    KBD|KEYBOARD_q,            /* D-pad Left   */
+    KBD|KEYBOARD_w,            /* D-pad Right  */
+    JST|JOYSTICK_BUTTON_FIRE,  /* Square       */
+    0,                         /* Cross        */
+    KBD|KEYBOARD_space,        /* Circle       */
+    0,                         /* Triangle     */
+    0,                         /* L Trigger    */
+    SPC|SPC_KYBD,              /* R Trigger    */
+    0,                         /* Select       */
+/* TODO */
+    KBD|KEYBOARD_0,            /* Start        */
+    SPC|SPC_MENU,              /* L+R Triggers */
+    0,                         /* Start+Select */
+    0,                         /* Select + L   */
+    0,                         /* Select + R   */
+  }
+};
+
 psp_options_t psp_options;
+static psp_ctrl_map_t current_map;
 static u8 ExitMenu;
+static u8 show_kybd_held;
 static int TabIndex;
 static PspImage *Background;
 extern PspImage *Screen;
+extern int clear_screen;
 
 static char SaveStatePath[PSP_FILE_MAX_PATH_LEN],
             ScreenshotPath[PSP_FILE_MAX_PATH_LEN],
             ConfigPath[PSP_FILE_MAX_PATH_LEN];
+
+psp_ctrl_mask_to_index_map_t physical_to_emulated_button_map[] =
+{
+  { PSP_CTRL_LTRIGGER | PSP_CTRL_RTRIGGER, 16 },
+  { PSP_CTRL_START    | PSP_CTRL_SELECT,   17 },
+  { PSP_CTRL_SELECT   | PSP_CTRL_LTRIGGER, 18 },
+  { PSP_CTRL_SELECT   | PSP_CTRL_RTRIGGER, 19 },
+  { PSP_CTRL_ANALUP,   0 }, { PSP_CTRL_ANALDOWN,  1 },
+  { PSP_CTRL_ANALLEFT, 2 }, { PSP_CTRL_ANALRIGHT, 3 },
+  { PSP_CTRL_UP,   4 }, { PSP_CTRL_DOWN,  5 },
+  { PSP_CTRL_LEFT, 6 }, { PSP_CTRL_RIGHT, 7 },
+  { PSP_CTRL_SQUARE, 8 },  { PSP_CTRL_CROSS,     9 },
+  { PSP_CTRL_CIRCLE, 10 }, { PSP_CTRL_TRIANGLE, 11 },
+  { PSP_CTRL_LTRIGGER, 12 }, { PSP_CTRL_RTRIGGER, 13 },
+  { PSP_CTRL_SELECT, 14 }, { PSP_CTRL_START, 15 },
+  { 0, -1 }
+};
 
 int ui_init(int *argc, char ***argv)
 {
@@ -219,10 +310,15 @@ int ui_init(int *argc, char ***argv)
 
   TabIndex = TAB_ABOUT;
 
+  show_kybd_held = 0;
+  clear_screen = 1;
+
+/* TODO */
+  memcpy(&current_map, &default_map, sizeof(default_map));
   return 0;
 }
 
-void psp_display_menu()
+static void psp_display_menu()
 {
   PspMenuItem *item;
   ExitMenu = 0;
@@ -238,8 +334,11 @@ void psp_display_menu()
     /* Display appropriate tab */
     switch (TabIndex)
     {
+    case TAB_QUICKLOAD:
+/* TODO: second param == currently loaded game */
+      pspUiOpenBrowser(&QuickloadBrowser, NULL);
+      break;
     case TAB_OPTIONS:
-      /* Init menu options */
       item = pspMenuFindItemById(OptionUiMenu.Menu, OPTION_DISPLAY_MODE);
       pspMenuSelectOptionByValue(item, (void*)(int)psp_options.display_mode);
       item = pspMenuFindItemById(OptionUiMenu.Menu, OPTION_CLOCK_FREQ);
@@ -255,6 +354,9 @@ void psp_display_menu()
 
       pspUiOpenMenu(&OptionUiMenu, NULL);
       break;
+    case TAB_SYSTEM:
+      pspUiOpenMenu(&SystemUiMenu, NULL);
+      break;
     case TAB_ABOUT:
       pspUiSplashScreen(&SplashScreen);
       break;
@@ -263,6 +365,11 @@ void psp_display_menu()
 
   if (!ExitPSP)
   {
+    show_kybd_held = 0;
+    clear_screen = 1;
+    keyboard_release_all();
+    psp_uidisplay_reinit();
+
     /* Set clock frequency during emulation */
     pspSetClockFrequency(psp_options.clock_freq);
     /* Set buttons to normal mode */
@@ -282,6 +389,57 @@ int ui_event( void )
     return 0;
   }
 
+  static SceCtrlData pad;
+
+  /* Check the input */
+  if (pspCtrlPollControls(&pad))
+  {
+#ifdef PSP_DEBUG
+    if ((pad.Buttons & (PSP_CTRL_SELECT | PSP_CTRL_START))
+      == (PSP_CTRL_SELECT | PSP_CTRL_START))
+        pspUtilSaveVramSeq(ScreenshotPath, "game");
+#endif
+    /* Parse input */
+    psp_ctrl_mask_to_index_map_t *current_mapping = physical_to_emulated_button_map;
+    for (; current_mapping->mask; current_mapping++)
+    {
+      int code = current_map.button_map[current_mapping->index];
+      int on = (pad.Buttons & current_mapping->mask) == current_mapping->mask;
+
+      /* Check to see if a button set is pressed. If so, unset it, so it */
+      /* doesn't trigger any other combination presses. */
+      if (on) pad.Buttons &= ~current_mapping->mask;
+
+      if (code & KBD && !show_kybd_held)
+        psp_keyboard_toggle(CODE_MASK(code), on);
+      else if (code & JST && !show_kybd_held)
+        joystick_press(0, CODE_MASK(code), on);
+      else if (code & SPC)
+      {
+        switch (code)
+        {
+        case SPC_MENU:
+          if (on) psp_display_menu();
+          break;
+        case SPC_KYBD:
+          if (show_kybd_held != on)
+          {
+/* TODO */
+            if (on) ; /* pspKybdReinit(KeyLayout); */
+            else
+            {
+              clear_screen = 1;
+              keyboard_release_all();
+            }
+          }
+
+          show_kybd_held = on;
+          break;
+        }
+      }
+    }
+  }
+
   return 0;
 }
 
@@ -293,6 +451,12 @@ int ui_end( void )
   pspMenuDestroy(SystemUiMenu.Menu);
 
   return 0;
+}
+
+static inline void psp_keyboard_toggle(unsigned int code, int on)
+{
+  if (on) keyboard_press(code);
+  else keyboard_release(code);
 }
 
 /* psplib Event callbacks */
@@ -327,7 +491,7 @@ static void OnGenericRender(const void *uiobject, const void *item_obj)
   }
 }
 
-static int OnGenericButtonPress(const void *browser, 
+static int OnGenericButtonPress(const PspUiFileBrowser *browser,
   const char *path, u32 button_mask)
 {
   /* If L or R are pressed, switch tabs */
@@ -338,7 +502,7 @@ static int OnGenericButtonPress(const void *browser,
   else if ((button_mask & (PSP_CTRL_START | PSP_CTRL_SELECT)) 
     == (PSP_CTRL_START | PSP_CTRL_SELECT))
   {
-    if (pspUtilSaveVramSeq(pspGetAppDirectory(), "UI"))
+    if (pspUtilSaveVramSeq(ScreenshotPath, "UI"))
       pspUiAlert("Saved successfully");
     else
       pspUiAlert("ERROR: Not saved");
@@ -473,6 +637,11 @@ static void OnSystemRender(const void *uiobject, const void *item_obj)
   pspVideoDrawRect(x, y, x + w - 1, y + h - 1, PSP_COLOR_GRAY);
 
   OnGenericRender(uiobject, item_obj);
+}
+
+static int OnQuickloadOk(const void *browser, const void *path)
+{
+  return 1;
 }
 
 /* These are stub functions */
