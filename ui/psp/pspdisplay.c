@@ -13,7 +13,7 @@
 #include "video.h"
 
 PspImage *Screen = NULL;
-PspFpsCounter FpsCounter;
+static PspFpsCounter FpsCounter;
 int clear_screen;
 
 static int ScreenX, ScreenY, ScreenW, ScreenH;
@@ -104,6 +104,15 @@ void psp_uidisplay_reinit()
 
 void uidisplay_frame_end()
 {
+  static u8 first_time_run = 1;
+  if (first_time_run)
+  {
+    /* Show menu */
+    psp_display_menu();
+    first_time_run = 0;
+    return;
+  }
+
   pspVideoBegin();
 
   /* Clear the buffer first, if necessary */

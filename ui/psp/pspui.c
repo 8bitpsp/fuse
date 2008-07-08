@@ -14,8 +14,8 @@
 #include "ui/uijoystick.h"
 #include "utils.h"
 #include "input.h"
-#include "keyboard.h"
 #include "joystick.h"
+#include "keyboard.h"
 #include "string.h"
 
 #include "psplib/ui.h"
@@ -56,7 +56,7 @@
 
 typedef struct psp_ctrl_map_t
 {
-  unsigned int button_map[MAP_BUTTONS];
+  u32 button_map[MAP_BUTTONS];
 } psp_ctrl_map_t;
 
 typedef struct psp_ctrl_mask_to_index_map_t
@@ -87,8 +87,9 @@ static void OnSystemRender(const void *uiobject, const void *item_obj);
 
 static int OnQuickloadOk(const void *browser, const void *path);
 
-static void psp_display_menu();
+void psp_display_menu();
 static inline void psp_keyboard_toggle(unsigned int code, int on);
+static inline void psp_joystick_toggle(unsigned int code, int on);
 
 PspUiSplash SplashScreen = 
 {
@@ -195,27 +196,27 @@ static const PspMenuItemDef
 static psp_ctrl_map_t default_map =
 {
   {
-    JST|JOYSTICK_BUTTON_UP,    /* Analog Up    */
-    JST|JOYSTICK_BUTTON_DOWN,  /* Analog Down  */
-    JST|JOYSTICK_BUTTON_LEFT,  /* Analog Left  */
-    JST|JOYSTICK_BUTTON_RIGHT, /* Analog Right */
-    KBD|KEYBOARD_p,            /* D-pad Up     */
-    KBD|KEYBOARD_l,            /* D-pad Down   */
-    KBD|KEYBOARD_q,            /* D-pad Left   */
-    KBD|KEYBOARD_w,            /* D-pad Right  */
-    JST|JOYSTICK_BUTTON_FIRE,  /* Square       */
-    0,                         /* Cross        */
-    KBD|KEYBOARD_space,        /* Circle       */
-    0,                         /* Triangle     */
-    0,                         /* L Trigger    */
-    SPC|SPC_KYBD,              /* R Trigger    */
-    0,                         /* Select       */
+    JST|INPUT_JOYSTICK_UP,    /* Analog Up    */
+    JST|INPUT_JOYSTICK_DOWN,  /* Analog Down  */
+    JST|INPUT_JOYSTICK_LEFT,  /* Analog Left  */
+    JST|INPUT_JOYSTICK_RIGHT, /* Analog Right */
+    KBD|INPUT_KEY_p,         /* D-pad Up     */
+    KBD|INPUT_KEY_l,       /* D-pad Down   */
+    KBD|INPUT_KEY_q,       /* D-pad Left   */
+    KBD|INPUT_KEY_w,      /* D-pad Right  */
+    JST|INPUT_JOYSTICK_FIRE_1,/* Square       */
+    0,                        /* Cross        */
+    KBD|INPUT_KEY_space,      /* Circle       */
+    0,                        /* Triangle     */
+    0,                        /* L Trigger    */
+    SPC|SPC_KYBD,             /* R Trigger    */
+    0,                        /* Select       */
 /* TODO */
-    KBD|KEYBOARD_0,            /* Start        */
-    SPC|SPC_MENU,              /* L+R Triggers */
-    0,                         /* Start+Select */
-    0,                         /* Select + L   */
-    0,                         /* Select + R   */
+    KBD|INPUT_KEY_0,          /* Start        */
+    SPC|SPC_MENU,             /* L+R Triggers */
+    0,                        /* Start+Select */
+    0,                        /* Select + L   */
+    0,                        /* Select + R   */
   }
 };
 
@@ -315,13 +316,16 @@ int ui_init(int *argc, char ***argv)
 
 /* TODO */
   memcpy(&current_map, &default_map, sizeof(default_map));
+
   return 0;
 }
 
-static void psp_display_menu()
+void psp_display_menu()
 {
   PspMenuItem *item;
   ExitMenu = 0;
+
+  psp_sound_pause();
 
   /* Set normal clock frequency */
   pspSetClockFrequency(222);
@@ -365,30 +369,21 @@ static void psp_display_menu()
 
   if (!ExitPSP)
   {
-    show_kybd_held = 0;
-    clear_screen = 1;
-    keyboard_release_all();
-    psp_uidisplay_reinit();
-
     /* Set clock frequency during emulation */
     pspSetClockFrequency(psp_options.clock_freq);
     /* Set buttons to normal mode */
     pspCtrlSetPollingMode(PSP_CTRL_NORMAL);
+
+    show_kybd_held = 0;
+    clear_screen = 1;
+    keyboard_release_all();
+    psp_uidisplay_reinit();
+    psp_sound_resume();
   }
 }
 
 int ui_event( void )
 {
-  static u8 first_time_run = 1;
-  if (first_time_run)
-  {
-    /* Show menu */
-    psp_display_menu();
-    first_time_run = 0;
-
-    return 0;
-  }
-
   static SceCtrlData pad;
 
   /* Check the input */
@@ -403,20 +398,20 @@ int ui_event( void )
     psp_ctrl_mask_to_index_map_t *current_mapping = physical_to_emulated_button_map;
     for (; current_mapping->mask; current_mapping++)
     {
-      int code = current_map.button_map[current_mapping->index];
-      int on = (pad.Buttons & current_mapping->mask) == current_mapping->mask;
+      u32 code = current_map.button_map[current_mapping->index];
+      u8  on = (pad.Buttons & current_mapping->mask) == current_mapping->mask;
 
       /* Check to see if a button set is pressed. If so, unset it, so it */
       /* doesn't trigger any other combination presses. */
       if (on) pad.Buttons &= ~current_mapping->mask;
 
-      if (code & KBD && !show_kybd_held)
+      if ((code & KBD) && !show_kybd_held)
         psp_keyboard_toggle(CODE_MASK(code), on);
-      else if (code & JST && !show_kybd_held)
-        joystick_press(0, CODE_MASK(code), on);
+      else if ((code & JST) && !show_kybd_held)
+        psp_joystick_toggle(CODE_MASK(code), on);
       else if (code & SPC)
       {
-        switch (code)
+        switch (CODE_MASK(code))
         {
         case SPC_MENU:
           if (on) psp_display_menu();
@@ -453,10 +448,27 @@ int ui_end( void )
   return 0;
 }
 
+static inline void psp_joystick_toggle(unsigned int code, int on)
+{
+  input_event_t fuse_event;
+
+  fuse_event.type = (on) 
+    ? INPUT_EVENT_JOYSTICK_PRESS : INPUT_EVENT_JOYSTICK_RELEASE;
+  fuse_event.types.joystick.which = 0;
+  fuse_event.types.joystick.button = code;
+
+  input_event(&fuse_event);
+}
+
 static inline void psp_keyboard_toggle(unsigned int code, int on)
 {
-  if (on) keyboard_press(code);
-  else keyboard_release(code);
+  input_event_t fuse_event;
+
+  fuse_event.type = (on) ? INPUT_EVENT_KEYPRESS : INPUT_EVENT_KEYRELEASE;
+  fuse_event.types.key.native_key = code;
+  fuse_event.types.key.spectrum_key = code;
+
+  input_event(&fuse_event);
 }
 
 /* psplib Event callbacks */
@@ -478,16 +490,13 @@ static void OnGenericRender(const void *uiobject, const void *item_obj)
     /* Determine width of text */
     width = pspFontGetTextWidth(UiMetric.Font, TabLabel[i]);
 
-    if (i == TabIndex)
-    {
-      /* Draw background of active tab */
-      if (i == TabIndex) 
-        pspVideoFillRect(x - 5, 0, x + width + 5, height + 1, 
-          UiMetric.TabBgColor);
+    /* Draw background of active tab */
+    if (i == TabIndex) 
+      pspVideoFillRect(x - 5, 0, x + width + 5, height + 1, 
+        UiMetric.TabBgColor);
 
-      /* Draw name of tab */
-      pspVideoPrint(UiMetric.Font, x, 0, TabLabel[i], PSP_COLOR_WHITE);
-    }
+    /* Draw name of tab */
+    pspVideoPrint(UiMetric.Font, x, 0, TabLabel[i], PSP_COLOR_WHITE);
   }
 }
 

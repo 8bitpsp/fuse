@@ -15,7 +15,6 @@ PSP_MODULE_INFO(PSP_APP_NAME, 0, 1, 1);
 PSP_MAIN_THREAD_ATTR(PSP_THREAD_ATTR_USER);
 
 extern int fuse_exiting;
-extern PspStereoSample SoundBuffer[SOUND_BUFFER_SIZE];
 
 static void ExitCallback(void* arg)
 {

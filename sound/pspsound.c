@@ -12,8 +12,6 @@
 sfifo_t sound_fifo;
 #define NUM_FRAMES 2
 
-//PspStereoSample SoundBuffer[SOUND_BUFFER_SIZE];
-
 void AudioCallback(void* buf, unsigned int *length, void *userdata)
 {
   sfifo_read( &sound_fifo, buf, (*length << 1));
@@ -30,14 +28,13 @@ sound_lowlevel_init( const char *device, int *freqptr, int *stereoptr )
   if (sfifo_init(&sound_fifo, NUM_FRAMES * channels * sound_framesiz + 1))
     return 1;
 
-  pspAudioSetChannelCallback(0, AudioCallback, 0);
   return 0;
 }
 
 void
 sound_lowlevel_end( void )
 {
-  pspAudioSetChannelCallback(0, NULL, 0);
+  psp_sound_pause();
   sfifo_flush( &sound_fifo );
   sfifo_close( &sound_fifo );
 }
@@ -55,9 +52,19 @@ sound_lowlevel_frame( libspectrum_signed_word *data, int len )
     if( ( i = sfifo_write( &sound_fifo, bytes, len ) ) < 0 ) {
       break;
     } else if (!i) {
-      sceKernelDelayThread(10);//SDL_Delay(10);
+      sceKernelDelayThread(10);
     }
     bytes += i;
     len -= i;
   }
+}
+
+void psp_sound_pause()
+{
+  pspAudioSetChannelCallback(0, NULL, 0);
+}
+
+void psp_sound_resume()
+{
+  pspAudioSetChannelCallback(0, AudioCallback, 0);
 }
