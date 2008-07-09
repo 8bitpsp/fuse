@@ -12,6 +12,9 @@
 sfifo_t sound_fifo;
 #define NUM_FRAMES 2
 
+void psp_sound_pause();
+void psp_sound_resume();
+
 void AudioCallback(void* buf, unsigned int *length, void *userdata)
 {
   sfifo_read( &sound_fifo, buf, (*length << 1));

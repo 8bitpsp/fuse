@@ -46,7 +46,12 @@
 #include "zxatasp.h"
 #include "zxcf.h"
 
+#ifdef PSP
+/* 'filename' is used to pacify the file format determining routine */
+int snapshot_read_file(const char *filename, FILE *fptr)
+#else
 int snapshot_read( const char *filename )
+#endif
 {
   utils_file file;
   libspectrum_snap *snap;
@@ -54,7 +59,22 @@ int snapshot_read( const char *filename )
 
   error = libspectrum_snap_alloc( &snap ); if( error ) return error;
 
+#ifdef PSP
+  {
+    /* PSP version reads from an open and positioned file stream */
+    long initial_pos = ftell(fptr);
+    fseek(fptr, 0, SEEK_END);
+    file.length = ftell(fptr) - initial_pos; /* determine size of block */
+    fseek(fptr, initial_pos, SEEK_SET); /* regress to previous position */
+
+    if (!(file.buffer = malloc(file.length)))
+      error = 1;
+    else if ((error = (fread(file.buffer, file.length, 1, fptr) != 1)))
+      free(file.buffer);
+  }
+#else
   error = utils_read_file( filename, &file );
+#endif
   if( error ) { libspectrum_snap_free( snap ); return error; }
 
   error = libspectrum_snap_read( snap, file.buffer, file.length,
@@ -156,7 +176,12 @@ snapshot_copy_from( libspectrum_snap *snap )
   return 0;
 }
 
+#ifdef PSP
+/* 'filename' is used to pacify the file format determining routine */
+int snapshot_write_file(const char *filename, FILE *fptr)
+#else
 int snapshot_write( const char *filename )
+#endif
 {
   libspectrum_id_t type;
   libspectrum_class_t class;
@@ -201,7 +226,11 @@ int snapshot_write( const char *filename )
   error = libspectrum_snap_free( snap );
   if( error ) { free( buffer ); return 1; }
 
+#ifdef PSP
+  error = (fwrite(buffer, length, 1, fptr) != 1);
+#else
   error = utils_write_file( filename, buffer, length );
+#endif
   if( error ) { free( buffer ); return error; }
 
   free( buffer );

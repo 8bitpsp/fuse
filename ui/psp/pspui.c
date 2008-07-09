@@ -110,6 +110,12 @@ static int OnSaveStateButtonPress(const PspUiGallery *gallery,
                                   u32 button_mask);
 
 void psp_display_menu();
+void psp_sound_pause();
+void psp_sound_resume();
+
+int snapshot_read_file(const char *filename, FILE *fptr);
+int snapshot_write_file(const char *filename, FILE *fptr);
+
 static void psp_display_state_tab();
 static inline void psp_keyboard_toggle(unsigned int code, int on);
 static inline void psp_joystick_toggle(unsigned int code, int on);
@@ -416,8 +422,8 @@ void psp_display_menu()
     switch (TabIndex)
     {
     case TAB_QUICKLOAD:
-      pspUiOpenBrowser(&QuickloadBrowser,
-                       (GAME_LOADED) ? psp_current_game : NULL);
+      pspUiOpenBrowser(&QuickloadBrowser, (GAME_LOADED)
+                       ? pspFileGetFilename(psp_current_game) : NULL);
       break;
     case TAB_OPTIONS:
       item = pspMenuFindItemById(OptionUiMenu.Menu, OPTION_DISPLAY_MODE);
@@ -562,7 +568,8 @@ static void psp_display_state_tab()
   SceIoStat stat;
   ScePspDateTime latest;
   char caption[32];
-  const char *config_name = (GAME_LOADED) ? psp_current_game : "BASIC";
+  const char *config_name = (GAME_LOADED)
+    ? pspFileGetFilename(psp_current_game) : "BASIC";
   char *path = (char*)malloc(strlen(SaveStatePath) + strlen(config_name) + 8);
   char *game_name = strdup(config_name);
   char *dot = strrchr(game_name, '.');
@@ -648,11 +655,11 @@ static int psp_load_state(const char *path)
   PspImage *image = pspImageLoadPngFd(f);
   pspImageDestroy(image);
 
-/* TODO: load state */
-//  system_load_state(f);
+  /* Load the state data */
+  int error = !snapshot_read_file(path, f);
   fclose(f);
 
-  return 1;
+  return error;
 }
 
 /* Save state */
@@ -678,14 +685,20 @@ pspUiAlert(path);
     return NULL;
   }
 
-/* TODO: save state */
-//  system_save_state(f);
+  /* Write the state */
+  if (snapshot_write_file(path, f))
+  {
+    pspImageDestroy(thumb);
+    thumb = NULL;
+  }
 
   fclose(f);
   return thumb;
 }
 
-/* psplib Event callbacks */
+/**************************/
+/* psplib event callbacks */
+/**************************/
 static int OnGenericCancel(const void *uiobject, const void* param)
 {
   psp_exit_menu = 1;
@@ -792,8 +805,8 @@ static int OnMenuOk(const void *uimenu, const void* sel_item)
       break;
     case SYSTEM_SCRNSHOT:
       /* Save screenshot */
-      if (!pspUtilSavePngSeq(ScreenshotPath,
-                             (GAME_LOADED) ? psp_current_game : "BASIC",
+      if (!pspUtilSavePngSeq(ScreenshotPath, (GAME_LOADED)
+                               ? pspFileGetFilename(psp_current_game) : "BASIC",
                              Screen))
         pspUiAlert("ERROR: Screenshot not saved");
       else
@@ -1008,33 +1021,77 @@ static int OnSaveStateButtonPress(const PspUiGallery *gallery,
   return OnGenericButtonPress(NULL, NULL, button_mask);
 }
 
-/* These are stub functions */
-void menu_file_movies_recordmovieaspng( int action ) { }
-void menu_file_savescreenaspng( int action ) {  }
-void menu_file_loadbinarydata( int action ) {  }
-void menu_file_savebinarydata( int action ) {  }
-void menu_machine_pause( int action ) {  }
-int  ui_mouse_grab( int startup ) {  return 0; }
-int  ui_mouse_release( int suspend ) {  return 0; }
+/**************************/
+/* STUB functions         */
+/**************************/
+void menu_machine_pause( int action )
+{
+}
 
-/* Widget stubs */
-int ui_debugger_activate() { return 1; }
-int ui_debugger_deactivate(int interruptable) { return 1; }
-int ui_debugger_update() { return 1; }
-int ui_debugger_disassemble(libspectrum_word address) { return 1; }
-int ui_statusbar_update(ui_statusbar_item item, ui_statusbar_state state) { return 1; }
-int ui_statusbar_update_speed(float speed) { return 1; }
+char *ui_get_save_filename(const char *title)
+{
+  return NULL;
+}
+
+int ui_menu_item_set_active(const char *path, int active)
+{
+  return 1;
+}
+
+#ifdef USE_LIBPNG
+void menu_file_movies_recordmovieaspng( int action )
+{
+}
+
+void menu_file_savescreenaspng( int action )
+{
+}
+#endif
+
+void menu_file_loadbinarydata( int action )
+{
+}
+
+void menu_file_savebinarydata( int action )
+{
+}
+
+int ui_mouse_grab( int startup )
+{
+  return 0;
+}
+
+int ui_mouse_release( int suspend )
+{
+  return 0;
+}
+
 int ui_tape_browser_update(ui_tape_browser_update_type change,
-                           libspectrum_tape_block *block) { return 1; }
-int ui_menu_item_set_active(const char *path, int active) { return 1; }
-char *ui_get_save_filename(const char *title) { return NULL; }
-ui_confirm_save_t 
-  ui_confirm_save_specific(const char *message) { return UI_CONFIRM_SAVE_CANCEL; }
-ui_confirm_joystick_t 
-  ui_confirm_joystick(libspectrum_joystick libspectrum_type, int inputs) 
-  { return UI_CONFIRM_JOYSTICK_NONE; }
-int ui_widgets_reset() { return 1; }
-int ui_get_rollback_point(GSList *points) { return 1; }
+                           libspectrum_tape_block *block)
+{
+  return 0;
+}
+
+ui_confirm_save_t ui_confirm_save_specific(const char *message)
+{
+  return UI_CONFIRM_SAVE_CANCEL;
+}
+
+ui_confirm_joystick_t ui_confirm_joystick(libspectrum_joystick libspectrum_type, int inputs)
+{
+  return UI_CONFIRM_JOYSTICK_NONE;
+}
+
+int ui_widgets_reset()
+{
+  return 0;
+}
+
+int ui_get_rollback_point(GSList *points)
+{
+  return -1;
+}
+
 int ui_error_specific(ui_error_level severity, const char *message) 
 {
 #ifdef PSP_DEBUG

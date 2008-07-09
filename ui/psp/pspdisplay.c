@@ -12,6 +12,10 @@
 #include "perf.h"
 #include "video.h"
 
+/* raw canvas width is 1 << 9 (512) */
+#define CANVAS_WIDTH_SHIFTBY 9
+#define CANVAS_WIDTH         (1 << CANVAS_WIDTH_SHIFTBY)
+
 PspImage *Screen = NULL;
 static PspFpsCounter FpsCounter;
 int clear_screen;
@@ -21,8 +25,9 @@ static int ScreenX, ScreenY, ScreenW, ScreenH;
 int uidisplay_init( int width, int height )
 {
   /* Initialize screen buffer */
-  if (!(Screen = pspImageCreateVram(512, DISPLAY_SCREEN_HEIGHT,
-    PSP_IMAGE_INDEXED)))
+  if (!(Screen = pspImageCreateVram(CANVAS_WIDTH,
+                                    DISPLAY_SCREEN_HEIGHT,
+                                    PSP_IMAGE_INDEXED)))
       return 1;
 
   Screen->Viewport.X = DISPLAY_BORDER_WIDTH / 2;
@@ -154,17 +159,18 @@ int uidisplay_end()
 /* Set one pixel in the display */
 void uidisplay_putpixel(int x, int y, int colour)
 {
+/* TODO
   if( machine_current->timex ) {
-/* TODO 
     x <<= 1; y <<= 1;
     win32display_image[y  ][x  ] = colour;
     win32display_image[y  ][x+1] = colour;
     win32display_image[y+1][x  ] = colour;
     win32display_image[y+1][x+1] = colour;
+  } else
 */
-  } else {
+  {
     u8 *screen_start = (u8*)Screen->Pixels;
-    screen_start[y * Screen->Width + x] = colour;
+    screen_start[(y << CANVAS_WIDTH_SHIFTBY) + x] = colour;
   }
 }
 
@@ -174,9 +180,9 @@ void uidisplay_plot8(int x, int y, libspectrum_byte data,
                      libspectrum_byte ink, libspectrum_byte paper)
 {
   x <<= 3;
-
-  if (machine_current->timex) {
 /* TODO
+  if (machine_current->timex)
+  {
     int i;
 
     x <<= 1; y <<= 1;
@@ -198,10 +204,12 @@ void uidisplay_plot8(int x, int y, libspectrum_byte data,
       win32display_image[y][x+14] = ( data & 0x01 ) ? ink : paper;
       win32display_image[y][x+15] = ( data & 0x01 ) ? ink : paper;
     }
+  }
+  else
 */
-  } else {
-    u8 *line_start = (u8*)Screen->Pixels;
-    line_start += y * Screen->Width + x;
+  {
+    u8 *line_start = (u8*)Screen->Pixels +
+                     ((y << CANVAS_WIDTH_SHIFTBY) + x);
 
     *line_start++ = ( data & 0x80 ) ? ink : paper;
     *line_start++ = ( data & 0x40 ) ? ink : paper;
@@ -219,33 +227,20 @@ void uidisplay_plot8(int x, int y, libspectrum_byte data,
 void uidisplay_plot16(int x, int y, libspectrum_word data,
                       libspectrum_byte ink, libspectrum_byte paper)
 {
-  int i;
-  x <<= 4; y <<= 1;
+  /* Forces a low-res render, discarding every other pixel */
 
-  u8 *line_start;
+  x <<= 4;
+  u8 *line_start = (u8*)Screen->Pixels +
+                   ((y << CANVAS_WIDTH_SHIFTBY) + x);
 
-  for (i = 0; i < 2; i++, y++)
-  {
-    line_start = (u8*)Screen->Pixels;
-    line_start += y * Screen->Width + x;
-
-    *line_start++ = ( data & 0x8000 ) ? ink : paper;
-    *line_start++ = ( data & 0x4000 ) ? ink : paper;
-    *line_start++ = ( data & 0x2000 ) ? ink : paper;
-    *line_start++ = ( data & 0x1000 ) ? ink : paper;
-    *line_start++ = ( data & 0x0800 ) ? ink : paper;
-    *line_start++ = ( data & 0x0400 ) ? ink : paper;
-    *line_start++ = ( data & 0x0200 ) ? ink : paper;
-    *line_start++ = ( data & 0x0100 ) ? ink : paper;
-    *line_start++ = ( data & 0x0080 ) ? ink : paper;
-    *line_start++ = ( data & 0x0040 ) ? ink : paper;
-    *line_start++ = ( data & 0x0020 ) ? ink : paper;
-    *line_start++ = ( data & 0x0010 ) ? ink : paper;
-    *line_start++ = ( data & 0x0008 ) ? ink : paper;
-    *line_start++ = ( data & 0x0004 ) ? ink : paper;
-    *line_start++ = ( data & 0x0002 ) ? ink : paper;
-    *line_start++ = ( data & 0x0001 ) ? ink : paper;
-  }
+  *line_start++ = ( data & 0x8000 ) ? ink : paper;
+  *line_start++ = ( data & 0x2000 ) ? ink : paper;
+  *line_start++ = ( data & 0x0800 ) ? ink : paper;
+  *line_start++ = ( data & 0x0200 ) ? ink : paper;
+  *line_start++ = ( data & 0x0080 ) ? ink : paper;
+  *line_start++ = ( data & 0x0020 ) ? ink : paper;
+  *line_start++ = ( data & 0x0008 ) ? ink : paper;
+  *line_start++ = ( data & 0x0002 ) ? ink : paper;
 }
 
 void uidisplay_area(int x, int y, int w, int h)
