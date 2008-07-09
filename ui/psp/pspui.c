@@ -46,6 +46,7 @@
 
 #define SYSTEM_SCRNSHOT    1
 #define SYSTEM_RESET       2
+#define SYSTEM_TYPE        3
 
 #define KBD 0x100
 #define JST 0x200
@@ -170,7 +171,7 @@ PspUiGallery SaveStateGallery =
 static const char *TabLabel[] = 
 {
   "Game",
-  "Save/Load"
+  "Save/Load",
   "Options",
   "System",
   "About"
@@ -195,6 +196,24 @@ static const PspMenuOptionDef
     MENU_OPTION("333 MHz", 333),
     MENU_END_OPTIONS
   },
+  MachineTypes[] = {
+    MENU_OPTION("Spectrum 16K",    LIBSPECTRUM_MACHINE_16),
+    MENU_OPTION("Spectrum 48K",    LIBSPECTRUM_MACHINE_48),
+    MENU_OPTION("Spectrum 128K",   LIBSPECTRUM_MACHINE_128),
+    MENU_OPTION("Spectrum +2",     LIBSPECTRUM_MACHINE_PLUS2),
+    MENU_OPTION("Spectrum +2A",    LIBSPECTRUM_MACHINE_PLUS2A),
+    MENU_OPTION("Spectrum +3",     LIBSPECTRUM_MACHINE_PLUS3),
+    MENU_OPTION("Spectrum +3e",    LIBSPECTRUM_MACHINE_PLUS3E),
+    MENU_OPTION("Timex TC2048",    LIBSPECTRUM_MACHINE_TC2048),
+    MENU_OPTION("Timex TC2068",    LIBSPECTRUM_MACHINE_TC2068),
+    MENU_OPTION("Timex TS2068",    LIBSPECTRUM_MACHINE_TS2068),
+    MENU_OPTION("Pentagon 128K",   LIBSPECTRUM_MACHINE_PENT),
+    MENU_OPTION("Pentagon 512K",   LIBSPECTRUM_MACHINE_PENT512),
+    MENU_OPTION("Pentagon 1024K",  LIBSPECTRUM_MACHINE_PENT1024),
+    MENU_OPTION("Scorpion ZS 256", LIBSPECTRUM_MACHINE_SCORP),
+    MENU_OPTION("Spectrum SE",     LIBSPECTRUM_MACHINE_SE),
+    MENU_END_OPTIONS
+  },
   ControlModeOptions[] = {
     MENU_OPTION("\026\242\020 cancels, \026\241\020 confirms (US)", 0),
     MENU_OPTION("\026\241\020 cancels, \026\242\020 confirms (Japan)", 1),
@@ -203,6 +222,9 @@ static const PspMenuOptionDef
 
 static const PspMenuItemDef 
   SystemMenuDef[] = {
+    MENU_HEADER("System"),
+    MENU_ITEM("Machine type", SYSTEM_TYPE, MachineTypes, -1, 
+      "\026\250\020 Select emulated system"),
     MENU_HEADER("Options"),
     MENU_ITEM("Reset", SYSTEM_RESET, NULL, -1, "\026\001\020 Reset system" ),
     MENU_ITEM("Save screenshot",  SYSTEM_SCRNSHOT, NULL,  -1, 
@@ -245,7 +267,7 @@ static psp_ctrl_map_t default_map =
     JST|INPUT_JOYSTICK_FIRE_1,/* Square       */
     0,                        /* Cross        */
     KBD|INPUT_KEY_space,      /* Circle       */
-    0,                        /* Triangle     */
+    KBD|INPUT_KEY_Return,     /* Triangle     */
     0,                        /* L Trigger    */
     SPC|SPC_KYBD,             /* R Trigger    */
     0,                        /* Select       */
@@ -260,7 +282,7 @@ static psp_ctrl_map_t default_map =
 
 psp_options_t psp_options;
 static psp_ctrl_map_t current_map;
-static u8 ExitMenu;
+static u8 psp_exit_menu;
 static u8 show_kybd_held;
 static int TabIndex;
 static PspImage *Background;
@@ -317,7 +339,7 @@ int ui_init(int *argc, char ***argv)
   Background = pspImageLoadPng("background.png");
 
   /* Init NoSaveState icon image */
-  NoSaveIcon = pspImageCreate(136, 114, PSP_IMAGE_16BPP);
+  NoSaveIcon = pspImageCreate(256, 192, PSP_IMAGE_16BPP);
   pspImageClear(NoSaveIcon, RGB(0xdd,0xdd,0xdd));
 
   /* Initialize state menu */
@@ -378,7 +400,7 @@ int ui_init(int *argc, char ***argv)
 void psp_display_menu()
 {
   PspMenuItem *item;
-  ExitMenu = 0;
+  psp_exit_menu = 0;
 
   psp_sound_pause();
 
@@ -388,7 +410,7 @@ void psp_display_menu()
   pspCtrlSetPollingMode(PSP_CTRL_AUTOREPEAT);
 
   /* Menu loop */
-  while (!ExitPSP && !ExitMenu)
+  while (!ExitPSP && !psp_exit_menu)
   {
     /* Display appropriate tab */
     switch (TabIndex)
@@ -417,6 +439,9 @@ void psp_display_menu()
       psp_display_state_tab();
       break;
     case TAB_SYSTEM:
+      item = pspMenuFindItemById(SystemUiMenu.Menu, SYSTEM_TYPE);
+      pspMenuSelectOptionByValue(item, (void*)(machine_current->machine));
+
       pspUiOpenMenu(&SystemUiMenu, NULL);
       break;
     case TAB_ABOUT:
@@ -635,12 +660,13 @@ static PspImage* psp_save_state(const char *path, PspImage *icon)
 {
   /* Open file for writing */
   FILE *f;
+pspUiAlert(path);
   if (!(f = fopen(path, "w")))
     return NULL;
 
   /* Create thumbnail */
   PspImage *thumb;
-  thumb = (icon->Viewport.Width < 200)
+  thumb = (icon->Viewport.Width <= 256)
     ? pspImageCreateCopy(icon) : pspImageCreateThumbnail(icon);
   if (!thumb) { fclose(f); return NULL; }
 
@@ -662,7 +688,7 @@ static PspImage* psp_save_state(const char *path, PspImage *icon)
 /* psplib Event callbacks */
 static int OnGenericCancel(const void *uiobject, const void* param)
 {
-  ExitMenu = 1;
+  psp_exit_menu = 1;
   return 1;
 }
 
@@ -759,7 +785,7 @@ static int OnMenuOk(const void *uimenu, const void* sel_item)
     case SYSTEM_RESET:
       if (pspUiConfirm("Reset the system?"))
       {
-        ExitMenu = 1;
+        psp_exit_menu = 1;
         machine_reset(0);
         return 1;
       }
@@ -817,6 +843,18 @@ static int OnMenuItemChanged(const struct PspUiMenu *uimenu,
       break;
     }
   }
+  else if (uimenu == &SystemUiMenu)
+  {
+    switch((int)item->ID)
+    {
+    case SYSTEM_TYPE:
+      if (machine_current->machine == (int)option->Value
+          || !pspUiConfirm("This will reset the system. Proceed?"))
+        return 0;
+      machine_select((int)option->Value);
+      break;
+    }
+  }
 
   return 1;
 }
@@ -841,12 +879,15 @@ static int OnQuickloadOk(const void *browser, const void *path)
 {
   fuse_emulation_pause();
 
-  if (utils_open_file(path, settings_current.auto_load, NULL))
+  int error;
+  if ((error = utils_open_file(path, 0, NULL)))
   {
     pspUiAlert("Error loading file");
+    fuse_emulation_unpause();
     return 0;
   }
 
+  psp_exit_menu = 1;
   display_refresh_all();
   fuse_emulation_unpause();
   SET_AS_CURRENT_GAME(path);
@@ -857,7 +898,8 @@ static int OnQuickloadOk(const void *browser, const void *path)
 static int OnSaveStateOk(const void *gallery, const void *item)
 {
   char *path;
-  const char *config_name = (GAME_LOADED) ? psp_current_game : "BASIC";
+  const char *config_name = (GAME_LOADED) 
+    ? pspFileGetFilename(psp_current_game) : "BASIC";
 
   path = (char*)malloc(strlen(SaveStatePath) + strlen(config_name) + 8);
   sprintf(path, "%s%s_%02i.sta", SaveStatePath, config_name, 
@@ -867,7 +909,7 @@ static int OnSaveStateOk(const void *gallery, const void *item)
   {
     if (psp_load_state(path))
     {
-      ExitMenu = 1;
+      psp_exit_menu = 1;
       pspMenuFindItemById(((PspUiGallery*)gallery)->Menu, 
         ((PspMenuItem*)item)->ID);
       free(path);
@@ -891,7 +933,8 @@ static int OnSaveStateButtonPress(const PspUiGallery *gallery,
   {
     char *path;
     char caption[32];
-    const char *config_name = (GAME_LOADED) ? psp_current_game : "BASIC";
+    const char *config_name = (GAME_LOADED) 
+      ? pspFileGetFilename(psp_current_game) : "BASIC";
     PspMenuItem *item = pspMenuFindItemById(gallery->Menu, sel->ID);
 
     path = (char*)malloc(strlen(SaveStatePath) + strlen(config_name) + 8);
@@ -992,4 +1035,18 @@ ui_confirm_joystick_t
   { return UI_CONFIRM_JOYSTICK_NONE; }
 int ui_widgets_reset() { return 1; }
 int ui_get_rollback_point(GSList *points) { return 1; }
-int ui_error_specific(ui_error_level severity, const char *message) { return 1; }
+int ui_error_specific(ui_error_level severity, const char *message) 
+{
+#ifdef PSP_DEBUG
+  FILE *err_file = fopen("errors.txt", "a");
+  switch( severity ) 
+  {
+  case UI_ERROR_INFO: break;    /* Shouldn't happen */
+  case UI_ERROR_WARNING: fprintf( err_file, "warning: " ); break;
+  case UI_ERROR_ERROR: fprintf( err_file, "error: " ); break;
+  }
+  fprintf(err_file, message);
+  fclose(err_file);
+#endif
+  return 0;
+}

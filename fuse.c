@@ -169,8 +169,6 @@ int main(int argc, char **argv)
   return 0;
 
 }
-static int
-foo(start_files_t *start_files);
 
 static int fuse_init(int argc, char **argv)
 {
@@ -289,7 +287,6 @@ static int fuse_init(int argc, char **argv)
 
   if( setup_start_files( &start_files ) ) return 1;
   if( parse_nonoption_args( argc, argv, first_arg, &start_files ) ) return 1;
-foo(&start_files);
   if( do_start_files( &start_files ) ) return 1;
 
   if( ui_mouse_present ) ui_mouse_grabbed = ui_mouse_grab( 1 );
@@ -773,109 +770,4 @@ fuse_abort( void )
 {
   fuse_end();
   abort();
-}
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-static int
-foo(start_files_t *start_files)
-{
-  size_t i, j;
-  const char *filename;
-  utils_file file;
-  libspectrum_id_t type;
-  libspectrum_class_t class;
-  int error;
-
-    filename = "aufmonty.z80";
-
-    error = utils_read_file( filename, &file );
-    if( error ) return error;
-
-    error = libspectrum_identify_file_with_class( &type, &class, filename,
-              file.buffer, file.length );
-    if( error ) return error;
-
-    switch( class ) {
-
-    case LIBSPECTRUM_CLASS_CARTRIDGE_TIMEX:
-      start_files->dock = filename; break;
-
-    case LIBSPECTRUM_CLASS_CARTRIDGE_IF2:
-      start_files->if2 = filename; break;
-
-    case LIBSPECTRUM_CLASS_HARDDISK:
-      if( settings_current.zxcf_active ) {
-  start_files->zxcf = filename;
-      } else if( settings_current.zxatasp_active ) {
-  start_files->zxatasp_master = filename;
-      } else if( settings_current.simpleide_active ) {
-  start_files->simpleide_master = filename;
-      } else if( settings_current.divide_enabled ) {
-  start_files->divide_master = filename;
-      } else {
-  /* No IDE interface active, so activate the ZXCF */
-  settings_current.zxcf_active = 1;
-  start_files->zxcf = filename;
-      }
-      break;
-
-    case LIBSPECTRUM_CLASS_DISK_PLUS3:
-      start_files->disk_plus3 = filename; break;
-
-    case LIBSPECTRUM_CLASS_DISK_PLUSD:
-      start_files->disk_plusd = filename; break;
-
-    case LIBSPECTRUM_CLASS_DISK_TRDOS:
-      start_files->disk_beta = filename; break;
-
-    case LIBSPECTRUM_CLASS_RECORDING:
-      start_files->playback = filename; break;
-
-    case LIBSPECTRUM_CLASS_SNAPSHOT:
-      start_files->snapshot = filename; break;
-
-    case LIBSPECTRUM_CLASS_MICRODRIVE:
-      for( j = 0; j < 8; j++ ) {
-        if( !start_files->mdr[j] ) {
-    start_files->mdr[j] = filename;
-    break;
-  }
-      }
-      break;
-
-    case LIBSPECTRUM_CLASS_TAPE:
-      start_files->tape = filename; break;
-
-    case LIBSPECTRUM_CLASS_UNKNOWN:
-      ui_error( UI_ERROR_WARNING, "couldn't identify '%s'; ignoring it",
-    filename );
-      break;
-
-    default:
-      ui_error( UI_ERROR_ERROR, "parse_nonoption_args: unknown file class %d",
-    class );
-      break;
-
-    }
-
-  return 0;
 }
