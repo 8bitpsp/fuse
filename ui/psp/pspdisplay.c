@@ -24,6 +24,8 @@ static int ScreenX, ScreenY, ScreenW, ScreenH;
 
 int uidisplay_init( int width, int height )
 {
+  pspVideoInit();
+
   /* Initialize screen buffer */
   if (!(Screen = pspImageCreateVram(CANVAS_WIDTH,
                                     DISPLAY_SCREEN_HEIGHT,
@@ -153,25 +155,16 @@ int uidisplay_end()
     Screen = NULL;
   }
 
+  pspVideoShutdown();
+
   return 0;
 }
 
 /* Set one pixel in the display */
 void uidisplay_putpixel(int x, int y, int colour)
 {
-/* TODO
-  if( machine_current->timex ) {
-    x <<= 1; y <<= 1;
-    win32display_image[y  ][x  ] = colour;
-    win32display_image[y  ][x+1] = colour;
-    win32display_image[y+1][x  ] = colour;
-    win32display_image[y+1][x+1] = colour;
-  } else
-*/
-  {
-    u8 *screen_start = (u8*)Screen->Pixels;
-    screen_start[(y << CANVAS_WIDTH_SHIFTBY) + x] = colour;
-  }
+  u8 *screen_start = (u8*)Screen->Pixels;
+  screen_start[(y << CANVAS_WIDTH_SHIFTBY) + x] = colour;
 }
 
 /* Print the 8 pixels in `data' using ink colour `ink' and paper
@@ -180,46 +173,17 @@ void uidisplay_plot8(int x, int y, libspectrum_byte data,
                      libspectrum_byte ink, libspectrum_byte paper)
 {
   x <<= 3;
-/* TODO
-  if (machine_current->timex)
-  {
-    int i;
+  u8 *line_start = (u8*)Screen->Pixels +
+                    ((y << CANVAS_WIDTH_SHIFTBY) + x);
 
-    x <<= 1; y <<= 1;
-    for( i=0; i<2; i++,y++ ) {
-      win32display_image[y][x+ 0] = ( data & 0x80 ) ? ink : paper;
-      win32display_image[y][x+ 1] = ( data & 0x80 ) ? ink : paper;
-      win32display_image[y][x+ 2] = ( data & 0x40 ) ? ink : paper;
-      win32display_image[y][x+ 3] = ( data & 0x40 ) ? ink : paper;
-      win32display_image[y][x+ 4] = ( data & 0x20 ) ? ink : paper;
-      win32display_image[y][x+ 5] = ( data & 0x20 ) ? ink : paper;
-      win32display_image[y][x+ 6] = ( data & 0x10 ) ? ink : paper;
-      win32display_image[y][x+ 7] = ( data & 0x10 ) ? ink : paper;
-      win32display_image[y][x+ 8] = ( data & 0x08 ) ? ink : paper;
-      win32display_image[y][x+ 9] = ( data & 0x08 ) ? ink : paper;
-      win32display_image[y][x+10] = ( data & 0x04 ) ? ink : paper;
-      win32display_image[y][x+11] = ( data & 0x04 ) ? ink : paper;
-      win32display_image[y][x+12] = ( data & 0x02 ) ? ink : paper;
-      win32display_image[y][x+13] = ( data & 0x02 ) ? ink : paper;
-      win32display_image[y][x+14] = ( data & 0x01 ) ? ink : paper;
-      win32display_image[y][x+15] = ( data & 0x01 ) ? ink : paper;
-    }
-  }
-  else
-*/
-  {
-    u8 *line_start = (u8*)Screen->Pixels +
-                     ((y << CANVAS_WIDTH_SHIFTBY) + x);
-
-    *line_start++ = ( data & 0x80 ) ? ink : paper;
-    *line_start++ = ( data & 0x40 ) ? ink : paper;
-    *line_start++ = ( data & 0x20 ) ? ink : paper;
-    *line_start++ = ( data & 0x10 ) ? ink : paper;
-    *line_start++ = ( data & 0x08 ) ? ink : paper;
-    *line_start++ = ( data & 0x04 ) ? ink : paper;
-    *line_start++ = ( data & 0x02 ) ? ink : paper;
-    *line_start++ = ( data & 0x01 ) ? ink : paper;
-  }
+  *line_start++ = ( data & 0x80 ) ? ink : paper;
+  *line_start++ = ( data & 0x40 ) ? ink : paper;
+  *line_start++ = ( data & 0x20 ) ? ink : paper;
+  *line_start++ = ( data & 0x10 ) ? ink : paper;
+  *line_start++ = ( data & 0x08 ) ? ink : paper;
+  *line_start++ = ( data & 0x04 ) ? ink : paper;
+  *line_start++ = ( data & 0x02 ) ? ink : paper;
+  *line_start++ = ( data & 0x01 ) ? ink : paper;
 }
 
 /* Print the 16 pixels in `data' using ink colour `ink' and paper

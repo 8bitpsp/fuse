@@ -2,7 +2,7 @@ PSPSDK=$(shell psp-config --pspsdk-path)
 
 PSPAPP=psp
 LSP=ls
-PSPLIB=$(PSPAPP)/psplib
+PSPLIB=psplib
 DATA=$(PSPAPP)/data
 
 PSP_FW_VERSION=200
@@ -53,9 +53,8 @@ BUILD_FUSE=debugger/breakpoint.o debugger/command.o debugger/commandl.o \
 BUILD_PORT=ui/psp/keysyms.o timer/psp.o ui/psp/paths.o ui/psp/osname.o \
            ui/psp/pspui.o ui/psp/pspdisplay.o ui/psp/debugger.o ui/psp/statusbar.o \
            sound/pspsound.o
-BUILD_APP=$(PSPAPP)/main.o
 
-OBJS=$(BUILD_LS) $(BUILD_APP) $(BUILD_FUSE) $(BUILD_PORT)
+OBJS=$(BUILD_LS) $(BUILD_FUSE) $(BUILD_PORT)
 
 DEFINES=-DFUSEDATADIR="\"system\"" -DPSP_DEBUG -DSOUND_BUFFER_SIZE=368
 BASE_DEFS=-DPSP -DPSP_APP_VER=\"$(PSP_APP_VER)\" -DPSP_APP_NAME="\"$(PSP_APP_NAME)\""

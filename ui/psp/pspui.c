@@ -22,6 +22,7 @@
 #include "string.h"
 
 #include "psplib/ui.h"
+#include "psplib/audio.h"
 #include "psplib/font.h"
 #include "psplib/psp.h"
 #include "psplib/ctrl.h"
@@ -29,6 +30,9 @@
 #include "psplib/file.h"
 
 #include "pspui.h"
+
+PSP_MODULE_INFO(PSP_APP_NAME, 0, 1, 1);
+PSP_MAIN_THREAD_ATTR(PSP_THREAD_ATTR_USER);
 
 #define TAB_QUICKLOAD 0
 #define TAB_STATE     1
@@ -119,6 +123,7 @@ int snapshot_write_file(const char *filename, FILE *fptr);
 static void psp_display_state_tab();
 static inline void psp_keyboard_toggle(unsigned int code, int on);
 static inline void psp_joystick_toggle(unsigned int code, int on);
+static void ExitCallback(void* arg);
 
 static PspImage* psp_load_state_icon(const char *path);
 static int psp_load_state(const char *path);
@@ -262,14 +267,14 @@ static const PspMenuItemDef
 static psp_ctrl_map_t default_map =
 {
   {
-    JST|INPUT_JOYSTICK_UP,    /* Analog Up    */
-    JST|INPUT_JOYSTICK_DOWN,  /* Analog Down  */
-    JST|INPUT_JOYSTICK_LEFT,  /* Analog Left  */
-    JST|INPUT_JOYSTICK_RIGHT, /* Analog Right */
-    KBD|INPUT_KEY_p,         /* D-pad Up     */
-    KBD|INPUT_KEY_l,       /* D-pad Down   */
-    KBD|INPUT_KEY_q,       /* D-pad Left   */
-    KBD|INPUT_KEY_w,      /* D-pad Right  */
+    KBD|INPUT_KEY_p,    /* Analog Up    */
+    KBD|INPUT_KEY_l,  /* Analog Down  */
+    KBD|INPUT_KEY_q,  /* Analog Left  */
+    KBD|INPUT_KEY_w, /* Analog Right */
+    KBD|INPUT_KEY_Up,         /* D-pad Up     */
+    KBD|INPUT_KEY_Down,       /* D-pad Down   */
+    KBD|INPUT_KEY_Left,       /* D-pad Left   */
+    KBD|INPUT_KEY_Right,      /* D-pad Right  */
     JST|INPUT_JOYSTICK_FIRE_1,/* Square       */
     0,                        /* Cross        */
     KBD|INPUT_KEY_space,      /* Circle       */
@@ -296,6 +301,7 @@ static PspImage *NoSaveIcon;
 
 extern PspImage *Screen;
 extern int clear_screen;
+extern int fuse_exiting;
 
 static char psp_current_game[PSP_FILE_MAX_PATH_LEN] = {'\0'};
 static char SaveStatePath[PSP_FILE_MAX_PATH_LEN],
@@ -319,8 +325,21 @@ psp_ctrl_mask_to_index_map_t physical_to_emulated_button_map[] =
   { 0, -1 }
 };
 
+static void ExitCallback(void* arg)
+{
+  fuse_exiting = 1;
+  ExitPSP = 1;
+}
+
 int ui_init(int *argc, char ***argv)
 {
+  pspInit(*argv[0]);
+  pspCtrlInit();
+
+  /* Initialize callbacks */
+  pspRegisterCallback(PSP_EXIT_CALLBACK, ExitCallback, NULL);
+  pspStartCallbackThread();
+
   psp_options.show_fps     = 0;
   psp_options.display_mode = DISPLAY_MODE_FIT_HEIGHT;
   psp_options.clock_freq   = 222;
@@ -408,6 +427,7 @@ void psp_display_menu()
   PspMenuItem *item;
   psp_exit_menu = 0;
 
+  fuse_emulation_pause();
   psp_sound_pause();
 
   /* Set normal clock frequency */
@@ -423,7 +443,7 @@ void psp_display_menu()
     {
     case TAB_QUICKLOAD:
       pspUiOpenBrowser(&QuickloadBrowser, (GAME_LOADED)
-                       ? pspFileGetFilename(psp_current_game) : NULL);
+                       ? psp_current_game : NULL);
       break;
     case TAB_OPTIONS:
       item = pspMenuFindItemById(OptionUiMenu.Menu, OPTION_DISPLAY_MODE);
@@ -465,9 +485,11 @@ void psp_display_menu()
 
     show_kybd_held = 0;
     clear_screen = 1;
+
     keyboard_release_all();
     psp_uidisplay_reinit();
     psp_sound_resume();
+    fuse_emulation_unpause();
   }
 }
 
@@ -554,10 +576,13 @@ static inline void psp_joystick_toggle(unsigned int code, int on)
 static inline void psp_keyboard_toggle(unsigned int code, int on)
 {
   input_event_t fuse_event;
+  input_key fuse_keysym = keysyms_remap(code);
+
+  if (fuse_keysym == INPUT_KEY_NONE) return;
 
   fuse_event.type = (on) ? INPUT_EVENT_KEYPRESS : INPUT_EVENT_KEYRELEASE;
-  fuse_event.types.key.native_key = code;
-  fuse_event.types.key.spectrum_key = code;
+  fuse_event.types.key.native_key = fuse_keysym;
+  fuse_event.types.key.spectrum_key = fuse_keysym;
 
   input_event(&fuse_event);
 }
@@ -667,7 +692,6 @@ static PspImage* psp_save_state(const char *path, PspImage *icon)
 {
   /* Open file for writing */
   FILE *f;
-pspUiAlert(path);
   if (!(f = fopen(path, "w")))
     return NULL;
 
@@ -890,19 +914,16 @@ static void OnSystemRender(const void *uiobject, const void *item_obj)
 
 static int OnQuickloadOk(const void *browser, const void *path)
 {
-  fuse_emulation_pause();
-
   int error;
   if ((error = utils_open_file(path, 0, NULL)))
   {
     pspUiAlert("Error loading file");
-    fuse_emulation_unpause();
     return 0;
   }
 
   psp_exit_menu = 1;
   display_refresh_all();
-  fuse_emulation_unpause();
+  machine_reset(0);
   SET_AS_CURRENT_GAME(path);
 
   return 1;
@@ -1106,4 +1127,22 @@ int ui_error_specific(ui_error_level severity, const char *message)
   fclose(err_file);
 #endif
   return 0;
+}
+
+/**************************/
+/* PSP main()             */
+/**************************/
+int main(int argc, char *argv[])
+{
+  /* Initialize PSP */
+  pspAudioInit(SOUND_BUFFER_SIZE, 0);
+
+  /* Main emulation loop */
+  fuse_main(argc, argv);
+
+  /* Release PSP resources */
+  pspAudioShutdown();
+  pspShutdown();
+
+  return(0);
 }
