@@ -42,6 +42,8 @@ PspFileList* pspFileGetFileList(const char* path, const char **filter);
 void         pspFileDestroyFileList(PspFileList* list);
 void         pspFileEnterDirectory(char **cur_path, char *dir);
 char*        pspFileGetParentDirectory(const char *path);
+void         pspFileGetParentDirectoryCopy(const char *path, 
+                                           char *parent);
 const char*  pspFileGetFilename(const char *path);
 const char*  pspFileGetFileExtension(const char *path);
 int          pspFileGetFileSize(const char *path);

@@ -28,6 +28,9 @@
 #include "psplib/ctrl.h"
 #include "psplib/util.h"
 #include "psplib/file.h"
+#include "psplib/init.h"
+
+#include "unzip.h"
 
 #include "pspui.h"
 
@@ -45,8 +48,9 @@ PSP_MAIN_THREAD_ATTR(PSP_THREAD_ATTR_USER);
 #define OPTION_FRAME_LIMITER 2
 #define OPTION_CLOCK_FREQ    3
 #define OPTION_SHOW_FPS      4
-#define OPTION_CONTROL_MODE  5
-#define OPTION_ANIMATE       6
+#define OPTION_SHOW_BORDER   5
+#define OPTION_CONTROL_MODE  6
+#define OPTION_ANIMATE       7
 
 #define SYSTEM_SCRNSHOT    1
 #define SYSTEM_RESET       2
@@ -84,7 +88,7 @@ typedef struct psp_ctrl_mask_to_index_map_t
 } psp_ctrl_mask_to_index_map_t;
 
 static const char *QuickloadFilter[] =
-      { "DCK", "ROM", "MDR", "TAP", "SPC", "STA", "LTP", "TZX",
+      { "ZIP", "DCK", "ROM", "MDR", "TAP", "SPC", "STA", "LTP", "TZX",
         "DSK", "SCL", "TRD", "HDF", "BZ2", "GZ", "RAW", "CSW",
         "WAV", "MGT", "IMG", '\0' };
 
@@ -113,17 +117,21 @@ static int OnSaveStateButtonPress(const PspUiGallery *gallery,
                                   PspMenuItem *sel,
                                   u32 button_mask);
 
-void psp_display_menu();
 void psp_sound_pause();
 void psp_sound_resume();
 
 int snapshot_read_file(const char *filename, FILE *fptr);
 int snapshot_write_file(const char *filename, FILE *fptr);
 
+static void psp_display_menu();
 static void psp_display_state_tab();
+static void psp_load_options();
+static int  psp_save_options();
+static int  psp_load_game(const char *path);
+
 static inline void psp_keyboard_toggle(unsigned int code, int on);
 static inline void psp_joystick_toggle(unsigned int code, int on);
-static void ExitCallback(void* arg);
+static void psp_exit_callback(void* arg);
 
 static PspImage* psp_load_state_icon(const char *path);
 static int psp_load_state(const char *path);
@@ -246,6 +254,8 @@ static const PspMenuItemDef
     MENU_HEADER("Video"),
     MENU_ITEM("Screen size", OPTION_DISPLAY_MODE, ScreenSizeOptions, -1, 
       "\026\250\020 Change screen size"),
+    MENU_ITEM("Screen border", OPTION_SHOW_BORDER, ToggleOptions, -1, 
+      "\026\250\020 Show/hide border surrounding the main display"),
     MENU_HEADER("Performance"),
 /*
     MENU_ITEM("Frame limiter", OPTION_FRAME_LIMITER, ToggleOptions, -1,
@@ -292,6 +302,8 @@ static psp_ctrl_map_t default_map =
 };
 
 psp_options_t psp_options;
+u8 psp_menu_active;
+
 static psp_ctrl_map_t current_map;
 static u8 psp_exit_menu;
 static u8 show_kybd_held;
@@ -303,7 +315,8 @@ extern PspImage *Screen;
 extern int clear_screen;
 extern int fuse_exiting;
 
-static char psp_current_game[PSP_FILE_MAX_PATH_LEN] = {'\0'};
+static char psp_current_game[PSP_FILE_MAX_PATH_LEN] = {'\0'},
+            psp_game_path[PSP_FILE_MAX_PATH_LEN] = {'\0'};
 static char SaveStatePath[PSP_FILE_MAX_PATH_LEN],
             ScreenshotPath[PSP_FILE_MAX_PATH_LEN],
             ConfigPath[PSP_FILE_MAX_PATH_LEN];
@@ -325,7 +338,7 @@ psp_ctrl_mask_to_index_map_t physical_to_emulated_button_map[] =
   { 0, -1 }
 };
 
-static void ExitCallback(void* arg)
+static void psp_exit_callback(void* arg)
 {
   fuse_exiting = 1;
   ExitPSP = 1;
@@ -337,15 +350,8 @@ int ui_init(int *argc, char ***argv)
   pspCtrlInit();
 
   /* Initialize callbacks */
-  pspRegisterCallback(PSP_EXIT_CALLBACK, ExitCallback, NULL);
+  pspRegisterCallback(PSP_EXIT_CALLBACK, psp_exit_callback, NULL);
   pspStartCallbackThread();
-
-  psp_options.show_fps     = 0;
-  psp_options.display_mode = DISPLAY_MODE_FIT_HEIGHT;
-  psp_options.clock_freq   = 222;
-  psp_options.control_mode = 0;
-  psp_options.limit_frames = 1;
-  psp_options.animate_menu = 1;
 
   /* Initialize paths */
   sprintf(SaveStatePath, "%sstates/", pspGetAppDirectory());
@@ -365,7 +371,7 @@ int ui_init(int *argc, char ***argv)
 
   /* Init NoSaveState icon image */
   NoSaveIcon = pspImageCreate(256, 192, PSP_IMAGE_16BPP);
-  pspImageClear(NoSaveIcon, RGB(0xdd,0xdd,0xdd));
+  pspImageClear(NoSaveIcon, RGB(0x66,0x66,0x66));
 
   /* Initialize state menu */
   int i;
@@ -376,6 +382,8 @@ int ui_init(int *argc, char ***argv)
     item = pspMenuAppendItem(SaveStateGallery.Menu, NULL, i);
     pspMenuSetHelpText(item, EmptySlotText);
   }
+
+  psp_load_options();
 
   /* Initialize UI components */
   UiMetric.Background = Background;
@@ -392,29 +400,30 @@ int ui_init(int *argc, char ***argv)
   UiMetric.ScrollbarBgColor = 0x44ffffff;
   UiMetric.ScrollbarWidth = 10;
   UiMetric.TextColor = PSP_COLOR_GRAY;
-  UiMetric.SelectedColor = COLOR(0xff,0xff,0,0xff);
-  UiMetric.SelectedBgColor = COLOR(0,0,0,0x55);
+  UiMetric.SelectedColor = COLOR(0xf7,0xc2,0x50,0xFF);
+  UiMetric.SelectedBgColor = COLOR(0x46,0x98,0xce,0x99);
   UiMetric.StatusBarColor = PSP_COLOR_WHITE;
   UiMetric.BrowserFileColor = PSP_COLOR_GRAY;
   UiMetric.BrowserDirectoryColor = PSP_COLOR_YELLOW;
   UiMetric.GalleryIconsPerRow = 5;
-  UiMetric.GalleryIconMarginWidth = 16;
+  UiMetric.GalleryIconMarginWidth = 8;
   UiMetric.MenuItemMargin = 20;
   UiMetric.MenuSelOptionBg = PSP_COLOR_BLACK;
   UiMetric.MenuOptionBoxColor = PSP_COLOR_GRAY;
-  UiMetric.MenuOptionBoxBg = COLOR(0, 0, 0, 0xBB);
+  UiMetric.MenuOptionBoxBg = COLOR(0x46,0x98,0xce,0xCC);
   UiMetric.MenuDecorColor = UiMetric.SelectedColor;
-  UiMetric.DialogFogColor = COLOR(0, 0, 0, 88);
+  UiMetric.DialogFogColor = COLOR(0x59,0x91,0x38,0xBB);
   UiMetric.TitlePadding = 4;
   UiMetric.TitleColor = PSP_COLOR_WHITE;
   UiMetric.MenuFps = 30;
-  UiMetric.TabBgColor = PSP_COLOR_WHITE;
+  UiMetric.TabBgColor = COLOR(0xa4,0xa4,0xa4,0xff);
   UiMetric.Animate = psp_options.animate_menu;
 
   TabIndex = TAB_ABOUT;
 
   show_kybd_held = 0;
   clear_screen = 1;
+  psp_menu_active = 1;
 
 /* TODO */
   memcpy(&current_map, &default_map, sizeof(default_map));
@@ -422,13 +431,20 @@ int ui_init(int *argc, char ***argv)
   return 0;
 }
 
-void psp_display_menu()
+static void psp_display_menu()
 {
   PspMenuItem *item;
   psp_exit_menu = 0;
+  psp_menu_active = 1;
 
   fuse_emulation_pause();
   psp_sound_pause();
+
+  /* For purposes of the menu, the screen excludes the border */
+  Screen->Viewport.X = DISPLAY_BORDER_WIDTH / 2;
+  Screen->Viewport.Y = DISPLAY_BORDER_HEIGHT;
+  Screen->Viewport.Width = DISPLAY_WIDTH / 2;
+  Screen->Viewport.Height = DISPLAY_HEIGHT;
 
   /* Set normal clock frequency */
   pspSetClockFrequency(222);
@@ -442,8 +458,9 @@ void psp_display_menu()
     switch (TabIndex)
     {
     case TAB_QUICKLOAD:
-      pspUiOpenBrowser(&QuickloadBrowser, (GAME_LOADED)
-                       ? psp_current_game : NULL);
+      pspUiOpenBrowser(&QuickloadBrowser, 
+        (GAME_LOADED) ? psp_current_game 
+          : ((psp_game_path[0]) ? psp_game_path : NULL));
       break;
     case TAB_OPTIONS:
       item = pspMenuFindItemById(OptionUiMenu.Menu, OPTION_DISPLAY_MODE);
@@ -452,6 +469,8 @@ void psp_display_menu()
       pspMenuSelectOptionByValue(item, (void*)(int)psp_options.clock_freq);
       item = pspMenuFindItemById(OptionUiMenu.Menu, OPTION_SHOW_FPS);
       pspMenuSelectOptionByValue(item, (void*)(int)psp_options.show_fps);
+      item = pspMenuFindItemById(OptionUiMenu.Menu, OPTION_SHOW_BORDER);
+      pspMenuSelectOptionByValue(item, (void*)(int)psp_options.show_border);
       item = pspMenuFindItemById(OptionUiMenu.Menu, OPTION_CONTROL_MODE);
       pspMenuSelectOptionByValue(item, (void*)(int)psp_options.control_mode);
       item = pspMenuFindItemById(OptionUiMenu.Menu, OPTION_ANIMATE);
@@ -476,6 +495,8 @@ void psp_display_menu()
     }
   }
 
+  psp_menu_active = 0;
+
   if (!ExitPSP)
   {
     /* Set clock frequency during emulation */
@@ -496,6 +517,16 @@ void psp_display_menu()
 int ui_event( void )
 {
   static SceCtrlData pad;
+  static u8 first_time_run = 1;
+
+  if (first_time_run)
+  {
+    machine_select(psp_options.machine); /* Change the default machine */
+    psp_display_menu(); /* Show menu */
+
+    first_time_run = 0;
+    return 0;
+  }
 
   /* Check the input */
   if (pspCtrlPollControls(&pad))
@@ -557,6 +588,8 @@ int ui_end( void )
   pspMenuDestroy(OptionUiMenu.Menu);
   pspMenuDestroy(SystemUiMenu.Menu);
   pspMenuDestroy(SaveStateGallery.Menu);
+
+  psp_save_options();
 
   return 0;
 }
@@ -720,6 +753,154 @@ static PspImage* psp_save_state(const char *path, PspImage *icon)
   return thumb;
 }
 
+static void psp_load_options()
+{
+  char path[PSP_FILE_MAX_PATH_LEN];
+  snprintf(path, PSP_FILE_MAX_PATH_LEN-1, "%s%s", pspGetAppDirectory(), "options.ini");
+
+  /* Initialize INI structure */
+  PspInit *init = pspInitCreate();
+
+  /* Read the file */
+  pspInitLoad(init, path);
+
+  /* Load values */
+  psp_options.display_mode = pspInitGetInt(init, "Video", "Display Mode", 
+                                           DISPLAY_MODE_UNSCALED);
+  psp_options.limit_frames = pspInitGetInt(init, "Video", "Frame Limiter", 1);
+  psp_options.clock_freq = pspInitGetInt(init, "Video", "PSP Clock Frequency", 222);
+  psp_options.show_fps = pspInitGetInt(init, "Video", "Show FPS", 0);
+  psp_options.show_border = pspInitGetInt(init, "Video", "Show Border", 1);
+  psp_options.control_mode = pspInitGetInt(init, "Menu", "Control Mode", 0);
+  psp_options.animate_menu = pspInitGetInt(init, "Menu", "Animate", 1);
+  psp_options.machine = pspInitGetInt(init, "System", "Current Machine", 
+                                      LIBSPECTRUM_MACHINE_48);
+  pspInitGetStringCopy(init, "File", "Game Path", NULL, 
+                       psp_game_path, PSP_FILE_MAX_PATH_LEN-1);
+
+  /* Clean up */
+  pspInitDestroy(init);
+}
+
+static int psp_save_options()
+{
+  char path[PSP_FILE_MAX_PATH_LEN];
+  snprintf(path, PSP_FILE_MAX_PATH_LEN-1, "%s%s", pspGetAppDirectory(), "options.ini");
+
+  /* Initialize INI structure */
+  PspInit *init = pspInitCreate();
+
+  /* Set values */
+  pspInitSetInt(init, "Video", "Display Mode", 
+                      psp_options.display_mode);
+  pspInitSetInt(init, "Video", "Frame Limiter", 
+                      psp_options.limit_frames);
+  pspInitSetInt(init, "Video", "PSP Clock Frequency", 
+                      psp_options.clock_freq);
+  pspInitSetInt(init, "Video", "Show FPS", 
+                      psp_options.show_fps);
+  pspInitSetInt(init, "Video", "Show Border", 
+                      psp_options.show_border);
+  pspInitSetInt(init, "Menu", "Control Mode", 
+                      psp_options.control_mode);
+  pspInitSetInt(init, "Menu", "Animate", 
+                      psp_options.animate_menu);
+  pspInitSetString(init, "File", "Game Path", psp_game_path);
+  pspInitSetInt(init, "System", "Current Machine", 
+                      machine_current->machine);
+
+  /* Save INI file */
+  int status = pspInitSave(init, path);
+
+  /* Clean up */
+  pspInitDestroy(init);
+
+  return status;
+}
+
+static int psp_load_game(const char *path)
+{
+  if (pspFileEndsWith(path, "ZIP"))
+  {
+    unzFile zipfile = NULL;
+    unz_global_info gi;
+    unz_file_info fi;
+
+    /* Open archive for reading */
+    if (!(zipfile = unzOpen(path)))
+      return 0;
+
+    /* Get global ZIP file information */
+    if (unzGetGlobalInfo(zipfile, &gi) != UNZ_OK)
+    {
+      unzClose(zipfile);
+      return 0;
+    }
+
+    char archived_file[512];
+    const char *extension;
+    utils_file file;
+    int i, j;
+
+    for (i = 0; i < (int)gi.number_entry; i++)
+    {
+      /* Get name of the archived file */
+      if (unzGetCurrentFileInfo(zipfile, &fi, archived_file, 
+          sizeof(archived_file), NULL, 0, NULL, 0) != UNZ_OK)
+      {
+        unzClose(zipfile);
+        return 0;
+      }
+
+      extension = pspFileGetFileExtension(archived_file);
+      for (j = 1; *QuickloadFilter[j]; j++)
+      {
+        if (strcasecmp(QuickloadFilter[j], extension) == 0)
+        {
+          file.length = fi.uncompressed_size;
+
+          /* Open archived file for reading */
+          if(unzOpenCurrentFile(zipfile) != UNZ_OK)
+          {
+            unzClose(zipfile); 
+            return 0;
+          }
+
+          if (!(file.buffer = malloc(file.length)))
+          {
+            unzCloseCurrentFile(zipfile);
+            unzClose(zipfile); 
+            return 0;
+          }
+
+          unzReadCurrentFile(zipfile, file.buffer, file.length);
+          unzCloseCurrentFile(zipfile);
+
+          goto close_archive;
+        }
+      }
+
+      /* Go to the next file in the archive */
+      if (i + 1 < (int)gi.number_entry)
+      {
+        if (unzGoToNextFile(zipfile) != UNZ_OK)
+        {
+          pspUiAlert("Error parsing compressed files");
+          unzClose(zipfile);
+          return 0;
+        }
+      }
+    }
+
+close_archive:
+    unzClose(zipfile);
+
+    return (utils_open_file_buffer(file, path, 0, NULL) == 0);
+  }
+
+  return (utils_open_file(path, 0, NULL) == 0);
+}
+
 /**************************/
 /* psplib event callbacks */
 /**************************/
@@ -869,6 +1050,9 @@ static int OnMenuItemChanged(const struct PspUiMenu *uimenu,
     case OPTION_SHOW_FPS:
       psp_options.show_fps = (int)option->Value;
       break;
+    case OPTION_SHOW_BORDER:
+      psp_options.show_border = (int)option->Value;
+      break;
     case OPTION_CONTROL_MODE:
       psp_options.control_mode = (int)option->Value;
       UiMetric.OkButton = (!psp_options.control_mode) ? PSP_CTRL_CROSS : PSP_CTRL_CIRCLE;
@@ -914,8 +1098,7 @@ static void OnSystemRender(const void *uiobject, const void *item_obj)
 
 static int OnQuickloadOk(const void *browser, const void *path)
 {
-  int error;
-  if ((error = utils_open_file(path, 0, NULL)))
+  if (!psp_load_game(path))
   {
     pspUiAlert("Error loading file");
     return 0;
@@ -924,7 +1107,12 @@ static int OnQuickloadOk(const void *browser, const void *path)
   psp_exit_menu = 1;
   display_refresh_all();
   machine_reset(0);
+
   SET_AS_CURRENT_GAME(path);
+  pspFileGetParentDirectoryCopy(path, psp_game_path);
+
+  /* Reset selected state */
+  SaveStateGallery.Menu->Selected = NULL;
 
   return 1;
 }

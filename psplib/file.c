@@ -189,6 +189,16 @@ char* pspFileGetParentDirectory(const char *path)
   return parent;
 }
 
+void pspFileGetParentDirectoryCopy(const char *path, 
+                                   char *parent)
+{
+  char *pos = strrchr(path, '/');
+  if (!pos) return;
+
+  strncpy(parent, path, pos - path + 1);
+  parent[pos - path + 1] = '\0';
+}
+
 const char* pspFileGetFilename(const char *path)
 {
   char *pos;

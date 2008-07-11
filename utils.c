@@ -70,24 +70,18 @@ typedef struct path_context {
 static void init_path_context( path_context *ctx, utils_aux_type type );
 static int get_next_path( path_context *ctx );
 
-/* Open `filename' and do something sensible with it; autoload tapes
-   if `autoload' is true and return the type of file found in `type' */
+
 int
-utils_open_file( const char *filename, int autoload,
-		 libspectrum_id_t *type_ptr)
+utils_open_file_buffer( utils_file file, const char *filename, 
+     int autoload, libspectrum_id_t *type_ptr )
 {
-  utils_file file;
   libspectrum_id_t type;
   libspectrum_class_t class;
   int error;
 
-  /* Read the file into a buffer */
-  if( utils_read_file( filename, &file ) ) return 1;
-
   /* See if we can work out what it is */
   if( libspectrum_identify_file_with_class( &type, &class, filename,
-					    file.buffer, file.length ) ) {
-    utils_close_file( &file );
+              file.buffer, file.length ) ) {
     return 1;
   }
 
@@ -97,8 +91,7 @@ utils_open_file( const char *filename, int autoload,
     
   case LIBSPECTRUM_CLASS_UNKNOWN:
     ui_error( UI_ERROR_ERROR, "utils_open_file: couldn't identify `%s'",
-	      filename );
-    utils_close_file( &file );
+        filename );
     return 1;
 
   case LIBSPECTRUM_CLASS_RECORDING:
@@ -111,24 +104,24 @@ utils_open_file( const char *filename, int autoload,
 
   case LIBSPECTRUM_CLASS_TAPE:
     error = tape_read_buffer( file.buffer, file.length, type, filename,
-			      autoload );
+            autoload );
     break;
 
   case LIBSPECTRUM_CLASS_DISK_PLUS3:
 #ifdef HAVE_765_H
 
     if( !( machine_current->capabilities &
-	   LIBSPECTRUM_MACHINE_CAPABILITY_PLUS3_DISK ) ) {
+     LIBSPECTRUM_MACHINE_CAPABILITY_PLUS3_DISK ) ) {
       error = machine_select( LIBSPECTRUM_MACHINE_PLUS3 ); if( error ) break;
     }
 
     error = specplus3_disk_insert( SPECPLUS3_DRIVE_A, filename, autoload );
     break;
 
-#else				/* #ifdef HAVE_765_H */
+#else       /* #ifdef HAVE_765_H */
     ui_error( UI_ERROR_WARNING,
-	      "lib765 not present so can't handle .dsk files" );
-#endif				/* #ifdef HAVE_765_H */
+        "lib765 not present so can't handle .dsk files" );
+#endif        /* #ifdef HAVE_765_H */
     break;
 
   case LIBSPECTRUM_CLASS_DISK_PLUSD:
@@ -139,7 +132,7 @@ utils_open_file( const char *filename, int autoload,
   case LIBSPECTRUM_CLASS_DISK_TRDOS:
 
     if( !( machine_current->capabilities &
-	   LIBSPECTRUM_MACHINE_CAPABILITY_TRDOS_DISK ) &&
+     LIBSPECTRUM_MACHINE_CAPABILITY_TRDOS_DISK ) &&
         !periph_beta128_active ) {
       error = machine_select( LIBSPECTRUM_MACHINE_PENT ); if( error ) break;
     }
@@ -162,9 +155,9 @@ utils_open_file( const char *filename, int autoload,
 
   case LIBSPECTRUM_CLASS_HARDDISK:
     if( !settings_current.simpleide_active &&
-	!settings_current.zxatasp_active   &&
-	!settings_current.divide_enabled   &&
-	!settings_current.zxcf_active         ) {
+  !settings_current.zxatasp_active   &&
+  !settings_current.divide_enabled   &&
+  !settings_current.zxcf_active         ) {
       settings_current.zxcf_active = 1;
       periph_update();
     }
@@ -188,13 +181,31 @@ utils_open_file( const char *filename, int autoload,
     break;
   }
 
-  if( error ) { utils_close_file( &file ); return error; }
-
-  if( utils_close_file( &file ) ) return 1;
+  if( error ) return error;
 
   if( type_ptr ) *type_ptr = type;
 
   return 0;
+}
+
+/* Open `filename' and do something sensible with it; autoload tapes
+   if `autoload' is true and return the type of file found in `type' */
+int
+utils_open_file( const char *filename, int autoload,
+		 libspectrum_id_t *type_ptr)
+{
+  utils_file file;
+  int error;
+
+  /* Read the file into a buffer */
+  if( utils_read_file( filename, &file ) ) return 1;
+
+  error = utils_open_file_buffer( file, filename, autoload, 
+                                  type_ptr );
+
+  utils_close_file( &file );
+
+  return error;
 }
 
 /* Find the auxiliary file called `filename'; returns a fd for the

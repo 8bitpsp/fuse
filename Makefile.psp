@@ -3,7 +3,7 @@ PSPSDK=$(shell psp-config --pspsdk-path)
 PSPAPP=psp
 LSP=ls
 PSPLIB=psplib
-DATA=$(PSPAPP)/data
+MZLIB=mzlib
 
 PSP_FW_VERSION=200
 export PSP_FW_VERSION
@@ -14,7 +14,7 @@ PSP_APP_VER=0.9.0.1
 TARGET=fusepsp
 EXTRA_TARGETS=EBOOT.PBP
 PSP_EBOOT_TITLE=$(PSP_APP_NAME) $(PSP_APP_VER)
-#PSP_EBOOT_ICON=$(DATA)/fuse-icon.png
+PSP_EBOOT_ICON=ui/psp/fuse-icon.png
 
 BUILD_LS=$(LSP)/creator.o $(LSP)/crypto.o $(LSP)/csw.o \
          $(LSP)/bzip2.o $(LSP)/dck.o $(LSP)/ide.o \
@@ -53,15 +53,17 @@ BUILD_FUSE=debugger/breakpoint.o debugger/command.o debugger/commandl.o \
 BUILD_PORT=ui/psp/keysyms.o timer/psp.o ui/psp/paths.o ui/psp/osname.o \
            ui/psp/pspui.o ui/psp/pspdisplay.o ui/psp/debugger.o ui/psp/statusbar.o \
            sound/pspsound.o
+BUILD_MZ=$(MZLIB)/ioapi.o $(MZLIB)/unzip.o
 
-OBJS=$(BUILD_LS) $(BUILD_FUSE) $(BUILD_PORT)
+
+OBJS=$(BUILD_LS) $(BUILD_FUSE) $(BUILD_PORT) $(BUILD_MZ)
 
 DEFINES=-DFUSEDATADIR="\"system\"" -DPSP_DEBUG -DSOUND_BUFFER_SIZE=368
 BASE_DEFS=-DPSP -DPSP_APP_VER=\"$(PSP_APP_VER)\" -DPSP_APP_NAME="\"$(PSP_APP_NAME)\""
 CFLAGS=-O2 -G0 -Wall $(BASE_DEFS) $(DEFINES)
 CXXFLAGS=$(CFLAGS) -fno-exceptions -fno-rtti
 ASFLAGS=$(CFLAGS)
-INCDIR=. $(PSPLIB) $(LSP) psp
+INCDIR=. $(PSPLIB) $(LSP) $(MZLIB) psp
 LIBDIR=$(PSPLIB)
 LIBS=-lmypsp -lpng -lpspgu -lpsppower -lz -lm -lc -lpspaudio -lpsprtc \
      -lpspwlan -lpspnet_adhoc -lpspnet_adhocctl -lpspnet_adhocmatching

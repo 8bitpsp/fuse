@@ -250,6 +250,27 @@ char* pspInitGetString(const PspInit *init, const char *section, const char *key
   return NULL;
 }
 
+int pspInitGetStringCopy(const PspInit *init, 
+                         const char *section, 
+                         const char *key, const char *default_value,
+                         char *copy_to,
+                         int   dest_len)
+{
+  struct PspInitPair *pair = Locate(init, section, key);
+  if (pair)
+  {
+    strncpy(copy_to, pair->Value, dest_len);
+    return 1;
+  }
+  else if (default_value)
+  {
+    strncpy(copy_to, default_value, dest_len);
+    return 1;
+  }
+
+  return 0;
+}
+
 void pspInitSetInt(PspInit *init, const char *section, const char *key, int value)
 {
   struct PspInitPair *pair;

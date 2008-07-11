@@ -6,7 +6,6 @@
 #include "ui/ui.h"
 #include "ui/uidisplay.h"
 
-/* TODO */
 #include "pspui.h"
 #include "util.h"
 #include "perf.h"
@@ -31,12 +30,6 @@ int uidisplay_init( int width, int height )
                                     DISPLAY_SCREEN_HEIGHT,
                                     PSP_IMAGE_INDEXED)))
       return 1;
-
-  Screen->Viewport.X = DISPLAY_BORDER_WIDTH / 2;
-  Screen->Viewport.Y = DISPLAY_BORDER_HEIGHT;
-  Screen->Viewport.Width = DISPLAY_WIDTH / 2;
-  Screen->Viewport.Height = DISPLAY_HEIGHT;
-  Screen->PalSize = 16;
 
   /* Initialize color palette */
   const unsigned char rgb_colours[16][3] = 
@@ -73,6 +66,7 @@ int uidisplay_init( int width, int height )
 
     Screen->Palette[i] = RGB(red, green, blue);
   }
+  Screen->PalSize = 16;
 
   psp_uidisplay_reinit();
   display_refresh_all();
@@ -82,6 +76,21 @@ int uidisplay_init( int width, int height )
 
 void psp_uidisplay_reinit()
 {
+  if (psp_options.show_border)
+  {
+    Screen->Viewport.X = 0;
+    Screen->Viewport.Y = 0;
+    Screen->Viewport.Width = DISPLAY_SCREEN_WIDTH / 2;
+    Screen->Viewport.Height = DISPLAY_SCREEN_HEIGHT;
+  }
+  else
+  {
+    Screen->Viewport.X = DISPLAY_BORDER_WIDTH / 2;
+    Screen->Viewport.Y = DISPLAY_BORDER_HEIGHT;
+    Screen->Viewport.Width = DISPLAY_WIDTH / 2;
+    Screen->Viewport.Height = DISPLAY_HEIGHT;
+  }
+
   /* Set up viewing ratios */
   float ratio;
   switch (psp_options.display_mode)
@@ -111,14 +120,9 @@ void psp_uidisplay_reinit()
 
 void uidisplay_frame_end()
 {
-  static u8 first_time_run = 1;
-  if (first_time_run)
-  {
-    /* Show menu */
-    psp_display_menu();
-    first_time_run = 0;
+  /* No drawing if the menu is currently active */
+  if (psp_menu_active)
     return;
-  }
 
   pspVideoBegin();
 
@@ -192,7 +196,6 @@ void uidisplay_plot16(int x, int y, libspectrum_word data,
                       libspectrum_byte ink, libspectrum_byte paper)
 {
   /* Forces a low-res render, discarding every other pixel */
-
   x <<= 4;
   u8 *line_start = (u8*)Screen->Pixels +
                    ((y << CANVAS_WIDTH_SHIFTBY) + x);
