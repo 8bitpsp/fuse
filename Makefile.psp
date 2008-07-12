@@ -39,7 +39,6 @@ BUILD_FUSE=debugger/breakpoint.o debugger/command.o debugger/commandl.o \
            machines/tc2048.o machines/tc2068.o machines/ts2068.o \
            disk/beta.o disk/crc.o disk/disk.o disk/fdd.o disk/plusd.o \
            disk/wd_fdc.o \
-           ui/uijoystick.o \
            ay.o dck.o display.o divide.o ide.o if1.o \
            if2.o input.o joystick.o kempmouse.o keyboard.o loader.o \
            machine.o memory.o module.o periph.o printer.o profile.o \
@@ -52,7 +51,7 @@ BUILD_FUSE=debugger/breakpoint.o debugger/command.o debugger/commandl.o \
            sound/sfifo.o
 BUILD_PORT=ui/psp/keysyms.o timer/psp.o ui/psp/paths.o ui/psp/osname.o \
            ui/psp/pspui.o ui/psp/pspdisplay.o ui/psp/debugger.o ui/psp/statusbar.o \
-           sound/pspsound.o
+           sound/pspsound.o ui/psp/pspjoystick.o
 BUILD_MZ=$(MZLIB)/ioapi.o $(MZLIB)/unzip.o
 
 

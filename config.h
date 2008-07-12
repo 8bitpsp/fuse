@@ -150,6 +150,7 @@
 
 /* Defined if we're using hardware joysticks */
 /* #undef USE_JOYSTICK */
+#define USE_JOYSTICK 1
 
 /* Defined if we're going to be using the installed libpng */
 /* #undef USE_LIBPNG */
