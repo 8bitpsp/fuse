@@ -39,10 +39,11 @@ PSP_MAIN_THREAD_ATTR(PSP_THREAD_ATTR_USER);
 
 #define TAB_QUICKLOAD 0
 #define TAB_STATE     1
-#define TAB_OPTIONS   2
-#define TAB_SYSTEM    3
+#define TAB_CONTROLS  2
+#define TAB_OPTIONS   3
+#define TAB_SYSTEM    4
 #define TAB_MAX       TAB_SYSTEM
-#define TAB_ABOUT     4
+#define TAB_ABOUT     5
 
 #define OPTION_DISPLAY_MODE  1
 #define OPTION_FRAME_LIMITER 2
@@ -74,7 +75,9 @@ PSP_MAIN_THREAD_ATTR(PSP_THREAD_ATTR_USER);
 
 static const char 
   PresentSlotText[] = "\026\244\020 Save\t\026\001\020 Load\t\026\243\020 Delete",
-  EmptySlotText[] = "\026\244\020 Save";
+  EmptySlotText[] = "\026\244\020 Save",
+  ControlHelpText[] = "\026\250\020 Change mapping\t\026\001\020 Save to \271\t"
+                      "\026\244\020 Set as default\t\026\243\020 Load defaults";
 
 typedef struct psp_ctrl_map_t
 {
@@ -125,9 +128,16 @@ int snapshot_write_file(const char *filename, FILE *fptr);
 
 static void psp_display_menu();
 static void psp_display_state_tab();
+static void psp_display_control_tab();
+
 static void psp_load_options();
 static int  psp_save_options();
+
 static int  psp_load_game(const char *path);
+
+static void psp_init_controls(psp_ctrl_map_t *config);
+static int  psp_load_controls(const char *filename, psp_ctrl_map_t *config);
+static int  psp_save_controls(const char *filename, const psp_ctrl_map_t *config);
 
 static inline void psp_keyboard_toggle(unsigned int code, int on);
 static inline void psp_joystick_toggle(unsigned int code, int on);
@@ -173,6 +183,15 @@ PspUiMenu
     OnGenericCancel,       /* OnCancel() */
     OnMenuButtonPress,     /* OnButtonPress() */
     OnMenuItemChanged,     /* OnItemChanged() */
+  },
+  ControlUiMenu =
+  {
+    NULL,                  /* PspMenu */
+    OnGenericRender,       /* OnRender() */
+    OnMenuOk,              /* OnOk() */
+    OnGenericCancel,       /* OnCancel() */
+    OnMenuButtonPress,     /* OnButtonPress() */
+    OnMenuItemChanged,     /* OnItemChanged() */
   };
 
 PspUiGallery SaveStateGallery = 
@@ -191,6 +210,7 @@ static const char *TabLabel[] =
 {
   "Game",
   "Save/Load",
+  "Controls",
   "Options",
   "System",
   "About"
@@ -233,6 +253,40 @@ static const PspMenuOptionDef
     MENU_OPTION("Spectrum SE",     LIBSPECTRUM_MACHINE_SE),
     MENU_END_OPTIONS
   },
+  MappableButtons[] = {
+    /* Unmapped */
+    MENU_OPTION("None", 0),
+    /* Special */
+    MENU_OPTION("Special: Open Menu",       (SPC|SPC_MENU)),
+    MENU_OPTION("Special: Show keyboard",   (SPC|SPC_KYBD)),
+    /* Etc... */
+    MENU_OPTION("Space",     (KBD|KEYBOARD_space)),
+    MENU_OPTION("Enter",     (KBD|KEYBOARD_Enter)),
+    /* Numbers */
+    MENU_OPTION("0", (KBD|KEYBOARD_0)), MENU_OPTION("1", (KBD|KEYBOARD_1)),
+    MENU_OPTION("2", (KBD|KEYBOARD_2)), MENU_OPTION("3", (KBD|KEYBOARD_3)),
+    MENU_OPTION("4", (KBD|KEYBOARD_4)), MENU_OPTION("5", (KBD|KEYBOARD_5)),
+    MENU_OPTION("6", (KBD|KEYBOARD_6)), MENU_OPTION("7", (KBD|KEYBOARD_7)),
+    MENU_OPTION("8", (KBD|KEYBOARD_8)), MENU_OPTION("9", (KBD|KEYBOARD_9)),
+    /* Alphabet */
+    MENU_OPTION("A", (KBD|KEYBOARD_a)), MENU_OPTION("B", (KBD|KEYBOARD_b)),
+    MENU_OPTION("C", (KBD|KEYBOARD_c)), MENU_OPTION("D", (KBD|KEYBOARD_d)),
+    MENU_OPTION("E", (KBD|KEYBOARD_e)), MENU_OPTION("F", (KBD|KEYBOARD_f)),
+    MENU_OPTION("G", (KBD|KEYBOARD_g)), MENU_OPTION("H", (KBD|KEYBOARD_h)),
+    MENU_OPTION("I", (KBD|KEYBOARD_i)), MENU_OPTION("J", (KBD|KEYBOARD_j)),
+    MENU_OPTION("K", (KBD|KEYBOARD_k)), MENU_OPTION("L", (KBD|KEYBOARD_l)),
+    MENU_OPTION("M", (KBD|KEYBOARD_m)), MENU_OPTION("N", (KBD|KEYBOARD_n)),
+    MENU_OPTION("O", (KBD|KEYBOARD_o)), MENU_OPTION("P", (KBD|KEYBOARD_p)),
+    MENU_OPTION("Q", (KBD|KEYBOARD_q)), MENU_OPTION("R", (KBD|KEYBOARD_r)),
+    MENU_OPTION("S", (KBD|KEYBOARD_s)), MENU_OPTION("T", (KBD|KEYBOARD_t)),
+    MENU_OPTION("U", (KBD|KEYBOARD_u)), MENU_OPTION("V", (KBD|KEYBOARD_v)),
+    MENU_OPTION("W", (KBD|KEYBOARD_w)), MENU_OPTION("X", (KBD|KEYBOARD_x)),
+    MENU_OPTION("Y", (KBD|KEYBOARD_y)), MENU_OPTION("Z", (KBD|KEYBOARD_z)),
+    /* State keys */
+    MENU_OPTION("Caps Shift",  (KBD|KEYBOARD_Caps)),
+    MENU_OPTION("Symbol Shift",(KBD|KEYBOARD_Symbol)),
+    MENU_END_OPTIONS
+  },
   ControlModeOptions[] = {
     MENU_OPTION("\026\242\020 cancels, \026\241\020 confirms (US)", 0),
     MENU_OPTION("\026\241\020 cancels, \026\242\020 confirms (Japan)", 1),
@@ -271,40 +325,67 @@ static const PspMenuItemDef
     MENU_ITEM("Animations", OPTION_ANIMATE, ToggleOptions, -1,
       "\026\250\020 Enable/disable menu animations"),
     MENU_END_ITEMS
+  },
+  ControlMenuDef[] = {
+    MENU_ITEM(PSP_CHAR_ANALUP,   0, MappableButtons, -1,  ControlHelpText),
+    MENU_ITEM(PSP_CHAR_ANALDOWN, 1, MappableButtons, -1,  ControlHelpText),
+    MENU_ITEM(PSP_CHAR_ANALLEFT, 2, MappableButtons, -1,  ControlHelpText),
+    MENU_ITEM(PSP_CHAR_ANALRIGHT, 3, MappableButtons, -1, ControlHelpText),
+    MENU_ITEM(PSP_CHAR_UP, 4, MappableButtons, -1,    ControlHelpText),
+    MENU_ITEM(PSP_CHAR_DOWN, 5, MappableButtons, -1,  ControlHelpText),
+    MENU_ITEM(PSP_CHAR_LEFT, 6, MappableButtons, -1,  ControlHelpText),
+    MENU_ITEM(PSP_CHAR_RIGHT, 7, MappableButtons, -1, ControlHelpText),
+    MENU_ITEM(PSP_CHAR_SQUARE, 8, MappableButtons, -1,    ControlHelpText),
+    MENU_ITEM(PSP_CHAR_CROSS, 9, MappableButtons, -1,     ControlHelpText),
+    MENU_ITEM(PSP_CHAR_CIRCLE, 10, MappableButtons, -1,   ControlHelpText),
+    MENU_ITEM(PSP_CHAR_TRIANGLE, 11, MappableButtons, -1, ControlHelpText),
+    MENU_ITEM(PSP_CHAR_LTRIGGER, 12, MappableButtons, -1, ControlHelpText),
+    MENU_ITEM(PSP_CHAR_RTRIGGER, 13, MappableButtons, -1, ControlHelpText),
+    MENU_ITEM(PSP_CHAR_SELECT, 14, MappableButtons, -1,   ControlHelpText),
+    MENU_ITEM(PSP_CHAR_START, 15, MappableButtons, -1,    ControlHelpText),
+    MENU_ITEM(PSP_CHAR_LTRIGGER"+"PSP_CHAR_RTRIGGER, 16,
+      MappableButtons, -1, ControlHelpText),
+    MENU_ITEM(PSP_CHAR_START"+"PSP_CHAR_SELECT, 17,
+      MappableButtons, -1, ControlHelpText),
+    MENU_ITEM(PSP_CHAR_SELECT"+"PSP_CHAR_LTRIGGER, 18,
+      MappableButtons, -1, ControlHelpText),
+    MENU_ITEM(PSP_CHAR_SELECT"+"PSP_CHAR_RTRIGGER, 19,
+      MappableButtons, -1, ControlHelpText),
+    MENU_END_ITEMS
   };
 
 /* Default configuration */
 static psp_ctrl_map_t default_map =
 {
   {
-    KBD|INPUT_KEY_p,    /* Analog Up    */
-    KBD|INPUT_KEY_l,  /* Analog Down  */
-    KBD|INPUT_KEY_q,  /* Analog Left  */
-    KBD|INPUT_KEY_w, /* Analog Right */
-    KBD|INPUT_KEY_Up,         /* D-pad Up     */
-    KBD|INPUT_KEY_Down,       /* D-pad Down   */
-    KBD|INPUT_KEY_Left,       /* D-pad Left   */
-    KBD|INPUT_KEY_Right,      /* D-pad Right  */
-    JST|INPUT_JOYSTICK_FIRE_1,/* Square       */
+    KBD|KEYBOARD_p,    /* Analog Up    */
+    KBD|KEYBOARD_l,  /* Analog Down  */
+    KBD|KEYBOARD_q,  /* Analog Left  */
+    KBD|KEYBOARD_w, /* Analog Right */
+    0,         /* D-pad Up     */
+    0,       /* D-pad Down   */
+    0,       /* D-pad Left   */
+    0,      /* D-pad Right  */
+    0,/* Square       */
     0,                        /* Cross        */
-    KBD|INPUT_KEY_space,      /* Circle       */
-    KBD|INPUT_KEY_Return,     /* Triangle     */
+    KBD|KEYBOARD_space,      /* Circle       */
+    KBD|KEYBOARD_Enter,     /* Triangle     */
     0,                        /* L Trigger    */
     SPC|SPC_KYBD,             /* R Trigger    */
     0,                        /* Select       */
 /* TODO */
-    KBD|INPUT_KEY_0,          /* Start        */
+    KBD|KEYBOARD_0,          /* Start        */
     SPC|SPC_MENU,             /* L+R Triggers */
     0,                        /* Start+Select */
     0,                        /* Select + L   */
     0,                        /* Select + R   */
   }
 };
+static psp_ctrl_map_t current_map;
 
 psp_options_t psp_options;
 u8 psp_menu_active;
 
-static psp_ctrl_map_t current_map;
 static u8 psp_exit_menu;
 static u8 show_kybd_held;
 static int TabIndex;
@@ -316,10 +397,10 @@ extern int clear_screen;
 extern int fuse_exiting;
 
 static char psp_current_game[PSP_FILE_MAX_PATH_LEN] = {'\0'},
-            psp_game_path[PSP_FILE_MAX_PATH_LEN] = {'\0'};
-static char SaveStatePath[PSP_FILE_MAX_PATH_LEN],
-            ScreenshotPath[PSP_FILE_MAX_PATH_LEN],
-            ConfigPath[PSP_FILE_MAX_PATH_LEN];
+            psp_game_path[PSP_FILE_MAX_PATH_LEN] = {'\0'},
+            psp_save_state_path[PSP_FILE_MAX_PATH_LEN],
+            psp_screenshot_path[PSP_FILE_MAX_PATH_LEN],
+            psp_config_path[PSP_FILE_MAX_PATH_LEN];
 
 psp_ctrl_mask_to_index_map_t physical_to_emulated_button_map[] =
 {
@@ -354,9 +435,9 @@ int ui_init(int *argc, char ***argv)
   pspStartCallbackThread();
 
   /* Initialize paths */
-  sprintf(SaveStatePath, "%sstates/", pspGetAppDirectory());
-  sprintf(ScreenshotPath, "%sscreens/", pspGetAppDirectory());
-  sprintf(ConfigPath, "%sconfig/", pspGetAppDirectory());
+  sprintf(psp_save_state_path, "%sstates/", pspGetAppDirectory());
+  sprintf(psp_screenshot_path, "%sscreens/", pspGetAppDirectory());
+  sprintf(psp_config_path, "%sconfig/", pspGetAppDirectory());
 
   /* Initialize options menu */
   OptionUiMenu.Menu = pspMenuCreate();
@@ -365,6 +446,10 @@ int ui_init(int *argc, char ***argv)
   /* Initialize system menu */
   SystemUiMenu.Menu = pspMenuCreate();
   pspMenuLoad(SystemUiMenu.Menu, SystemMenuDef);
+
+  /* Initialize control menu */
+  ControlUiMenu.Menu = pspMenuCreate();
+  pspMenuLoad(ControlUiMenu.Menu, ControlMenuDef);
 
   /* Load the background image */
   Background = pspImageLoadPng("background.png");
@@ -425,8 +510,8 @@ int ui_init(int *argc, char ***argv)
   clear_screen = 1;
   psp_menu_active = 1;
 
-/* TODO */
-  memcpy(&current_map, &default_map, sizeof(default_map));
+  /* Load default configuration */
+  psp_load_controls("DEFAULT", &default_map);
 
   return 0;
 }
@@ -461,6 +546,9 @@ static void psp_display_menu()
       pspUiOpenBrowser(&QuickloadBrowser, 
         (GAME_LOADED) ? psp_current_game 
           : ((psp_game_path[0]) ? psp_game_path : NULL));
+      break;
+    case TAB_CONTROLS:
+      psp_display_control_tab();
       break;
     case TAB_OPTIONS:
       item = pspMenuFindItemById(OptionUiMenu.Menu, OPTION_DISPLAY_MODE);
@@ -534,7 +622,7 @@ int ui_event( void )
 #ifdef PSP_DEBUG
     if ((pad.Buttons & (PSP_CTRL_SELECT | PSP_CTRL_START))
       == (PSP_CTRL_SELECT | PSP_CTRL_START))
-        pspUtilSaveVramSeq(ScreenshotPath, "game");
+        pspUtilSaveVramSeq(psp_screenshot_path, "game");
 #endif
     /* Parse input */
     psp_ctrl_mask_to_index_map_t *current_mapping = physical_to_emulated_button_map;
@@ -588,6 +676,7 @@ int ui_end( void )
   pspMenuDestroy(OptionUiMenu.Menu);
   pspMenuDestroy(SystemUiMenu.Menu);
   pspMenuDestroy(SaveStateGallery.Menu);
+  pspMenuDestroy(ControlUiMenu.Menu);
 
   psp_save_options();
 
@@ -596,6 +685,7 @@ int ui_end( void )
 
 static inline void psp_joystick_toggle(unsigned int code, int on)
 {
+/* TODO
   input_event_t fuse_event;
 
   fuse_event.type = (on) 
@@ -604,20 +694,31 @@ static inline void psp_joystick_toggle(unsigned int code, int on)
   fuse_event.types.joystick.button = code;
 
   input_event(&fuse_event);
+*/
 }
 
 static inline void psp_keyboard_toggle(unsigned int code, int on)
 {
-  input_event_t fuse_event;
-  input_key fuse_keysym = keysyms_remap(code);
+  if (on) keyboard_press(code);
+  else keyboard_release(code);
+}
 
-  if (fuse_keysym == INPUT_KEY_NONE) return;
+static void psp_display_control_tab()
+{
+  PspMenuItem *item;
+  const char *config_name = (GAME_LOADED)
+    ? pspFileGetFilename(psp_current_game) : "BASIC";
+  char *game_name = strdup(config_name);
+  char *dot = strrchr(game_name, '.');
+  int i;
+  if (dot) *dot='\0';
 
-  fuse_event.type = (on) ? INPUT_EVENT_KEYPRESS : INPUT_EVENT_KEYRELEASE;
-  fuse_event.types.key.native_key = fuse_keysym;
-  fuse_event.types.key.spectrum_key = fuse_keysym;
+  /* Load current button mappings */
+  for (item = ControlUiMenu.Menu->First, i = 0; item; item = item->Next, i++)
+    pspMenuSelectOptionByValue(item, (void*)GameConfig.ButtonMap[i]);
 
-  input_event(&fuse_event);
+  pspUiOpenMenu(&ControlUiMenu, game_name);
+  free(game_name);
 }
 
 static void psp_display_state_tab()
@@ -628,7 +729,7 @@ static void psp_display_state_tab()
   char caption[32];
   const char *config_name = (GAME_LOADED)
     ? pspFileGetFilename(psp_current_game) : "BASIC";
-  char *path = (char*)malloc(strlen(SaveStatePath) + strlen(config_name) + 8);
+  char *path = (char*)malloc(strlen(psp_save_state_path) + strlen(config_name) + 8);
   char *game_name = strdup(config_name);
   char *dot = strrchr(game_name, '.');
   if (dot) *dot='\0';
@@ -638,7 +739,7 @@ static void psp_display_state_tab()
   /* Initialize icons */
   for (item = SaveStateGallery.Menu->First; item; item = item->Next)
   {
-    sprintf(path, "%s%s_%02i.sta", SaveStatePath, config_name, item->ID);
+    sprintf(path, "%s%s_%02i.sta", psp_save_state_path, config_name, item->ID);
 
     if (pspFileCheckIfExists(path))
     {
@@ -901,6 +1002,58 @@ close_archive:
   return (utils_open_file(path, 0, NULL) == 0);
 }
 
+static void psp_init_controls(psp_ctrl_map_t *config)
+{
+  /* Initialize to default configuration */
+  if (config != &default_map)
+    memcpy(config, &default_map, sizeof(psp_ctrl_map_t));
+}
+
+static int psp_load_controls(const char *filename, psp_ctrl_map_t *config)
+{
+  char path[PSP_FILE_MAX_PATH_LEN];
+  snprintf(path, PSP_FILE_MAX_PATH_LEN-1, "%s%s.cnf", psp_config_path, filename);
+
+  /* If no configuration, load defaults */
+  if (!pspFileCheckIfExists(path))
+  {
+    psp_init_controls(config);
+    return 1;
+  }
+
+  /* Open file for reading */
+  FILE *file = fopen(path, "r");
+  if (!file) return 0;
+
+  /* Read contents of struct */
+  int nread = fread(config, sizeof(psp_ctrl_map_t), 1, file);
+  fclose(file);
+
+  if (nread != 1)
+  {
+    psp_init_controls(config);
+    return 0;
+  }
+
+  return 1;
+}
+
+static int psp_save_controls(const char *filename, const psp_ctrl_map_t *config)
+{
+  char path[PSP_FILE_MAX_PATH_LEN];
+  snprintf(path, PSP_FILE_MAX_PATH_LEN-1, "%s%s.cnf", psp_config_path, filename);
+
+  /* Open file for writing */
+  FILE *file = fopen(path, "w");
+  if (!file) return 0;
+
+  /* Write contents of struct */
+  int nwritten = fwrite(config, sizeof(psp_ctrl_map_t), 1, file);
+  fclose(file);
+
+  return (nwritten == 1);
+}
+
 /**************************/
 /* psplib event callbacks */
 /**************************/
@@ -943,7 +1096,7 @@ static int OnGenericButtonPress(const PspUiFileBrowser *browser,
   else if ((button_mask & (PSP_CTRL_START | PSP_CTRL_SELECT)) 
     == (PSP_CTRL_START | PSP_CTRL_SELECT))
   {
-    if (pspUtilSaveVramSeq(ScreenshotPath, "UI"))
+    if (pspUtilSaveVramSeq(psp_screenshot_path, "UI"))
       pspUiAlert("Saved successfully");
     else
       pspUiAlert("ERROR: Not saved");
@@ -1010,7 +1163,7 @@ static int OnMenuOk(const void *uimenu, const void* sel_item)
       break;
     case SYSTEM_SCRNSHOT:
       /* Save screenshot */
-      if (!pspUtilSavePngSeq(ScreenshotPath, (GAME_LOADED)
+      if (!pspUtilSavePngSeq(psp_screenshot_path, (GAME_LOADED)
                                ? pspFileGetFilename(psp_current_game) : "BASIC",
                              Screen))
         pspUiAlert("ERROR: Screenshot not saved");
@@ -1104,6 +1257,11 @@ static int OnQuickloadOk(const void *browser, const void *path)
     return 0;
   }
 
+  if (!psp_load_controls((GAME_LOADED)
+                           ? pspFileGetFilename(psp_current_game) : "BASIC",
+                         &current_map))
+    ;//pspUiAlert("ERROR: Configuration not loaded");
+
   psp_exit_menu = 1;
   display_refresh_all();
   machine_reset(0);
@@ -1123,8 +1281,8 @@ static int OnSaveStateOk(const void *gallery, const void *item)
   const char *config_name = (GAME_LOADED) 
     ? pspFileGetFilename(psp_current_game) : "BASIC";
 
-  path = (char*)malloc(strlen(SaveStatePath) + strlen(config_name) + 8);
-  sprintf(path, "%s%s_%02i.sta", SaveStatePath, config_name, 
+  path = (char*)malloc(strlen(psp_save_state_path) + strlen(config_name) + 8);
+  sprintf(path, "%s%s_%02i.sta", psp_save_state_path, config_name,
     ((const PspMenuItem*)item)->ID);
 
   if (pspFileCheckIfExists(path) && pspUiConfirm("Load state?"))
@@ -1159,8 +1317,8 @@ static int OnSaveStateButtonPress(const PspUiGallery *gallery,
       ? pspFileGetFilename(psp_current_game) : "BASIC";
     PspMenuItem *item = pspMenuFindItemById(gallery->Menu, sel->ID);
 
-    path = (char*)malloc(strlen(SaveStatePath) + strlen(config_name) + 8);
-    sprintf(path, "%s%s_%02i.sta", SaveStatePath, config_name, item->ID);
+    path = (char*)malloc(strlen(psp_save_state_path) + strlen(config_name) + 8);
+    sprintf(path, "%s%s_%02i.sta", psp_save_state_path, config_name, item->ID);
 
     do /* not a real loop; flow control construct */
     {
