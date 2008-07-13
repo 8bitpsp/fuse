@@ -21,6 +21,7 @@ typedef struct psp_options_t
   uint8_t  control_mode;
   uint8_t  animate_menu;
   uint8_t  show_border;
+   int8_t  autoload_slot;
   uint16_t clock_freq;
   uint16_t machine;
 } psp_options_t;
@@ -36,6 +37,7 @@ typedef struct psp_ctrl_mask_to_index_map_t
   uint8_t  index;
 } psp_ctrl_mask_to_index_map_t;
 
+extern uint8_t show_kybd_held;
 extern psp_ctrl_map_t current_map;
 extern psp_options_t psp_options;
 extern uint8_t psp_menu_active;

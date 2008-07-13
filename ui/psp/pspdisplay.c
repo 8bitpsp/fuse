@@ -7,6 +7,8 @@
 #include "ui/uidisplay.h"
 
 #include "pspui.h"
+
+#include "kybd.h"
 #include "util.h"
 #include "perf.h"
 #include "video.h"
@@ -15,6 +17,8 @@
 #define CANVAS_WIDTH_SHIFTBY 9
 #define CANVAS_WIDTH         (1 << CANVAS_WIDTH_SHIFTBY)
 
+
+extern PspKeyboardLayout *KeyLayout;
 PspImage *Screen = NULL;
 static PspFpsCounter FpsCounter;
 int clear_screen;
@@ -134,6 +138,10 @@ void uidisplay_frame_end()
   }
 
   pspVideoPutImage(Screen, ScreenX, ScreenY, ScreenW, ScreenH);
+
+  /* Draw keyboard */
+  if (show_kybd_held)
+    pspKybdRender(KeyLayout);
 
   if (psp_options.show_fps)
   {
