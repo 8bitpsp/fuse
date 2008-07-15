@@ -77,7 +77,8 @@ SceCtrlData psp_pad_status;
 static const char *QuickloadFilter[] =
       { "ZIP", "DCK", "ROM", "MDR", "TAP", "SPC", "STA", "LTP", "TZX",
         "DSK", "SCL", "TRD", "HDF", "BZ2", "GZ", "RAW", "CSW",
-        "WAV", "MGT", "IMG", "Z80", '\0' };
+        "WAV", "MGT", "IMG", "Z80", "RZX", "SNA", "SNP", "SP", "SZX",
+        "SLT", "ZXS", "MGTSNP", '\0' };
 
 static int         OnSplashButtonPress(const struct PspUiSplash *splash,
                                        u32 button_mask);
