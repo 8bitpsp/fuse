@@ -1,13 +1,24 @@
-/** PSP helper library ***************************************/
-/**                                                         **/
-/**                          audio.h                        **/
-/**                                                         **/
-/** This file contains definitions for the audio rendering  **/
-/** library. It is based on the pspaudio library by Adresd  **/
-/** and Marcus R. Brown, 2005.                              **/
-/**                                                         **/
-/** Akop Karapetyan 2007                                    **/
-/*************************************************************/
+/* psplib/audio.h
+   Simple sound playback library
+
+   Copyright (C) 2007-2008 Akop Karapetyan
+
+   This program is free software: you can redistribute it and/or modify
+   it under the terms of the GNU General Public License as published by
+   the Free Software Foundation, either version 3 of the License, or
+   (at your option) any later version.
+
+   This program is distributed in the hope that it will be useful,
+   but WITHOUT ANY WARRANTY; without even the implied warranty of
+   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+   GNU General Public License for more details.
+
+   You should have received a copy of the GNU General Public License
+   along with this program.  If not, see <http://www.gnu.org/licenses/>.
+
+   Author contact information: pspdev@akop.org
+*/
+
 #ifndef _PSP_AUDIO_H
 #define _PSP_AUDIO_H
 
