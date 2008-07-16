@@ -19,7 +19,7 @@
 #include <pspgu.h>
 #include <pspnet_adhocmatching.h>
 
-#include "psp.h"
+#include "pl_psp.h"
 #include "file.h"
 #include "ctrl.h"
 #include "ui.h"
@@ -616,7 +616,7 @@ void pspUiOpenBrowser(PspUiFileBrowser *browser, const char *start_path)
   }
 
   if (!start_path)
-    start_path = pspGetAppDirectory();
+    start_path = pl_psp_get_app_directory();
 
   char *cur_path = pspFileGetParentDirectory(start_path);
   const char *cur_file = pspFileGetFilename(start_path);

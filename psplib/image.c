@@ -353,6 +353,9 @@ int pspImageSavePng(const char *path, const PspImage* image)
   return stat;
 }
 
+#define IRGB(r,g,b,a)   (((((b)>>3)&0x1F)<<10)|((((g)>>3)&0x1F)<<5)|\
+  (((r)>>3)&0x1F)|(a?0x8000:0))
+
 /* Loads an image from an open file descriptor (16-bit PNG)*/
 PspImage* pspImageLoadPngFd(FILE *fp)
 {
@@ -404,7 +407,7 @@ PspImage* pspImageLoadPngFd(FILE *fp)
 
   png_byte **pRowTable = pPngInfo->row_pointers;
   unsigned int x, y;
-  byte r, g, b;
+  byte r, g, b, a;
   unsigned short *out = image->Pixels;
 
   for (y=0; y<height; y++)
@@ -417,29 +420,34 @@ PspImage* pspImageLoadPngFd(FILE *fp)
       {
         case PNG_COLOR_TYPE_GRAY:
           r = g = b = *pRow++;
+          a = 1;
           break;
         case PNG_COLOR_TYPE_GRAY_ALPHA:
           r = g = b = pRow[0];
+          a = pRow[1];
           pRow += 2;
           break;
         case PNG_COLOR_TYPE_RGB:
           b = pRow[0];
           g = pRow[1];
           r = pRow[2];
+          a = 1;
           pRow += 3;
           break;
         case PNG_COLOR_TYPE_RGB_ALPHA:
           b = pRow[0];
           g = pRow[1];
           r = pRow[2];
+          a = pRow[3];
           pRow += 4;
           break;
         default:
-          r = g = b = 0;
+          r = g = b = a = 0;
           break;
       }
 
-      *out++ = RGB(r,g,b);
+//      *out++ = IRGB(r,g,b,a);
+      *out++ = IRGB(r,g,b,a);
     }
 
     out += (mod_width - width);

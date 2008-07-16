@@ -8,19 +8,17 @@
 
 #include "pspui.h"
 
-#include "kybd.h"
-#include "util.h"
-#include "perf.h"
 #include "video.h"
+#include "pl_vk.h"
+#include "pl_perf.h"
 
 /* raw canvas width is 1 << 9 (512) */
 #define CANVAS_WIDTH_SHIFTBY 9
 #define CANVAS_WIDTH         (1 << CANVAS_WIDTH_SHIFTBY)
 
-
-extern PspKeyboardLayout *KeyLayout;
+extern pl_vk_layout vk_spectrum;
 PspImage *Screen = NULL;
-static PspFpsCounter FpsCounter;
+static pl_perf_counter perf_counter;
 int clear_screen;
 
 static int ScreenX, ScreenY, ScreenW, ScreenH;
@@ -119,7 +117,7 @@ void psp_uidisplay_reinit()
   ScreenY = (SCR_HEIGHT / 2) - (ScreenH / 2);
 
   /* Reset FPS counter */
-  pspPerfInitFps(&FpsCounter);
+  pl_perf_init_counter(&perf_counter);
 }
 
 void uidisplay_frame_end()
@@ -141,12 +139,12 @@ void uidisplay_frame_end()
 
   /* Draw keyboard */
   if (show_kybd_held)
-    pspKybdRender(KeyLayout);
+    pl_vk_render(&vk_spectrum);
 
   if (psp_options.show_fps)
   {
     static char fps_display[32];
-    sprintf(fps_display, " %3.02f", pspPerfGetFps(&FpsCounter));
+    sprintf(fps_display, " %3.02f", pl_perf_update_counter(&perf_counter));
 
     int width = pspFontGetTextWidth(&PspStockFont, fps_display);
     int height = pspFontGetLineHeight(&PspStockFont);

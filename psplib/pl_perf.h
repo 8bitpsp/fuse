@@ -1,6 +1,6 @@
 /** PSP helper library ***************************************/
 /**                                                         **/
-/**                          perf.h                         **/
+/**                       pl_perf.h                         **/
 /**                                                         **/
 /** This file contains declarations for performance-related **/
 /** PSP routines                                            **/
@@ -10,8 +10,8 @@
 /**     commercially. Please, notify me, if you make any    **/
 /**     changes to this file.                               **/
 /*************************************************************/
-#ifndef _PSP_PERF_H
-#define _PSP_PERF_H
+#ifndef _PL_PERF_H
+#define _PL_PERF_H
 
 #include <psptypes.h>
 
@@ -19,19 +19,19 @@
 extern "C" {
 #endif
 
-typedef struct PspFpsCounter
+typedef struct pl_perf_counter_t
 {
-  float TicksPerSecond;
-  int FrameCount;
-  u64 LastTick;
-  float Fps;
-} PspFpsCounter;
+  float ticks_per_second;
+  int frame_count;
+  u64 last_tick;
+  float fps;
+} pl_perf_counter;
 
-void  pspPerfInitFps(PspFpsCounter *counter);
-float pspPerfGetFps(PspFpsCounter *counter);
+void  pl_perf_init_counter(pl_perf_counter *counter);
+float pl_perf_update_counter(pl_perf_counter *counter);
 
 #ifdef __cplusplus
 }
 #endif
 
-#endif // _PSP_PERF_H
+#endif // _PL_PERF_H

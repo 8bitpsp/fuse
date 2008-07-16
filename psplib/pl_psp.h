@@ -11,8 +11,8 @@
 /**     commercially. Please, notify me, if you make any    **/
 /**     changes to this file.                               **/
 /*************************************************************/
-#ifndef _PSP_H
-#define _PSP_H
+#ifndef _PL_PSP_H
+#define _PL_PSP_H
 
 #ifdef __cplusplus
 extern "C" {
@@ -21,23 +21,22 @@ extern "C" {
 typedef enum
 {
   PSP_EXIT_CALLBACK
-} CallbackType;
+} pl_callback_type;
 
-extern int  ExitPSP;
+extern int ExitPSP;
 
-void        pspInit(char *app_path);
-void        pspShutdown();
-const char* pspGetAppDirectory();
-void        pspSetClockFrequency(int freq);
-int         pspGetBatteryTime();
-int         pspGetBatteryPercent();
+int  pl_psp_init(const char *app_path);
+void pl_psp_shutdown();
+void pl_psp_set_clock_freq(int freq);
+const char* pl_psp_get_app_directory();
 
-/* Callbacks */
-int pspRegisterCallback(CallbackType type, void (*func)(void *param), void *param);
-int pspStartCallbackThread();
+int pl_psp_register_callback(pl_callback_type type,
+                             void (*func)(void *param),
+                             void *param);
+int pl_psp_start_callback_thread();
 
 #ifdef __cplusplus
 }
 #endif
 
-#endif // _PSP_H
+#endif // _PL_PSP_H

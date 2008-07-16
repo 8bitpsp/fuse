@@ -23,12 +23,12 @@
 #include "psplib/ui.h"
 #include "psplib/audio.h"
 #include "psplib/font.h"
-#include "psplib/psp.h"
 #include "psplib/ctrl.h"
-#include "psplib/util.h"
 #include "psplib/file.h"
-#include "psplib/init.h"
-#include "psplib/kybd.h"
+#include "pl_psp.h"
+#include "pl_ini.h"
+#include "pl_util.h"
+#include "pl_vk.h"
 
 #include "unzip.h"
 
@@ -76,7 +76,10 @@ SceCtrlData psp_pad_status;
 
 static const char *QuickloadFilter[] =
       { "ZIP", "DCK", "ROM", "MDR", "TAP", "SPC", "STA", "LTP", "TZX",
-        "DSK", "SCL", "TRD", "HDF", "BZ2", "GZ", "RAW", "CSW",
+#ifdef HAVE_765_H
+        "DSK",
+#endif
+        "SCL", "TRD", "HDF", "BZ2", "GZ", "RAW", "CSW",
         "WAV", "MGT", "IMG", "Z80", "RZX", "SNA", "SNP", "SP", "SZX",
         "SLT", "ZXS", "MGTSNP", '\0' };
 
@@ -392,7 +395,7 @@ static psp_ctrl_map_t default_map =
 psp_ctrl_map_t current_map;
 psp_options_t psp_options;
 u8 psp_menu_active;
-PspKeyboardLayout *KeyLayout;
+pl_vk_layout vk_spectrum;
 u8 show_kybd_held;
 
 static u8 psp_exit_menu;
@@ -435,25 +438,25 @@ static void psp_exit_callback(void* arg)
 
 int ui_init(int *argc, char ***argv)
 {
-  /* Initialize keyboard */
-  if (!(KeyLayout = pspKybdLoadLayout("spectrum.lyt", 
-    NULL, psp_keyboard_toggle)))
-  {
-    pspImageDestroy(Screen);
-    return(0);
-  }
-
-  pspInit(*argv[0]);
+  pl_psp_init(*argv[0]);
   pspCtrlInit();
 
   /* Initialize callbacks */
-  pspRegisterCallback(PSP_EXIT_CALLBACK, psp_exit_callback, NULL);
-  pspStartCallbackThread();
+  pl_psp_register_callback(PSP_EXIT_CALLBACK,
+                           psp_exit_callback,
+                           NULL);
+  pl_psp_start_callback_thread();
+
+  if (!pl_vk_load(&vk_spectrum,
+                  "spectrum.l2",
+                  "speckeys.png",
+                  NULL, psp_keyboard_toggle))
+    return 0;
 
   /* Initialize paths */
-  sprintf(psp_save_state_path, "%sstates/", pspGetAppDirectory());
-  sprintf(psp_screenshot_path, "%sscreens/", pspGetAppDirectory());
-  sprintf(psp_config_path, "%sconfig/", pspGetAppDirectory());
+  sprintf(psp_save_state_path, "%sstates/", pl_psp_get_app_directory());
+  sprintf(psp_screenshot_path, "%sscreens/", pl_psp_get_app_directory());
+  sprintf(psp_config_path, "%sconfig/", pl_psp_get_app_directory());
 
   /* Initialize options menu */
   OptionUiMenu.Menu = pspMenuCreate();
@@ -549,7 +552,7 @@ static void psp_display_menu()
   Screen->Viewport.Height = DISPLAY_HEIGHT;
 
   /* Set normal clock frequency */
-  pspSetClockFrequency(222);
+  pl_psp_set_clock_freq(222);
   /* Set buttons to autorepeat */
   pspCtrlSetPollingMode(PSP_CTRL_AUTOREPEAT);
 
@@ -607,7 +610,7 @@ static void psp_display_menu()
   if (!ExitPSP)
   {
     /* Set clock frequency during emulation */
-    pspSetClockFrequency(psp_options.clock_freq);
+    pl_psp_set_clock_freq(psp_options.clock_freq);
     /* Set buttons to normal mode */
     pspCtrlSetPollingMode(PSP_CTRL_NORMAL);
 
@@ -635,12 +638,12 @@ int ui_event( void )
   }
 
   if (show_kybd_held)
-    pspKybdNavigate(KeyLayout, &psp_pad_status);
+    pl_vk_navigate(&vk_spectrum, &psp_pad_status);
 
 #ifdef PSP_DEBUG
   if ((psp_pad_status.Buttons & (PSP_CTRL_SELECT | PSP_CTRL_START))
     == (PSP_CTRL_SELECT | PSP_CTRL_START))
-      pspUtilSaveVramSeq(psp_screenshot_path, "game");
+      pl_util_save_vram_seq(psp_screenshot_path, "game");
 #endif
   /* Parse input */
   psp_ctrl_mask_to_index_map_t *current_mapping = physical_to_emulated_button_map;
@@ -665,7 +668,7 @@ int ui_event( void )
       case SPC_KYBD:
         if (show_kybd_held != on)
         {
-          if (on) pspKybdReinit(KeyLayout);
+          if (on) pl_vk_reinit(&vk_spectrum);
           else
           {
             clear_screen = 1;
@@ -693,7 +696,7 @@ int ui_end( void )
   pspMenuDestroy(ControlUiMenu.Menu);
 
   /* Destroy keyboard */
-  pspKybdDestroyLayout(KeyLayout);
+  pl_vk_destroy(&vk_spectrum);
 
   psp_save_options();
 
@@ -757,7 +760,7 @@ static void psp_display_state_tab()
       else
       {
         /* Determine the latest save state */
-        if (pspUtilCompareDates(&latest, &stat.st_mtime) < 0)
+        if (pl_util_date_compare(&latest, &stat.st_mtime) < 0)
         {
           sel = item;
           latest = stat.st_mtime;
@@ -868,67 +871,61 @@ static PspImage* psp_save_state(const char *path, PspImage *icon)
 static void psp_load_options()
 {
   char path[PSP_FILE_MAX_PATH_LEN];
-  snprintf(path, PSP_FILE_MAX_PATH_LEN-1, "%s%s", pspGetAppDirectory(), "options.ini");
+  snprintf(path, PSP_FILE_MAX_PATH_LEN-1, "%s%s", pl_psp_get_app_directory(), "options.ini");
 
-  /* Initialize INI structure */
-  PspInit *init = pspInitCreate();
+  /* Load INI */
+  pl_ini_file file;
+  pl_ini_load(&file, path);
 
-  /* Read the file */
-  pspInitLoad(init, path);
-
-  /* Load values */
-  psp_options.display_mode = pspInitGetInt(init, "Video", "Display Mode", 
-                                           DISPLAY_MODE_UNSCALED);
-  psp_options.limit_frames = pspInitGetInt(init, "Video", "Frame Limiter", 1);
-  psp_options.clock_freq = pspInitGetInt(init, "Video", "PSP Clock Frequency", 222);
-  psp_options.show_fps = pspInitGetInt(init, "Video", "Show FPS", 0);
-  psp_options.show_border = pspInitGetInt(init, "Video", "Show Border", 1);
-  psp_options.control_mode = pspInitGetInt(init, "Menu", "Control Mode", 0);
-  psp_options.animate_menu = pspInitGetInt(init, "Menu", "Animate", 1);
-  psp_options.machine = pspInitGetInt(init, "System", "Current Machine", 
+  psp_options.display_mode = pl_ini_get_int(&file, "Video", "Display Mode", 
+                                            DISPLAY_MODE_UNSCALED);
+  psp_options.limit_frames = pl_ini_get_int(&file, "Video", "Frame Limiter", 1);
+  psp_options.clock_freq = pl_ini_get_int(&file, "Video", "PSP Clock Frequency", 222);
+  psp_options.show_fps = pl_ini_get_int(&file, "Video", "Show FPS", 0);
+  psp_options.show_border = pl_ini_get_int(&file, "Video", "Show Border", 1);
+  psp_options.control_mode = pl_ini_get_int(&file, "Menu", "Control Mode", 0);
+  psp_options.animate_menu = pl_ini_get_int(&file, "Menu", "Animate", 1);
+  psp_options.machine = pl_ini_get_int(&file, "System", "Current Machine", 
                                       LIBSPECTRUM_MACHINE_48);
-  psp_options.autoload_slot = pspInitGetInt(init, "System", "Autoload Slot", 9);
-  pspInitGetStringCopy(init, "File", "Game Path", NULL, 
-                       psp_game_path, PSP_FILE_MAX_PATH_LEN-1);
+  psp_options.autoload_slot = pl_ini_get_int(&file, "System", "Autoload Slot", 9);
+  pl_ini_get_string(&file, "File", "Game Path", NULL, 
+                    psp_game_path, PSP_FILE_MAX_PATH_LEN-1);
 
   /* Clean up */
-  pspInitDestroy(init);
+  pl_ini_destroy(&file);
 }
 
 static int psp_save_options()
 {
   char path[PSP_FILE_MAX_PATH_LEN];
-  snprintf(path, PSP_FILE_MAX_PATH_LEN-1, "%s%s", pspGetAppDirectory(), "options.ini");
+  snprintf(path, PSP_FILE_MAX_PATH_LEN-1, "%s%s", pl_psp_get_app_directory(), "options.ini");
 
   /* Initialize INI structure */
-  PspInit *init = pspInitCreate();
+  pl_ini_file file;
+  pl_ini_create(&file);
+  pl_ini_set_int(&file, "Video", "Display Mode", 
+                 psp_options.display_mode);
+  pl_ini_set_int(&file, "Video", "Frame Limiter", 
+                 psp_options.limit_frames);
+  pl_ini_set_int(&file, "Video", "PSP Clock Frequency", 
+                 psp_options.clock_freq);
+  pl_ini_set_int(&file, "Video", "Show FPS", 
+                 psp_options.show_fps);
+  pl_ini_set_int(&file, "Video", "Show Border", 
+                 psp_options.show_border);
+  pl_ini_set_int(&file, "Menu", "Control Mode", 
+                 psp_options.control_mode);
+  pl_ini_set_int(&file, "Menu", "Animate", 
+                 psp_options.animate_menu);
+  pl_ini_set_int(&file, "System", "Current Machine", 
+                 machine_current->machine);
+  pl_ini_set_int(&file, "System", "Autoload Slot", 
+                 psp_options.autoload_slot);
+  pl_ini_set_string(&file, "File", "Game Path",
+                    psp_game_path);
 
-  /* Set values */
-  pspInitSetInt(init, "Video", "Display Mode", 
-                      psp_options.display_mode);
-  pspInitSetInt(init, "Video", "Frame Limiter", 
-                      psp_options.limit_frames);
-  pspInitSetInt(init, "Video", "PSP Clock Frequency", 
-                      psp_options.clock_freq);
-  pspInitSetInt(init, "Video", "Show FPS", 
-                      psp_options.show_fps);
-  pspInitSetInt(init, "Video", "Show Border", 
-                      psp_options.show_border);
-  pspInitSetInt(init, "Menu", "Control Mode", 
-                      psp_options.control_mode);
-  pspInitSetInt(init, "Menu", "Animate", 
-                      psp_options.animate_menu);
-  pspInitSetString(init, "File", "Game Path", psp_game_path);
-  pspInitSetInt(init, "System", "Current Machine", 
-                      machine_current->machine);
-  pspInitSetInt(init, "System", "Autoload Slot", 
-                      psp_options.autoload_slot);
-
-  /* Save INI file */
-  int status = pspInitSave(init, path);
-
-  /* Clean up */
-  pspInitDestroy(init);
+  int status = pl_ini_save(&file, path);
+  pl_ini_destroy(&file);
 
   return status;
 }
@@ -1117,7 +1114,7 @@ static int OnGenericButtonPress(const PspUiFileBrowser *browser,
   else if ((button_mask & (PSP_CTRL_START | PSP_CTRL_SELECT)) 
     == (PSP_CTRL_START | PSP_CTRL_SELECT))
   {
-    if (pspUtilSaveVramSeq(psp_screenshot_path, "UI"))
+    if (pl_util_save_vram_seq(psp_screenshot_path, "UI"))
       pspUiAlert("Saved successfully");
     else
       pspUiAlert("ERROR: Not saved");
@@ -1194,9 +1191,9 @@ static int OnMenuOk(const void *uimenu, const void* sel_item)
       break;
     case SYSTEM_SCRNSHOT:
       /* Save screenshot */
-      if (!pspUtilSavePngSeq(psp_screenshot_path, (GAME_LOADED)
-                               ? pspFileGetFilename(psp_current_game) : "BASIC",
-                             Screen))
+      if (!pl_util_save_image_seq(psp_screenshot_path, (GAME_LOADED)
+                                  ? pspFileGetFilename(psp_current_game) : "BASIC",
+                                  Screen))
         pspUiAlert("ERROR: Screenshot not saved");
       else
         pspUiAlert("Screenshot saved successfully");
@@ -1566,7 +1563,7 @@ int main(int argc, char *argv[])
 
   /* Release PSP resources */
   pspAudioShutdown();
-  pspShutdown();
+  pl_psp_shutdown();
 
   return(0);
 }

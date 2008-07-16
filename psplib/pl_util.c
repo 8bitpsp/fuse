@@ -1,6 +1,6 @@
 /** PSP helper library ***************************************/
 /**                                                         **/
-/**                         util.c                          **/
+/**                      pl_util.c                          **/
 /**                                                         **/
 /** This file contains various utility routines             **/
 /**                                                         **/
@@ -14,49 +14,57 @@
 /**  Dr. Dobb's Journal, May 1992, pp. 64-67.               **/
 /*************************************************************/
 
-#include "util.h"
+#include "pl_util.h"
 
 #include <string.h>
 #include <malloc.h>
 #include <stdio.h>
+#include <pspkernel.h>
+#include <psprtc.h>
 
 #include "file.h"
 #include "video.h"
 
 #define CRC_BUFFER_SIZE  8192
 
-int pspUtilSavePngSeq(const char *path, const char *filename, const PspImage *image)
+static uint32_t compute_buffer_crc(uint32_t inCrc32,
+                                   const void *buf,
+                                   size_t bufLen);
+
+int pl_util_save_image_seq(const char *path,
+                           const char *filename,
+                           const PspImage *image)
 {
-  char *full_path;
-
-  /* Allocate enough space for the file path */
-  if (!(full_path = (char*)malloc(sizeof(char) * (strlen(path) + strlen(filename) + 10))))
-    return 0;
-
   /* Loop until first free screenshot slot is found */
   int i = 0;
+  char full_path[PSP_FILE_MAX_PATH_LEN];
   do
   {
-    sprintf(full_path, "%s%s-%02i.png", path, filename, i);
+    snprintf(full_path, PSP_FILE_MAX_PATH_LEN - 1,
+             "%s%s-%02i.png",
+             path, filename, i);
   } while (pspFileCheckIfExists(full_path) && ++i < 100);
 
   /* Save the screenshot */
   return pspImageSavePng(full_path, image);
 }
 
-int pspUtilSaveVramSeq(const char *path, const char *filename)
+int pl_util_save_vram_seq(const char *path, 
+                          const char *filename)
 {
   PspImage* vram = pspVideoGetVramBufferCopy();
   if (!vram) return 0;
 
-  int exit_code = pspUtilSavePngSeq(path, filename, vram);
+  int exit_code = pl_util_save_image_seq(path, 
+                                         filename, 
+                                         vram);
   pspImageDestroy(vram);
 
   return exit_code;
 }
 
-int pspUtilCompareDates(const ScePspDateTime *date1,
-                        const ScePspDateTime *date2)
+int pl_util_date_compare(const ScePspDateTime *date1,
+                         const ScePspDateTime *date2)
 {
   if (date1->year != date2->year) 
     return date1->year - date2->year;
@@ -73,19 +81,32 @@ int pspUtilCompareDates(const ScePspDateTime *date1,
   return 0;
 }
 
-int pspUtilComputeFileCrc(const char *path, unsigned long *outCrc32)
+int pl_util_compute_crc32_buffer(const void *buf,
+                                 size_t buf_len,
+                                 uint32_t *crc_32)
+{
+  *crc_32 = compute_buffer_crc(0,
+                               buf,
+                               buf_len);
+  return 1;
+}
+
+
+int pl_util_compute_crc32_file(const char *path,
+                               uint32_t *outCrc32)
 {
   FILE *file;
   if (!(file = fopen(path, "r")))
     return 0;
 
-  int status = pspUtilComputeOpenFileCrc(file, outCrc32);
+  int status = pl_util_compute_crc32_fd(file, outCrc32);
   fclose(file);
 
   return status;
 }
 
-int pspUtilComputeOpenFileCrc(FILE *file, unsigned long *outCrc32)
+int pl_util_compute_crc32_fd(FILE *file,
+                             uint32_t *outCrc32)
 {
   unsigned char buf[CRC_BUFFER_SIZE];
   size_t bufLen;
@@ -100,13 +121,14 @@ int pspUtilComputeOpenFileCrc(FILE *file, unsigned long *outCrc32)
             return -1;
           break;
       }
-      *outCrc32 = pspUtilComputeMemCrc(*outCrc32, buf, bufLen);
+      *outCrc32 = compute_buffer_crc(*outCrc32, buf, bufLen);
   }
 
   return 0;
 }
 
-unsigned long pspUtilComputeMemCrc(unsigned long inCrc32, const void *buf,
+static uint32_t compute_buffer_crc(uint32_t inCrc32,
+                                   const void *buf,
                                    size_t bufLen)
 {
   static const unsigned long crcTable[256] = {
@@ -158,4 +180,3 @@ unsigned long pspUtilComputeMemCrc(unsigned long inCrc32, const void *buf,
     crc32 = (crc32 >> 8) ^ crcTable[ (crc32 ^ byteBuf[i]) & 0xFF ];
   return( crc32 ^ 0xFFFFFFFF );
 }
-

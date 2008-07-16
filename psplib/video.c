@@ -48,6 +48,7 @@ struct TexVertex
   short x, y, z;
 };
 
+static u8 FrameIndex;
 static void *DisplayBuffer;
 static void *DrawBuffer;
 static int   PixelFormat;
@@ -68,6 +69,7 @@ void pspVideoInit()
   PixelFormat = GU_PSM_5551;
   TexColor = GU_COLOR_5551;
   VramOffset = 0;
+  FrameIndex = 0;
   VramChunkOffset = (void*)0x44088000;
 //  ScratchBufferSize = sizeof(unsigned short) * BUF_WIDTH * SCR_HEIGHT;
 //  ScratchBuffer = pspVideoAllocateVramChunk(ScratchBufferSize); //;memalign(16, ScratchBufferSize);
@@ -277,35 +279,10 @@ void pspVideoPutImage(const PspImage *image, int dx, int dy, int dw, int dh)
   sceGuScissor(0, 0, SCR_WIDTH, SCR_HEIGHT);
 }
 
-#define THUMB_RGBMASK2 0x1CE7 // = 0BBBBBGGGGGRRRRR0BBBBBGGGGGRRRRR = 00011100111001110001110011100111B
-
-void pspVideoPutImageAlphaSlow(const PspImage *image, int dx, int dy)
-{
-  unsigned short
-    *vram_pos,
-    *vram_start = (u16*)((u8*)VRAM_START + 0x40000000),
-    *image_pos;
-  uint32_t color;
-
-  sceKernelDcacheWritebackAll();
-
-  int ii, ij, vi, vj;
-  for (ii = 0, vi = dy; ii < image->Viewport.Height; ii++, vi++)
-    for (ij = 0, vj = dx; ij < image->Viewport.Width; ij++, vj++)
-    {
-      vram_pos =  vram_start + (vi * BUF_WIDTH + vj);
-      image_pos = image->Pixels + (ii * image->Width + ij);
-
-//      color = (*image_pos >> 2) & THUMB_RGBMASK2;
-//      *vram_pos = ((*vram_pos >> 2) & THUMB_RGBMASK2) + color + color + color;
-      color = *image_pos & THUMB_RGBMASK2;
-      *vram_pos = (*vram_pos & THUMB_RGBMASK2) + color + color + color;
-    }
-}
-
 void pspVideoSwapBuffers()
 {
   VramOffset = sceGuSwapBuffers();
+  FrameIndex = !FrameIndex;
 }
 
 void pspVideoShutdown()

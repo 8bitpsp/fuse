@@ -9,7 +9,7 @@
 #include "sound.h"
 #include "ui/ui.h"
 
-sfifo_t sound_fifo;
+static sfifo_t sound_fifo;
 #define NUM_FRAMES 2
 
 void psp_sound_pause();
