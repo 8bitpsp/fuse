@@ -23,257 +23,309 @@
 #include <string.h>
 
 #include "pl_menu.h"
-/*
-static void DestroyItem(PspMenuItem* item);
 
-PspMenu* pspMenuCreate()
+static void destroy_item(pl_menu_item *item);
+static pl_menu_item* find_last_item(const pl_menu *menu);
+
+int pl_menu_create(pl_menu *menu,
+                   const pl_menu_def *def)
 {
-  PspMenu* menu = (PspMenu*)malloc(sizeof(PspMenu));
+  menu->items = NULL;
+  menu->selected = NULL;
 
-  menu->Count = 0;
-  menu->First = NULL;
-  menu->Last = NULL;
-  menu->Selected = NULL;
+  /* No definition; nothing to do */
+  if (!def)
+    return 1;
 
-  return menu;
-}
+  pl_menu_item *item;
 
-void pspMenuClear(PspMenu *menu)
-{
-  PspMenuItem *item, *next;
-
-  for (item = menu->First; item; item = next)
+  /* Initialize menu */
+  for (; def->id || def->caption; def++)
   {
-    next = item->Next;
-    DestroyItem(item);
+    /* Append the item */
+    item = pl_menu_append_item(menu,
+                               def->id,
+                               def->caption);
+
+    if (item)
+    {
+      /* Add the options */
+      if (def->options)
+      {
+        const pl_menu_option_def *option_def;
+        for (option_def = def->options; option_def->text; option_def++)
+          pl_menu_append_option(item,
+                                option_def->text,
+                                option_def->value, 0);
+      }
+
+      /* Set help text */
+      item->help_text = (def->help_text)
+                        ? strdup(def->help_text) : NULL;
+    }
   }
 
-  menu->Count = 0;
-  menu->First = NULL;
-  menu->Last = NULL;
-  menu->Selected = NULL;
+  return 1;
 }
 
-void pspMenuDestroy(PspMenu* menu)
+void pl_menu_destroy(pl_menu *menu)
 {
-  pspMenuClear(menu);
-  free(menu);
+  pl_menu_clear_items(menu);
 }
 
-void pspMenuLoad(PspMenu *menu, const PspMenuItemDef *def)
+void pl_menu_clear_items(pl_menu *menu)
 {
-  PspMenuItem *item;
-  const PspMenuOptionDef *option_def;
+  pl_menu_item *item, *next;
 
-  /* If the menu is already loaded, clear it *
-  if (menu->First) pspMenuClear(menu);
-
-  /* Initialize menu *
-  for (; def->ID || def->Caption; def++)
+  for (item = menu->items; item; item = next)
   {
-    /* Append the item *
-    item = pspMenuAppendItem(menu, def->Caption, def->ID);
-
-    /* Add the options *
-    if (def->OptionList)
-      for (option_def = def->OptionList; option_def->Text; option_def++)
-        pspMenuAppendOption(item, option_def->Text, option_def->Value, 0);
-
-    /* Select proper option *
-    if (def->SelectedIndex >= 0)
-      pspMenuSelectOptionByIndex(item, def->SelectedIndex);
-
-    /* Set help text *
-    item->HelpText = (def->HelpText) ? strdup(def->HelpText) : NULL;
+    next = item->next;
+    destroy_item(item);
   }
+
+  menu->items = NULL;
+  menu->selected = NULL;
 }
 
-PspMenuOption* pspMenuAppendOption(PspMenuItem *item, 
-  const char *text, 
-  const void *value, 
-  int select)
+int pl_menu_destroy_item(pl_menu *menu,
+                         pl_menu_item *which)
 {
-  PspMenuOption *option, *o;
+  pl_menu_item *item;
+  int found = 0;
 
-  if (!(option=(PspMenuOption*)malloc(sizeof(PspMenuOption))))
-    return NULL;
+  /* Make sure the item is in the menu */
+  for (item = menu->items; item; item = item->next)
+    if (item == which)
+    { found = 1; break; }
+  if (!found) return 0;
 
-  if (!(option->Text=strdup(text)))
-  {
-    free(option);
-    return NULL;
-  }
-
-  option->Value=value;
-  option->Next=NULL;
-
-  if (item->Options)
-  {
-    for (o=item->Options; o->Next; o=o->Next);
-    o->Next=option;
-    option->Prev=o;
-  }
+  /* Redirect pointers */
+  if (item->prev)
+    item->prev->next = item->next;
   else
+    menu->items = item->next;
+
+  if (item->next)
+    item->next->prev = item->prev;
+
+  if (menu->selected == item)
+    menu->selected = item->next;
+
+  /* Destroy the item */
+  destroy_item(item);
+
+  return 1;
+}
+
+static void destroy_item(pl_menu_item *item)
+{
+  if (item->caption)
+    free(item->caption);
+  if (item->help_text)
+    free(item->help_text);
+
+  pl_menu_clear_options(item);
+  free(item);
+}
+
+void pl_menu_clear_options(pl_menu_item *item)
+{
+  pl_menu_option *option, *next;
+
+  for (option = item->options; option; option = next)
   {
-    item->Options=option;
-    option->Prev=NULL;
-  }
-
-  if (select) item->Selected=option;
-
-  return option;
-}
-
-void pspMenuSetCaption(PspMenuItem *item, const char *caption)
-{
-  if (item->Caption) free(item->Caption);
-  item->Caption = (caption) ? strdup(caption) : NULL;
-}
-
-void pspMenuSetHelpText(PspMenuItem *item, const char *helptext)
-{
-  if (item->HelpText) free(item->HelpText);
-  item->HelpText = (helptext) ? strdup(helptext) : NULL;
-}
-
-void pspMenuSelectOptionByValue(PspMenuItem *item, const void *value)
-{
-  PspMenuOption *option;
-
-  for (option = item->Options; option; option = option->Next)
-    if (option->Value == value) { item->Selected = option; break; }
-}
-
-void pspMenuSelectOptionByIndex(PspMenuItem *item, int index)
-{
-  PspMenuOption *option;
-  int i;
-
-  for (i = 0, option = item->Options; i <= index && option; i++, option = option->Next)
-    if (i == index) { item->Selected = option; break; }
-}
-
-void pspMenuModifyOption(PspMenuOption *option, const char *text, const void *value)
-{
-  free(option->Text);
-
-  option->Text=NULL;
-  option->Value=value;
-
-  if (!(option->Text=strdup(text)))
-    return;
-}
-
-void pspMenuClearOptions(PspMenuItem *item)
-{
-  PspMenuOption *option, *next;
-
-  for (option=item->Options; option; option=next)
-  {
-    next=option->Next;
-    free(option->Text);
+    next = option->next;
+    free(option->text);
     free(option);
   }
 
-  item->Selected=NULL;
-  item->Options=NULL;
+  item->selected = NULL;
+  item->options = NULL;
 }
 
-PspMenuItem* pspMenuFindItemById(PspMenu *menu, unsigned int id)
+pl_menu_item* find_last_item(const pl_menu *menu)
 {
-  PspMenuItem *item;
-  for (item=menu->First; item; item=item->Next)
-    if (item->ID == id)
-      return item;
+  if (!menu->items)
+    return NULL;
 
-  return NULL;
+  pl_menu_item *item;
+  for (item = menu->items; item->next; item = item->next);
+
+  return item;
 }
 
-PspMenuItem* pspMenuGetNthItem(PspMenu *menu, int index)
+pl_menu_item* pl_menu_append_item(pl_menu *menu,
+                                  unsigned int id,
+                                  const char *caption)
 {
-  PspMenuItem *item;
-  int i;
-
-  for (item=menu->First, i=0; item; item=item->Next, i++)
-    if (i == index) 
-      return item;
-
-  return NULL;
-}
-
-PspMenuItem* pspMenuAppendItem(PspMenu *menu, const char *caption, 
-  unsigned int id)
-{
-  PspMenuItem* item = (PspMenuItem*)malloc(sizeof(PspMenuItem));
-
+  pl_menu_item* item = (pl_menu_item*)malloc(sizeof(pl_menu_item));
   if (!item) return NULL;
 
-  if (caption)
+  if (!caption)
+    item->caption = NULL;
+  else
   {
-    if (!(item->Caption = strdup(caption)))
+    if (!(item->caption = strdup(caption)))
     {
       free(item);
       return NULL;
     }
   }
-  else item->Caption = NULL;
 
-  item->HelpText = NULL;
-  item->Icon = NULL;
-  item->ID = id;
-  item->Param = NULL;
-  item->Options = NULL;
-  item->Selected = NULL;
-  item->Next = NULL;
-  item->Prev = menu->Last;
-  menu->Count++;
+  pl_menu_item *last = find_last_item(menu);
+  item->help_text = NULL;
+  item->icon = NULL;
+  item->id = id;
+  item->param = NULL;
+  item->options = NULL;
+  item->selected = NULL;
+  item->next = NULL;
+  item->prev = last;
 
-  if (menu->Last)
-  {
-    menu->Last->Next = item;
-    menu->Last = item;
-  }
-  else menu->First = menu->Last = item;
+  if (last)
+    last->next = item;
+  else
+    menu->items = item;
 
   return item;
 }
 
-int pspMenuDestroyItem(PspMenu *menu, PspMenuItem *which)
+pl_menu_item* pl_menu_find_item_by_index(pl_menu *menu,
+                                         int index)
 {
-  PspMenuItem *item;
-  int found = 0;
+  pl_menu_item *item;
+  int i = 0;
 
-  /* Make sure the item is in the menu *
-  for (item = menu->First; item; item = item->Next)
-    if (item == which)
-    { found = 1; break; }
-  if (!found) return 0;
+  for (item = menu->items; item; item = item->next, i++)
+    if (i == index)
+      return item;
 
-  /* Redirect pointers *
-  if (item->Prev) item->Prev->Next = item->Next;
-  else menu->First = item->Next;
-  if (item->Next) item->Next->Prev = item->Prev;
-  else menu->Last = item->Prev;
-
-  if (menu->Selected == item) 
-    menu->Selected = item->Next;
-
-  /* Destroy the item *
-  DestroyItem(item);
-
-  /* Recompute stats *
-  menu->Count--;
-
-  return 1;
+  return NULL;
 }
 
-static void DestroyItem(PspMenuItem* item)
+pl_menu_item* pl_menu_find_item_by_id(pl_menu *menu,
+                                      unsigned int id)
 {
-  if (item->Caption) free(item->Caption);
-  if (item->HelpText) free(item->HelpText);
+  pl_menu_item *item;
+  for (item = menu->items; item; item = item->next)
+    if (item->id == id)
+      return item;
 
-  pspMenuClearOptions(item);
-
-  free(item);
+  return NULL;
 }
-*/
+
+pl_menu_option* pl_menu_append_option(pl_menu_item *item,
+                                      const char *text,
+                                      const void *value,
+                                      int select)
+{
+  pl_menu_option *option;
+  if (!(option = (pl_menu_option*)malloc(sizeof(pl_menu_option))))
+    return NULL;
+
+  if (!(option->text = strdup(text)))
+  {
+    free(option);
+    return NULL;
+  }
+
+  option->value = value;
+  option->next = NULL;
+
+  if (item->options)
+  {
+    pl_menu_option *last;
+    for (last = item->options; last->next; last = last->next);
+    last->next = option;
+    option->prev = last;
+  }
+  else
+  {
+    item->options = option;
+    option->prev = NULL;
+  }
+
+  if (select)
+    item->selected = option;
+
+  return option;
+}
+
+pl_menu_option* pl_menu_find_option_by_index(pl_menu_item *item,
+                                             int index)
+{
+  int i;
+  pl_menu_option *option;
+
+  for (i = 0, option = item->options;
+       option && (i <= index);
+       i++, option = option->next)
+    if (i == index)
+      return option;
+
+  return NULL;
+}
+
+pl_menu_option* pl_menu_select_option_by_index(pl_menu_item *item,
+                                               int index)
+{
+  pl_menu_option *option = pl_menu_find_option_by_index(item,
+                                                        index);
+  if (!option)
+    return NULL;
+
+  return (item->selected = option);
+}
+
+pl_menu_option* pl_menu_find_option_by_value(pl_menu_item *item,
+                                             const void *value)
+{
+  pl_menu_option *option;
+  for (option = item->options; option; option = option->next)
+    if (option->value == value)
+      return option;
+
+  return NULL;
+}
+
+pl_menu_option* pl_menu_select_option_by_value(pl_menu_item *item,
+                                               const void *value)
+{
+  pl_menu_option *option = pl_menu_find_option_by_value(item,
+                                                        value);
+  if (!option)
+    return NULL;
+
+  return (item->selected = option);
+}
+
+int pl_menu_update_option(pl_menu_option *option,
+                          const char *text,
+                          const void *value)
+{
+  if (option->text)
+    free(option->text);
+
+  option->text = (text) ? strdup(text) : NULL;
+  option->value = value;
+
+  return (!text || option->text);
+}
+
+int pl_menu_update_item_caption(pl_menu_item *item,
+                                const char *caption)
+{
+  if (item->caption)
+    free(item->caption);
+  item->caption = (caption) ? strdup(caption) : NULL;
+  return (!caption || item->caption);
+}
+
+int pl_menu_update_item_help_text(pl_menu_item *item,
+                                  const char *help_text)
+{
+  if (item->help_text)
+    free(item->help_text);
+  item->help_text = (help_text) ? strdup(help_text) : NULL;
+  return (!help_text || item->help_text);
+}

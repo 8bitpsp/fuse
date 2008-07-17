@@ -30,6 +30,8 @@ typedef struct pl_menu_option_t
 {
   char *text;
   const void *value;
+  struct pl_menu_option_t *prev;
+  struct pl_menu_option_t *next;
 } pl_menu_option;
 
 typedef struct pl_menu_item_t
@@ -41,6 +43,8 @@ typedef struct pl_menu_item_t
   char *help_text;
   struct pl_menu_option_t *selected;
   struct pl_menu_option_t *options;
+  struct pl_menu_item_t *prev;
+  struct pl_menu_item_t *next;
 } pl_menu_item;
 
 typedef struct pl_menu_t
@@ -67,100 +71,63 @@ typedef struct pl_menu_def_t
 #define PL_MENU_HEADER(text)  {0,"\t"text,NULL,NULL},
 #define PL_MENU_ITEM(id,caption,help,option_list) \
                               {id,caption,help,option_list},
-#define PL_MENU_END           {0,NULL,NULL,NULL}}
+#define PL_MENU_END           {0,NULL,NULL,NULL}};
 
-#define PL_MENU_BEGIN_OPTION(ident) pl_menu_option_def ident[] = {
+#define PL_MENU_OPTION_BEGIN(ident) pl_menu_option_def ident[] = {
 #define PL_MENU_OPTION(text,param) {text,(const void*)(param)},
-#define PL_MENU_END_OPTION {NULL,NULL}}
+#define PL_MENU_OPTION_END {NULL,NULL}};
 
+int
+  pl_menu_create(pl_menu *menu,
+                 const pl_menu_def *def);
+void
+  pl_menu_destroy(pl_menu *menu);
 
+void
+  pl_menu_clear_items(pl_menu *menu);
+pl_menu_item*
+  pl_menu_append_item(pl_menu *menu,
+                      unsigned int id,
+                      const char *caption);
+pl_menu_item*
+  pl_menu_find_item_by_index(pl_menu *menu,
+                             int index);
+pl_menu_item*
+  pl_menu_find_item_by_id(pl_menu *menu,
+                          unsigned int id);
+int
+  pl_menu_destroy_item(pl_menu *menu,
+                       pl_menu_item *which);
 
-PL_MENU_BEGIN_OPTION(options)
-PL_MENU_OPTION("foo", NULL)
-PL_MENU_OPTION("bar", NULL)
-PL_MENU_END_OPTION;
-
-PL_MENU_BEGIN(menu)
-PL_MENU_ITEM(1,"caption","tooltip",options)
-PL_MENU_END;
-PL_MENU_BEGIN(menu2)
-PL_MENU_ITEM(1,"caption","tooltip",options)
-PL_MENU_END;
-
-/*
-#define PL_MENU_HEADER(text)        { "\t"text, 0, NULL, -1, NULL }
-#define PL_MENU_ITEM(text, id, option_list, sel_index, help_text) \
-  { (text), (id), (option_list), (sel_index), (help_text) }
-#define PL_MENU_OPTION(text, value) { (text), (void*)(value) }
-#define PL_MENU_END_ITEMS           { NULL, 0 }
-#define PL_MENU_END_OPTIONS         { NULL, NULL }
-*/
-/*
-typedef struct pl_menu_option_t
-{
-  const void *value;
-  char *text;
-  struct pl_menu_option_t *next;
-  struct pl_menu_option_t *prev;
-} pl_menu_option;
-
-typedef struct pl_menu_item_t
-{
-  unsigned int id;
-  char *caption;
-  const void *icon;
-  const void *param;
-  struct pl_menu_option_t *options;
-  struct pl_menu_option_t *selected;
-  struct pl_menu_item_t *next;
-  struct pl_menu_item_t *prev;
-  char *help_text;
-} pl_menu_item;
-
-typedef struct pl_menu_t
-{
-  struct pl_menu_item_t *first;
-  struct pl_menu_item_t *last;
-  struct pl_menu_item_t *selected;
-  int count;
-} pl_menu;
-
-typedef struct PspMenuOptionDef
-{
-  const char *Text;
-  void *Value;
-} PspMenuOptionDef;
-
-typedef struct PspMenuItemDef
-{
-  const char *Caption;
-  unsigned int ID;
-  const PspMenuOptionDef *OptionList;
-  int   SelectedIndex;
-  const char *HelpText;
-} PspMenuItemDef;
-
-
-PspMenu*       pspMenuCreate();
-void           pspMenuLoad(PspMenu *menu, const PspMenuItemDef *def);
-void           pspMenuClear(PspMenu* menu);
-void           pspMenuDestroy(PspMenu* menu);
-PspMenuItem*   pspMenuAppendItem(PspMenu* menu, const char* caption, 
-  unsigned int id);
-int            pspMenuDestroyItem(PspMenu *menu, PspMenuItem *which);
-PspMenuOption* pspMenuAppendOption(PspMenuItem *item, const char *text, 
-  const void *value, int select);
-void           pspMenuSelectOptionByIndex(PspMenuItem *item, int index);
-void           pspMenuSelectOptionByValue(PspMenuItem *item, const void *value);
-void           pspMenuModifyOption(PspMenuOption *option, const char *text, 
-  const void *value);
-void           pspMenuClearOptions(PspMenuItem* item);
-PspMenuItem*   pspMenuGetNthItem(PspMenu *menu, int index);
-PspMenuItem*   pspMenuFindItemById(PspMenu *menu, unsigned int id);
-void           pspMenuSetCaption(PspMenuItem *item, const char *caption);
-void           pspMenuSetHelpText(PspMenuItem *item, const char *helptext);
-
-*/
+void
+  pl_menu_clear_options(pl_menu_item *item);
+pl_menu_option*
+  pl_menu_append_option(pl_menu_item *item,
+                        const char *text,
+                        const void *value,
+                        int select);
+pl_menu_option*
+  pl_menu_find_option_by_index(pl_menu_item *item,
+                               int index);
+pl_menu_option*
+  pl_menu_find_option_by_value(pl_menu_item *item,
+                               const void *value);
+pl_menu_option*
+  pl_menu_select_option_by_index(pl_menu_item *item,
+                                 int index);
+pl_menu_option*
+  pl_menu_select_option_by_value(pl_menu_item *item,
+                                 const void *value);
+int
+  pl_menu_update_option(pl_menu_option *option,
+                        const char *text,
+                        const void *value);
+int
+  pl_menu_update_item_caption(pl_menu_item *item,
+                              const char *caption);
+int
+  pl_menu_update_item_help_text(pl_menu_item *item,
+                                const char *help_text);
 
 #ifdef __cplusplus
 }
