@@ -67,15 +67,15 @@ typedef struct pl_menu_def_t
   pl_menu_option_def *options;
 } pl_menu_def;
 
-#define PL_MENU_BEGIN(ident)  pl_menu_def ident[] = {
+#define PL_MENU_ITEMS_BEGIN(ident)  pl_menu_def ident[] = {
 #define PL_MENU_HEADER(text)  {0,"\t"text,NULL,NULL},
 #define PL_MENU_ITEM(id,caption,help,option_list) \
                               {id,caption,help,option_list},
-#define PL_MENU_END           {0,NULL,NULL,NULL}};
+#define PL_MENU_ITEMS_END           {0,NULL,NULL,NULL}};
 
-#define PL_MENU_OPTION_BEGIN(ident) pl_menu_option_def ident[] = {
+#define PL_MENU_OPTIONS_BEGIN(ident) pl_menu_option_def ident[] = {
 #define PL_MENU_OPTION(text,param) {text,(const void*)(param)},
-#define PL_MENU_OPTION_END {NULL,NULL}};
+#define PL_MENU_OPTIONS_END {NULL,NULL}};
 
 int
   pl_menu_create(pl_menu *menu,
