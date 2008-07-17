@@ -23,7 +23,7 @@
 #define _PSP_UI_H
 
 #include "video.h"
-#include "menu.h"
+#include "pl_menu.h"
 #include "adhoc.h"
 
 #ifdef __cplusplus
@@ -82,23 +82,23 @@ typedef struct PspUiFileBrowser
 
 typedef struct PspUiMenu
 {
-  PspMenu *Menu;
+  pl_menu *Menu;
   void (*OnRender)(const void *uimenu, const void *item);
   int  (*OnOk)(const void *menu, const void *item);
   int  (*OnCancel)(const void *menu, const void *item);
-  int  (*OnButtonPress)(const struct PspUiMenu *menu, PspMenuItem* item, 
+  int  (*OnButtonPress)(const struct PspUiMenu *menu, pl_menu_item *item, 
          u32 button_mask);
-  int  (*OnItemChanged)(const struct PspUiMenu *menu, PspMenuItem* item, 
-         const PspMenuOption* option);
+  int  (*OnItemChanged)(const struct PspUiMenu *menu, pl_menu_item *item, 
+         const pl_menu_option *option);
 } PspUiMenu;
 
 typedef struct PspUiGallery
 {
-  PspMenu *Menu;
+  pl_menu *Menu;
   void (*OnRender)(const void *gallery, const void *item);
   int  (*OnOk)(const void *gallery, const void *item);
   int  (*OnCancel)(const void *gallery, const void *item);
-  int  (*OnButtonPress)(const struct PspUiGallery *gallery, PspMenuItem* item, 
+  int  (*OnButtonPress)(const struct PspUiGallery *gallery, pl_menu_item* item, 
           u32 button_mask);
   void *Userdata;
 } PspUiGallery;
@@ -131,7 +131,7 @@ int  pspUiConfirm(const char *message);
 int  pspUiYesNoCancel(const char *message);
 void pspUiAlert(const char *message);
 void pspUiFlashMessage(const char *message);
-const PspMenuItem* pspUiSelect(const char *title, const PspMenu *menu);
+const pl_menu_item* pspUiSelect(const char *title, const pl_menu *menu);
 
 void pspUiFadeout();
 

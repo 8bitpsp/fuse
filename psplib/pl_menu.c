@@ -24,8 +24,12 @@
 
 #include "pl_menu.h"
 
-static void destroy_item(pl_menu_item *item);
-static pl_menu_item* find_last_item(const pl_menu *menu);
+static void
+  destroy_item(pl_menu_item *item);
+static pl_menu_item*
+  find_last_item(const pl_menu *menu);
+static pl_menu_option*
+  find_last_option(const pl_menu_item *item);
 
 int pl_menu_create(pl_menu *menu,
                    const pl_menu_def *def)
@@ -87,8 +91,8 @@ void pl_menu_clear_items(pl_menu *menu)
   menu->selected = NULL;
 }
 
-int pl_menu_destroy_item(pl_menu *menu,
-                         pl_menu_item *which)
+int pl_menu_remove_item(pl_menu *menu,
+                        pl_menu_item *which)
 {
   pl_menu_item *item;
   int found = 0;
@@ -143,7 +147,7 @@ void pl_menu_clear_options(pl_menu_item *item)
   item->options = NULL;
 }
 
-pl_menu_item* find_last_item(const pl_menu *menu)
+static pl_menu_item* find_last_item(const pl_menu *menu)
 {
   if (!menu->items)
     return NULL;
@@ -152,6 +156,17 @@ pl_menu_item* find_last_item(const pl_menu *menu)
   for (item = menu->items; item->next; item = item->next);
 
   return item;
+}
+
+static pl_menu_option* find_last_option(const pl_menu_item *item)
+{
+  if (!item->options)
+    return NULL;
+
+  pl_menu_option *option;
+  for (option = item->options; option->next; option = option->next);
+
+  return option;
 }
 
 pl_menu_item* pl_menu_append_item(pl_menu *menu,
@@ -174,7 +189,6 @@ pl_menu_item* pl_menu_append_item(pl_menu *menu,
 
   pl_menu_item *last = find_last_item(menu);
   item->help_text = NULL;
-  item->icon = NULL;
   item->id = id;
   item->param = NULL;
   item->options = NULL;
@@ -190,7 +204,7 @@ pl_menu_item* pl_menu_append_item(pl_menu *menu,
   return item;
 }
 
-pl_menu_item* pl_menu_find_item_by_index(pl_menu *menu,
+pl_menu_item* pl_menu_find_item_by_index(const pl_menu *menu,
                                          int index)
 {
   pl_menu_item *item;
@@ -203,7 +217,7 @@ pl_menu_item* pl_menu_find_item_by_index(pl_menu *menu,
   return NULL;
 }
 
-pl_menu_item* pl_menu_find_item_by_id(pl_menu *menu,
+pl_menu_item* pl_menu_find_item_by_id(const pl_menu *menu,
                                       unsigned int id)
 {
   pl_menu_item *item;
@@ -212,6 +226,14 @@ pl_menu_item* pl_menu_find_item_by_id(pl_menu *menu,
       return item;
 
   return NULL;
+}
+
+int pl_menu_get_item_count(const pl_menu *menu)
+{
+  int i = 0;
+  pl_menu_item *item = menu->items;
+  for (; item; item = item->next) i++;
+  return i;
 }
 
 pl_menu_option* pl_menu_append_option(pl_menu_item *item,
@@ -234,8 +256,7 @@ pl_menu_option* pl_menu_append_option(pl_menu_item *item,
 
   if (item->options)
   {
-    pl_menu_option *last;
-    for (last = item->options; last->next; last = last->next);
+    pl_menu_option *last = find_last_option(item);
     last->next = option;
     option->prev = last;
   }
@@ -251,7 +272,7 @@ pl_menu_option* pl_menu_append_option(pl_menu_item *item,
   return option;
 }
 
-pl_menu_option* pl_menu_find_option_by_index(pl_menu_item *item,
+pl_menu_option* pl_menu_find_option_by_index(const pl_menu_item *item,
                                              int index)
 {
   int i;
@@ -266,6 +287,17 @@ pl_menu_option* pl_menu_find_option_by_index(pl_menu_item *item,
   return NULL;
 }
 
+pl_menu_option* pl_menu_find_option_by_value(const pl_menu_item *item,
+                                             const void *value)
+{
+  pl_menu_option *option;
+  for (option = item->options; option; option = option->next)
+    if (option->value == value)
+      return option;
+
+  return NULL;
+}
+
 pl_menu_option* pl_menu_select_option_by_index(pl_menu_item *item,
                                                int index)
 {
@@ -275,17 +307,6 @@ pl_menu_option* pl_menu_select_option_by_index(pl_menu_item *item,
     return NULL;
 
   return (item->selected = option);
-}
-
-pl_menu_option* pl_menu_find_option_by_value(pl_menu_item *item,
-                                             const void *value)
-{
-  pl_menu_option *option;
-  for (option = item->options; option; option = option->next)
-    if (option->value == value)
-      return option;
-
-  return NULL;
 }
 
 pl_menu_option* pl_menu_select_option_by_value(pl_menu_item *item,

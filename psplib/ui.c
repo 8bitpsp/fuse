@@ -81,7 +81,7 @@ struct UiPos
 {
   int Index;
   int Offset;
-  const PspMenuItem *Top;
+  const pl_menu_item *Top;
 };
 
 struct AdhocMatchEvent
@@ -609,11 +609,10 @@ void pspUiFlashMessage(const char *message)
 
 void pspUiOpenBrowser(PspUiFileBrowser *browser, const char *start_path)
 {
-  PspMenu *menu;
   PspFile *file;
   PspFileList *list;
-  const PspMenuItem *sel, *last_sel;
-  PspMenuItem *item;
+  const pl_menu_item *sel, *last_sel;
+  pl_menu_item *item;
   SceCtrlData pad;
   char *instructions[BROWSER_TEMPLATE_COUNT];
 
@@ -643,7 +642,8 @@ void pspUiOpenBrowser(PspUiFileBrowser *browser, const char *start_path)
   w = dx - sx - UiMetric.ScrollbarWidth;
   h = dy - sy;
 
-  menu = pspMenuCreate();
+  pl_menu menu;
+  pl_menu_create(&menu, NULL);
 
   memset(call_list, 0, sizeof(call_list));
 
@@ -654,7 +654,7 @@ void pspUiOpenBrowser(PspUiFileBrowser *browser, const char *start_path)
   {
     sel = last_sel = NULL;
     pos.Top = NULL;
-    pspMenuClear(menu);
+    pl_menu_clear_items(&menu);
 
     /* Load list of files for the selected path */
     if ((list = pspFileGetFileList(cur_path, browser->Filter)))
@@ -662,8 +662,8 @@ void pspUiOpenBrowser(PspUiFileBrowser *browser, const char *start_path)
       /* Check for a parent path, prepend .. if necessary */
       if ((hasparent =! pspFileIsRootDirectory(cur_path)))
       {
-        item = pspMenuAppendItem(menu, "..", 0);
-        item->Param = (void*)PSP_FILE_DIR;
+        item = pl_menu_append_item(&menu, 0, "..");
+        item->param = (void*)PSP_FILE_DIR;
       }
 
       /* Add a menu item for each file */
@@ -673,8 +673,8 @@ void pspUiOpenBrowser(PspUiFileBrowser *browser, const char *start_path)
         if (file->Name && file->Name[0] == '.')
           continue;
 
-        item = pspMenuAppendItem(menu, file->Name, 0);
-        item->Param = (void*)file->Attrs;
+        item = pl_menu_append_item(&menu, 0, file->Name);
+        item->param = (void*)file->Attrs;
 
         if (cur_file && strcmp(file->Name, cur_file) == 0)
           sel = item;
@@ -690,34 +690,36 @@ void pspUiOpenBrowser(PspUiFileBrowser *browser, const char *start_path)
       /* Check for a parent path, prepend .. if necessary */
       if ((hasparent =! pspFileIsRootDirectory(cur_path)))
       {
-        item = pspMenuAppendItem(menu, "..", 0);
-        item->Param = (void*)PSP_FILE_DIR;
+        item = pl_menu_append_item(&menu, 0, "..");
+        item->param = (void*)PSP_FILE_DIR;
       }
     }
 
     /* Initialize variables */
     lnmax = (dy - sy) / fh;
     lnhalf = lnmax >> 1;
-    sbh = (menu->Count > lnmax) ? (int)((float)h * ((float)lnmax / (float)menu->Count)) : 0;
+    int item_count = pl_menu_get_item_count(&menu);
+    sbh = (item_count > lnmax) 
+          ? (int)((float)h * ((float)lnmax / (float)item_count)) : 0;
 
     pos.Index = pos.Offset = 0;
 
     if (!sel) 
     { 
       /* Select the first file/dir in the directory */
-      if (menu->First && menu->First->Next)
-        sel=menu->First->Next;
-      else if (menu->First)
-        sel=menu->First;
+      if (menu.items && menu.items->next)
+        sel=menu.items->next;
+      else if (menu.items)
+        sel=menu.items;
     }
 
     /* Compute index and offset of selected file */
     if (sel)
     {
-      pos.Top = menu->First;
-      for (item = menu->First; item != sel; item = item->Next)
+      pos.Top = menu.items;
+      for (item = menu.items; item != sel; item = item->next)
       {
-        if (pos.Index + 1 >= lnmax) { pos.Offset++; pos.Top=pos.Top->Next; } 
+        if (pos.Index + 1 >= lnmax) { pos.Offset++; pos.Top=pos.Top->next; } 
         else pos.Index++;
       }
     }
@@ -735,46 +737,46 @@ void pspUiOpenBrowser(PspUiFileBrowser *browser, const char *start_path)
       /* Check the directional buttons */
       if (sel)
       {
-        if ((pad.Buttons & PSP_CTRL_DOWN || pad.Buttons & PSP_CTRL_ANALDOWN) && sel->Next)
+        if ((pad.Buttons & PSP_CTRL_DOWN || pad.Buttons & PSP_CTRL_ANALDOWN) && sel->next)
         {
-          if (pos.Index+1 >= lnmax) { pos.Offset++; pos.Top=pos.Top->Next; } 
+          if (pos.Index+1 >= lnmax) { pos.Offset++; pos.Top=pos.Top->next; } 
           else pos.Index++;
-          sel=sel->Next;
+          sel=sel->next;
           fast_scroll = pad.Buttons & PSP_CTRL_ANALDOWN;
         }
-        else if ((pad.Buttons & PSP_CTRL_UP || pad.Buttons & PSP_CTRL_ANALUP) && sel->Prev)
+        else if ((pad.Buttons & PSP_CTRL_UP || pad.Buttons & PSP_CTRL_ANALUP) && sel->prev)
         {
-          if (pos.Index - 1 < 0) { pos.Offset--; pos.Top=pos.Top->Prev; }
+          if (pos.Index - 1 < 0) { pos.Offset--; pos.Top=pos.Top->prev; }
           else pos.Index--;
-          sel = sel->Prev;
+          sel = sel->prev;
           fast_scroll = pad.Buttons & PSP_CTRL_ANALUP;
         }
         else if (pad.Buttons & PSP_CTRL_LEFT)
         {
-          for (i=0; sel->Prev && i < lnhalf; i++)
+          for (i=0; sel->prev && i < lnhalf; i++)
           {
-            if (pos.Index-1 < 0) { pos.Offset--; pos.Top=pos.Top->Prev; }
+            if (pos.Index-1 < 0) { pos.Offset--; pos.Top=pos.Top->prev; }
             else pos.Index--;
-            sel=sel->Prev;
+            sel=sel->prev;
           }
         }
         else if (pad.Buttons & PSP_CTRL_RIGHT)
         {
-          for (i=0; sel->Next && i < lnhalf; i++)
+          for (i=0; sel->next && i < lnhalf; i++)
           {
-            if (pos.Index + 1 >= lnmax) { pos.Offset++; pos.Top=pos.Top->Next; }
+            if (pos.Index + 1 >= lnmax) { pos.Offset++; pos.Top=pos.Top->next; }
             else pos.Index++;
-            sel=sel->Next;
+            sel=sel->next;
           }
         }
 
         /* File/dir selection */
         if (pad.Buttons & UiMetric.OkButton)
         {
-          if (((unsigned int)sel->Param & PSP_FILE_DIR))
+          if (((unsigned int)sel->param & PSP_FILE_DIR))
           {
             /* Selected a directory, descend */
-            pspFileEnterDirectory(&cur_path, sel->Caption);
+            pspFileEnterDirectory(&cur_path, sel->caption);
             break;
           }
           else
@@ -784,8 +786,8 @@ void pspUiOpenBrowser(PspUiFileBrowser *browser, const char *start_path)
             /* Selected a file */
             if (browser->OnOk)
             {
-              char *file = malloc((strlen(cur_path) + strlen(sel->Caption) + 1) * sizeof(char));
-              sprintf(file, "%s%s", cur_path, sel->Caption);
+              char *file = malloc((strlen(cur_path) + strlen(sel->caption) + 1) * sizeof(char));
+              sprintf(file, "%s%s", cur_path, sel->caption);
               exit = browser->OnOk(browser, file);
               free(file);
             }
@@ -817,8 +819,8 @@ void pspUiOpenBrowser(PspUiFileBrowser *browser, const char *start_path)
 
         if (sel)
         {
-          file = malloc((strlen(cur_path) + strlen(sel->Caption) + 1) * sizeof(char));
-          sprintf(file, "%s%s", cur_path, sel->Caption);
+          file = malloc((strlen(cur_path) + strlen(sel->caption) + 1) * sizeof(char));
+          sprintf(file, "%s%s", cur_path, sel->caption);
         }
 
         exit = browser->OnButtonPress(browser, 
@@ -828,7 +830,7 @@ void pspUiOpenBrowser(PspUiFileBrowser *browser, const char *start_path)
         if (exit) goto exit_browser;
       }
 
-      is_dir = (unsigned int)sel->Param & PSP_FILE_DIR;
+      is_dir = (unsigned int)sel->param & PSP_FILE_DIR;
 
       sceGuStart(GU_CALL, call_list);
 
@@ -853,7 +855,7 @@ void pspUiOpenBrowser(PspUiFileBrowser *browser, const char *start_path)
       if (sbh > 0)
       {
         sby = sy + (int)((float)(h - sbh) 
-          * ((float)(pos.Offset + pos.Index) / (float)menu->Count));
+          * ((float)(pos.Offset + pos.Index) / (float)item_count));
         pspVideoFillRect(dx - UiMetric.ScrollbarWidth, sy, dx, dy, 
           UiMetric.ScrollbarBgColor);
         pspVideoFillRect(dx - UiMetric.ScrollbarWidth, sby, dx, sby + sbh, 
@@ -861,14 +863,14 @@ void pspUiOpenBrowser(PspUiFileBrowser *browser, const char *start_path)
       }
 
       /* Render the files */
-      for (item = (PspMenuItem*)pos.Top, i = 0, j = sy; 
-        item && i < lnmax; item = item->Next, j += fh, i++)
+      for (item = (pl_menu_item*)pos.Top, i = 0, j = sy; 
+        item && i < lnmax; item = item->next, j += fh, i++)
       {
         if (item == sel) sel_top = j;
 
-        pspVideoPrintClipped(UiMetric.Font, sx + 10, j, item->Caption, w - 10, 
+        pspVideoPrintClipped(UiMetric.Font, sx + 10, j, item->caption, w - 10, 
           "...", (item == sel) ? UiMetric.SelectedColor
-            : ((unsigned int)item->Param & PSP_FILE_DIR)
+            : ((unsigned int)item->param & PSP_FILE_DIR)
             ? UiMetric.BrowserDirectoryColor : UiMetric.BrowserFileColor);
      }
 
@@ -940,16 +942,16 @@ exit_browser:
   for (i = 0; i < BROWSER_TEMPLATE_COUNT; i++)
     free(instructions[i]);
 
-  pspMenuDestroy(menu);
+  pl_menu_destroy(&menu);
   free(cur_path);
 }
 
 void pspUiOpenGallery(const PspUiGallery *gallery, const char *title)
 {
-  PspMenu *menu = gallery->Menu;
-  const PspMenuItem *top, *item;
+  pl_menu *menu = gallery->Menu;
+  const pl_menu_item *top, *item;
   SceCtrlData pad;
-  PspMenuItem *sel = menu->Selected;
+  pl_menu_item *sel = menu->selected;
 
   int sx, sy, dx, dy,
     orig_w = 272, orig_h = 228, // defaults
@@ -961,15 +963,15 @@ void pspUiOpenGallery(const PspUiGallery *gallery, const char *title)
     icon_idx, icon_off,
     rows, vis_v, vis_s,
     icons;
-  const PspMenuItem *last_sel = NULL;
+  const pl_menu_item *last_sel = NULL;
 
   /* Find first icon and save its width/height */
-  for (item = menu->First; item; item = item->Next)
+  for (item = menu->items; item; item = item->next)
   {
-    if (item->Icon)
+    if (item->param)
     {
-      orig_w = ((PspImage*)item->Icon)->Viewport.Width;
-      orig_h = ((PspImage*)item->Icon)->Height;
+      orig_w = ((PspImage*)item->param)->Viewport.Width;
+      orig_h = ((PspImage*)item->param)->Height;
       break;
     }
   }
@@ -987,7 +989,7 @@ void pspUiOpenGallery(const PspUiGallery *gallery, const char *title)
     / ((float)orig_w / (float)orig_h)); // icon height
   grid_w = icon_w + UiMetric.GalleryIconMarginWidth; // width of the grid
   grid_h = icon_h + (fh * 2); // half-space for margin + 1 line of text 
-  icons = menu->Count; // number of icons total
+  icons = pl_menu_get_item_count(menu); // number of icons total
   rows = ceil((float)icons / (float)UiMetric.GalleryIconsPerRow); // number of rows total
   vis_v = h / grid_h; // number of rows visible at any time
   vis_s = UiMetric.GalleryIconsPerRow * vis_v; // max. number of icons visible on screen at any time
@@ -996,17 +998,17 @@ void pspUiOpenGallery(const PspUiGallery *gallery, const char *title)
 
   icon_idx = 0;
   icon_off = 0;
-  top = menu->First;
+  top = menu->items;
 
   if (!sel)
   {
     /* Select the first icon */
-    sel = menu->First;
+    sel = menu->items;
   }
   else
   {
     /* Find the selected icon */
-    for (item = menu->First; item; item = item->Next)
+    for (item = menu->items; item; item = item->next)
     {
       if (item == sel) 
         break;
@@ -1022,8 +1024,8 @@ void pspUiOpenGallery(const PspUiGallery *gallery, const char *title)
     if (item != sel)
     {
       /* Icon not found; reset to first icon */
-      sel = menu->First;
-      top = menu->First;
+      sel = menu->items;
+      top = menu->items;
       icon_idx = 0;
       icon_off = 0;
     }
@@ -1055,9 +1057,9 @@ void pspUiOpenGallery(const PspUiGallery *gallery, const char *title)
     /* Check the directional buttons */
     if (sel)
     {
-      if (pad.Buttons & PSP_CTRL_RIGHT && sel->Next)
+      if (pad.Buttons & PSP_CTRL_RIGHT && sel->next)
       {
-        sel = sel->Next;
+        sel = sel->next;
         if (++icon_idx >= vis_s)
         {
           icon_idx = 0;
@@ -1065,21 +1067,21 @@ void pspUiOpenGallery(const PspUiGallery *gallery, const char *title)
           top = sel;
         }
       }
-      else if (pad.Buttons & PSP_CTRL_LEFT && sel->Prev)
+      else if (pad.Buttons & PSP_CTRL_LEFT && sel->prev)
       {
-        sel = sel->Prev;
+        sel = sel->prev;
         if (--icon_idx < 0)
         {
           icon_idx = vis_s-1;
           icon_off -= vis_s;
-          for (i = 0; i < vis_s && top; i++) top = top->Prev;
+          for (i = 0; i < vis_s && top; i++) top = top->prev;
         }
       }
       else if (pad.Buttons & PSP_CTRL_DOWN)
       {
-        for (i = 0; sel->Next && i < UiMetric.GalleryIconsPerRow; i++)
+        for (i = 0; sel->next && i < UiMetric.GalleryIconsPerRow; i++)
         {
-          sel = sel->Next;
+          sel = sel->next;
           if (++icon_idx >= vis_s)
           {
             icon_idx = 0;
@@ -1090,14 +1092,14 @@ void pspUiOpenGallery(const PspUiGallery *gallery, const char *title)
       }
       else if (pad.Buttons & PSP_CTRL_UP)
       {
-        for (i = 0; sel->Prev && i < UiMetric.GalleryIconsPerRow; i++)
+        for (i = 0; sel->prev && i < UiMetric.GalleryIconsPerRow; i++)
         {
-          sel = sel->Prev;
+          sel = sel->prev;
           if (--icon_idx < 0)
           {
             icon_idx = vis_s-1;
             icon_off -= vis_s;
-            for (j = 0; j < vis_s && top; j++) top = top->Prev;
+            for (j = 0; j < vis_s && top; j++) top = top->prev;
           }
         }
       }
@@ -1122,7 +1124,7 @@ void pspUiOpenGallery(const PspUiGallery *gallery, const char *title)
       if (gallery->OnButtonPress(gallery, sel, pad.Buttons & CONTROL_BUTTON_MASK))
           break;
 
-    if (last_sel != sel && last_sel && sel && sel->Icon && UiMetric.Animate)
+    if (last_sel != sel && last_sel && sel && sel->param && UiMetric.Animate)
     {
       /* "Implode" animation */
       int f = 1, n = 2;
@@ -1141,17 +1143,17 @@ void pspUiOpenGallery(const PspUiGallery *gallery, const char *title)
 
         /* Render the menu items */
         for (i = sy, item = top; item && i + grid_h < dy; i += grid_h)
-          for (j = sx, c = 0; item && c < UiMetric.GalleryIconsPerRow; j += grid_w, c++, item = item->Next)
-            if (item->Icon && item != last_sel)
+          for (j = sx, c = 0; item && c < UiMetric.GalleryIconsPerRow; j += grid_w, c++, item = item->next)
+            if (item->param && item != last_sel)
             {
               pspVideoBegin();
-              pspVideoPutImage((PspImage*)item->Icon, j, i, icon_w, icon_h);
+              pspVideoPutImage((PspImage*)item->param, j, i, icon_w, icon_h);
               pspVideoEnd();
             }
 
         pspVideoBegin();
 
-        pspVideoPutImage((PspImage*)last_sel->Icon, 
+        pspVideoPutImage((PspImage*)last_sel->param, 
           sel_left-(icon_w+((max_w-icon_w)/n)*f)/2, 
           sel_top-(icon_h+((max_h-icon_h)/n)*f)/2, 
           icon_w+((max_w-icon_w)/n)*f, 
@@ -1188,10 +1190,10 @@ void pspUiOpenGallery(const PspUiGallery *gallery, const char *title)
     }
 
     /* Draw instructions */
-    if (sel && sel->HelpText)
+    if (sel && sel->help_text)
     {
       static char help_copy[MAX_DIR_LEN];
-      strncpy(help_copy, sel->HelpText, MAX_DIR_LEN);
+      strncpy(help_copy, sel->help_text, MAX_DIR_LEN);
       help_copy[MAX_DIR_LEN - 1] = '\0';
       ReplaceIcons(help_copy);
 
@@ -1202,19 +1204,19 @@ void pspUiOpenGallery(const PspUiGallery *gallery, const char *title)
     /* Render non-image components of each item */
     for (i = sy, item = top; item && i + grid_h < dy; i += grid_h)
     {
-      for (j = sx, c = 0; item && c < UiMetric.GalleryIconsPerRow; j += grid_w, c++, item = item->Next)
+      for (j = sx, c = 0; item && c < UiMetric.GalleryIconsPerRow; j += grid_w, c++, item = item->next)
       {
         if (item != sel)
         {
           pspVideoShadowRect(j - 1, i - 1, j + icon_w, i + icon_h, PSP_COLOR_BLACK, 3);
           pspVideoDrawRect(j - 1, i - 1, j + icon_w, i + icon_h, UiMetric.TextColor);
 
-          if (item->Caption)
+          if (item->caption)
           {
             int cap_pos = j + icon_w / 2 
-              - pspFontGetTextWidth(UiMetric.Font, item->Caption) / 2;
+              - pspFontGetTextWidth(UiMetric.Font, item->caption) / 2;
             pspVideoPrint(UiMetric.Font, cap_pos, 
-              i + icon_h + (fh / 2), item->Caption, UiMetric.TextColor);
+              i + icon_h + (fh / 2), item->caption, UiMetric.TextColor);
           }
         }
         else
@@ -1240,7 +1242,7 @@ void pspUiOpenGallery(const PspUiGallery *gallery, const char *title)
 
     sceGuFinish();
 
-    if (last_sel != sel && last_sel && sel && sel->Icon && UiMetric.Animate)
+    if (last_sel != sel && last_sel && sel && sel->param && UiMetric.Animate)
     {
       /* Popup animation */
       int f = 1, n = 2;
@@ -1259,17 +1261,17 @@ void pspUiOpenGallery(const PspUiGallery *gallery, const char *title)
 
         /* Render the menu items */
         for (i = sy, item = top; item && i + grid_h < dy; i += grid_h)
-          for (j = sx, c = 0; item && c < UiMetric.GalleryIconsPerRow; j += grid_w, c++, item = item->Next)
-            if (item->Icon && item != sel)
+          for (j = sx, c = 0; item && c < UiMetric.GalleryIconsPerRow; j += grid_w, c++, item = item->next)
+            if (item->param && item != sel)
             {
               pspVideoBegin();
-              pspVideoPutImage((PspImage*)item->Icon, j, i, icon_w, icon_h);
+              pspVideoPutImage((PspImage*)item->param, j, i, icon_w, icon_h);
               pspVideoEnd();
             }
 
         pspVideoBegin();
 
-        pspVideoPutImage((PspImage*)sel->Icon, 
+        pspVideoPutImage((PspImage*)sel->param, 
           sel_left-(icon_w+((max_w-icon_w)/n)*f)/2, 
           sel_top-(icon_h+((max_h-icon_h)/n)*f)/2, 
           icon_w+((max_w-icon_w)/n)*f, 
@@ -1296,31 +1298,31 @@ void pspUiOpenGallery(const PspUiGallery *gallery, const char *title)
 
     /* Render the menu items */
     for (i = sy, item = top; item && i + grid_h < dy; i += grid_h)
-      for (j = sx, c = 0; item && c < UiMetric.GalleryIconsPerRow; j += grid_w, c++, item = item->Next)
-        if (item->Icon && item != sel)
+      for (j = sx, c = 0; item && c < UiMetric.GalleryIconsPerRow; j += grid_w, c++, item = item->next)
+        if (item->param && item != sel)
         {
           pspVideoBegin();
-          pspVideoPutImage((PspImage*)item->Icon, j, i, icon_w, icon_h);
+          pspVideoPutImage((PspImage*)item->param, j, i, icon_w, icon_h);
           pspVideoEnd();
         }
 
     pspVideoBegin();
 
-    if (sel && sel->Icon)
+    if (sel && sel->param)
     {
-      pspVideoPutImage((PspImage*)sel->Icon, sel_left-max_w/2, sel_top-max_h/2,
+      pspVideoPutImage((PspImage*)sel->param, sel_left-max_w/2, sel_top-max_h/2,
         max_w, max_h);
       pspVideoGlowRect(sel_left-max_w/2, sel_top-max_h/2,
         sel_left+max_w/2 - 1, sel_top+max_h/2 - 1,
         COLOR(0xff,0xff,0xff,UI_ANIM_FOG_STEP * UI_ANIM_FRAMES), 2);
     }
 
-    if (sel && sel->Caption)
+    if (sel && sel->caption)
     {
       int cap_left = sel_left
-        - pspFontGetTextWidth(UiMetric.Font, sel->Caption) / 2;
+        - pspFontGetTextWidth(UiMetric.Font, sel->caption) / 2;
       pspVideoPrint(UiMetric.Font, cap_left, 
-        sel_top + max_h/2 - (fh + (fh - UiMetric.Font->Ascent)), sel->Caption, 
+        sel_top + max_h/2 - (fh + (fh - UiMetric.Font->Ascent)), sel->caption, 
         UiMetric.TextColor);
     }
 
@@ -1338,16 +1340,16 @@ void pspUiOpenGallery(const PspUiGallery *gallery, const char *title)
     pspVideoSwapBuffers();
   }
 
-  menu->Selected = sel;
+  menu->selected = sel;
 }
 
 void pspUiOpenMenu(const PspUiMenu *uimenu, const char *title)
 {
   struct UiPos pos;
-  PspMenu *menu = uimenu->Menu;
-  const PspMenuItem *item;
+  pl_menu *menu = uimenu->Menu;
+  const pl_menu_item *item;
   SceCtrlData pad;
-  const PspMenuOption *temp_option;
+  const pl_menu_option *temp_option;
   int lnmax;
   int sby, sbh, i, j, k, h, w, fh = pspFontGetLineHeight(UiMetric.Font);
   int sx, sy, dx, dy, sel_top = 0, last_sel_top = 0;
@@ -1355,7 +1357,7 @@ void pspUiOpenMenu(const PspUiMenu *uimenu, const char *title)
   int option_mode, max_option_w = 0;
   int arrow_w = pspFontGetTextWidth(UiMetric.Font, "\272");
   int anim_frame = 0, anim_incr = 1;
-  PspMenuItem *sel = menu->Selected, *last_sel = NULL;
+  pl_menu_item *sel = menu->selected, *last_sel = NULL;
 
   sx = UiMetric.Left;
   sy = UiMetric.Top + ((title) ? (fh + UiMetric.TitlePadding) : 0);
@@ -1367,11 +1369,11 @@ void pspUiOpenMenu(const PspUiMenu *uimenu, const char *title)
   memset(call_list, 0, sizeof(call_list));
 
   /* Determine width of the longest caption */
-  for (item = menu->First; item; item = item->Next)
+  for (item = menu->items; item; item = item->next)
   {
-    if (item->Caption)
+    if (item->caption)
     {
-      item_w = pspFontGetTextWidth(UiMetric.Font, item->Caption);
+      item_w = pspFontGetTextWidth(UiMetric.Font, item->caption);
       if (item_w > max_item_w) 
         max_item_w = item_w;
     }
@@ -1379,7 +1381,9 @@ void pspUiOpenMenu(const PspUiMenu *uimenu, const char *title)
 
   /* Initialize variables */
   lnmax = (dy - sy) / fh;
-  sbh = (menu->Count > lnmax) ? (int)((float)h * ((float)lnmax / (float)menu->Count)) : 0;
+  int item_count = pl_menu_get_item_count(menu);
+  sbh = (item_count > lnmax) 
+        ? (int)((float)h * ((float)lnmax / (float)item_count)) : 0;
 
   pos.Index = 0;
   pos.Offset = 0;
@@ -1393,21 +1397,21 @@ void pspUiOpenMenu(const PspUiMenu *uimenu, const char *title)
   /* Find first selectable item */
   if (!sel)
   {
-    for (sel = menu->First; sel; sel = sel->Next)
-      if (sel->Caption && sel->Caption[0] != '\t')
+    for (sel = menu->items; sel; sel = sel->next)
+      if (sel->caption && sel->caption[0] != '\t')
         break;
   }
 
   /* Compute index and offset of selected file */
-  pos.Top = menu->First;
-  for (item = menu->First; item != sel; item = item->Next)
+  pos.Top = menu->items;
+  for (item = menu->items; item != sel; item = item->next)
   {
-    if (pos.Index + 1 >= lnmax) { pos.Offset++; pos.Top = pos.Top->Next; } 
+    if (pos.Index + 1 >= lnmax) { pos.Offset++; pos.Top = pos.Top->next; } 
     else pos.Index++;
   }
 
   pspVideoWaitVSync();
-  PspMenuItem *last;
+  pl_menu_item *last;
   struct UiPos last_valid;
 
   /* Compute update frequency */
@@ -1440,12 +1444,12 @@ void pspUiOpenMenu(const PspUiMenu *uimenu, const char *title)
 
         if (option_mode)
         {
-          if (temp_option->Next)
-            temp_option = temp_option->Next;
+          if (temp_option->next)
+            temp_option = temp_option->next;
         }
         else
         {
-          if (sel->Next)
+          if (sel->next)
           {
             last = sel;
             last_valid = pos;
@@ -1455,11 +1459,11 @@ void pspUiOpenMenu(const PspUiMenu *uimenu, const char *title)
               if (pos.Index + 1 >= lnmax)
               {
                 pos.Offset++;
-                pos.Top = pos.Top->Next;
+                pos.Top = pos.Top->next;
               }
               else pos.Index++;
 
-              sel = sel->Next;
+              sel = sel->next;
 
               if (!sel)
               {
@@ -1468,7 +1472,7 @@ void pspUiOpenMenu(const PspUiMenu *uimenu, const char *title)
                 break;
               }
 
-              if (sel->Caption && sel->Caption[0] != '\t')
+              if (sel->caption && sel->caption[0] != '\t')
                 break;
             }
           }
@@ -1480,12 +1484,12 @@ void pspUiOpenMenu(const PspUiMenu *uimenu, const char *title)
 
         if (option_mode)
         {
-          if (temp_option->Prev)
-            temp_option = temp_option->Prev;
+          if (temp_option->prev)
+            temp_option = temp_option->prev;
         }
         else
         {
-          if (sel->Prev)
+          if (sel->prev)
           {
             last = sel;
             last_valid = pos;
@@ -1495,11 +1499,11 @@ void pspUiOpenMenu(const PspUiMenu *uimenu, const char *title)
               if (pos.Index - 1 < 0)
               {
                 pos.Offset--;
-                pos.Top = pos.Top->Prev;
+                pos.Top = pos.Top->prev;
               }
               else pos.Index--;
 
-              sel = sel->Prev;
+              sel = sel->prev;
 
               if (!sel)
               {
@@ -1507,18 +1511,18 @@ void pspUiOpenMenu(const PspUiMenu *uimenu, const char *title)
 
                 pos.Index = 0;
                 pos.Offset = 0;
-                pos.Top = menu->First;
+                pos.Top = menu->items;
 
-                for (item = menu->First; item != sel; item = item->Next)
+                for (item = menu->items; item != sel; item = item->next)
                 {
-                  if (pos.Index + 1 >= lnmax) { pos.Offset++; pos.Top = pos.Top->Next; } 
+                  if (pos.Index + 1 >= lnmax) { pos.Offset++; pos.Top = pos.Top->next; } 
                   else pos.Index++;
                 }
 
                 break;
               }
 
-              if (sel->Caption && sel->Caption[0] != '\t')
+              if (sel->caption && sel->caption[0] != '\t')
                 break;
             }
           }
@@ -1536,12 +1540,12 @@ void pspUiOpenMenu(const PspUiMenu *uimenu, const char *title)
         min_x = cur_x - UiMetric.MenuItemMargin;
         max_x = cur_x + max_option_w + UiMetric.MenuItemMargin;
         cur_x += pspFontGetTextWidth(UiMetric.Font, " >");
-        if (sel->Selected && sel->Selected->Text)
-          cur_x += pspFontGetTextWidth(UiMetric.Font, sel->Selected->Text);
+        if (sel->selected && sel->selected->text)
+          cur_x += pspFontGetTextWidth(UiMetric.Font, sel->selected->text);
 
-        const PspMenuOption *option;
-        for (option = temp_option; option && min_y >= sy; option = option->Prev, min_y -= fh);
-        for (option = temp_option->Next; option && max_y < dy; option = option->Next, max_y += fh);
+        const pl_menu_option *option;
+        for (option = temp_option; option && min_y >= sy; option = option->prev, min_y -= fh);
+        for (option = temp_option->next; option && max_y < dy; option = option->next, max_y += fh);
         max_y += fh;
       }
 
@@ -1553,7 +1557,7 @@ void pspUiOpenMenu(const PspUiMenu *uimenu, const char *title)
 
           /* If the callback function refuses the change, restore selection */
           if (!uimenu->OnItemChanged || uimenu->OnItemChanged(uimenu, sel, temp_option)) 
-            sel->Selected = temp_option;
+            sel->selected = (pl_menu_option*)temp_option;
         }
         else if (pad.Buttons & PSP_CTRL_LEFT  || pad.Buttons & UiMetric.CancelButton)
         {
@@ -1589,10 +1593,10 @@ void pspUiOpenMenu(const PspUiMenu *uimenu, const char *title)
                 UiMetric.MenuOptionBoxBg);
 
               /* Selected option for the item */
-              if (sel->Selected && sel->Selected->Text)
+              if (sel->selected && sel->selected->text)
               pspVideoPrint(UiMetric.Font, 
                 sx + max_item_w + UiMetric.MenuItemMargin + 10, 
-                sy + pos.Index * fh, sel->Selected->Text, UiMetric.SelectedColor);
+                sy + pos.Index * fh, sel->selected->text, UiMetric.SelectedColor);
 
           	  pspVideoEnd();
 
@@ -1606,19 +1610,19 @@ void pspUiOpenMenu(const PspUiMenu *uimenu, const char *title)
       else
       {
         if ((pad.Buttons & PSP_CTRL_RIGHT) 
-          && sel->Options && sel->Options->Next)
+          && sel->options && sel->options->next)
         {
           option_mode = 1;
           max_option_w = 0;
           int width;
-          const PspMenuOption *option;
+          const pl_menu_option *option;
 
           /* Find the longest option caption */
-          for (option = sel->Options; option; option = option->Next)
-            if (option->Text && (width = pspFontGetTextWidth(UiMetric.Font, option->Text)) > max_option_w) 
+          for (option = sel->options; option; option = option->next)
+            if (option->text && (width = pspFontGetTextWidth(UiMetric.Font, option->text)) > max_option_w) 
               max_option_w = width;
 
-          temp_option = (sel->Selected) ? sel->Selected : sel->Options;
+          temp_option = (sel->selected) ? sel->selected : sel->options;
 
           /* Determine bounds */
           cur_x = sx + max_item_w + UiMetric.MenuItemMargin + 10;
@@ -1628,11 +1632,11 @@ void pspUiOpenMenu(const PspUiMenu *uimenu, const char *title)
           min_x = cur_x - UiMetric.MenuItemMargin;
           max_x = cur_x + max_option_w + UiMetric.MenuItemMargin;
           cur_x += pspFontGetTextWidth(UiMetric.Font, " >");
-          if (sel->Selected && sel->Selected->Text)
-            cur_x += pspFontGetTextWidth(UiMetric.Font, sel->Selected->Text);
+          if (sel->selected && sel->selected->text)
+            cur_x += pspFontGetTextWidth(UiMetric.Font, sel->selected->text);
 
-          for (option = temp_option; option && min_y >= sy; option = option->Prev, min_y -= fh);
-          for (option = temp_option->Next; option && max_y < dy; option = option->Next, max_y += fh);
+          for (option = temp_option; option && min_y >= sy; option = option->prev, min_y -= fh);
+          for (option = temp_option->next; option && max_y < dy; option = option->next, max_y += fh);
           max_y += fh;
 
           if (UiMetric.Animate)
@@ -1699,10 +1703,10 @@ void pspUiOpenMenu(const PspUiMenu *uimenu, const char *title)
     {
       const char *dirs = NULL;
 
-      if (!option_mode && sel->HelpText)
+      if (!option_mode && sel->help_text)
       {
         static char help_copy[MAX_DIR_LEN];
-        strncpy(help_copy, sel->HelpText, MAX_DIR_LEN);
+        strncpy(help_copy, sel->help_text, MAX_DIR_LEN);
         help_copy[MAX_DIR_LEN - 1] = '\0';
         ReplaceIcons(help_copy);
 
@@ -1733,15 +1737,15 @@ void pspUiOpenMenu(const PspUiMenu *uimenu, const char *title)
     }
 
     /* Render the menu items */
-    for (item = pos.Top, i = 0, j = sy; item && i < lnmax; item = item->Next, j += fh, i++)
+    for (item = pos.Top, i = 0, j = sy; item && i < lnmax; item = item->next, j += fh, i++)
     {
-      if (item->Caption)
+      if (item->caption)
       {
   	    /* Section header */
-  	    if (item->Caption[0] == '\t')
+  	    if (item->caption[0] == '\t')
     		{
     		  // if (i != 0) j += fh / 2;
-          pspVideoPrint(UiMetric.Font, sx, j, item->Caption + 1, UiMetric.TitleColor);
+          pspVideoPrint(UiMetric.Font, sx, j, item->caption + 1, UiMetric.TitleColor);
           pspVideoDrawLine(sx, j + fh - 1, sx + w, j + fh - 1, UiMetric.TitleColor);
     		  continue;
     		}
@@ -1749,20 +1753,20 @@ void pspUiOpenMenu(const PspUiMenu *uimenu, const char *title)
         if (item == sel) sel_top = j;
 
         /* Item caption */
-        pspVideoPrint(UiMetric.Font, sx + 10, j, item->Caption, 
+        pspVideoPrint(UiMetric.Font, sx + 10, j, item->caption, 
           (item == sel) ? UiMetric.SelectedColor : UiMetric.TextColor);
 
         if (!option_mode || item != sel)
         {
           /* Selected option for the item */
-          if (item->Selected)
+          if (item->selected)
           {
             k = sx + max_item_w + UiMetric.MenuItemMargin + 10;
-            k += pspVideoPrint(UiMetric.Font, k, j, item->Selected->Text, 
+            k += pspVideoPrint(UiMetric.Font, k, j, item->selected->text, 
               (item == sel) ? UiMetric.SelectedColor : UiMetric.TextColor);
 
             if (!option_mode && item == sel)
-              if (sel->Options && sel->Options->Next)
+              if (sel->options && sel->options->next)
                 pspVideoPrint(UiMetric.Font, k + anim_frame, j, " >", UiMetric.MenuDecorColor);
           }
         }
@@ -1775,7 +1779,7 @@ void pspUiOpenMenu(const PspUiMenu *uimenu, const char *title)
     /* Draw scrollbar */
     if (sbh > 0)
     {
-      sby = sy + (int)((float)(h - sbh) * ((float)(pos.Offset + pos.Index) / (float)menu->Count));
+      sby = sy + (int)((float)(h - sbh) * ((float)(pos.Offset + pos.Index) / (float)item_count));
       pspVideoFillRect(dx - UiMetric.ScrollbarWidth, sy, dx, dy, UiMetric.ScrollbarBgColor);
       pspVideoFillRect(dx - UiMetric.ScrollbarWidth, sby, dx, sby + sbh, UiMetric.ScrollbarColor);
     }
@@ -1839,7 +1843,7 @@ void pspUiOpenMenu(const PspUiMenu *uimenu, const char *title)
     {
       k = sx + max_item_w + UiMetric.MenuItemMargin + 10;
       int arrow_x = min_x + (UiMetric.MenuItemMargin / 2 - arrow_w / 2);
-      const PspMenuOption *option;
+      const pl_menu_option *option;
 
       /* Background */
       pspVideoFillRect(min_x, min_y, max_x, max_y, UiMetric.MenuOptionBoxBg);
@@ -1850,8 +1854,8 @@ void pspUiOpenMenu(const PspUiMenu *uimenu, const char *title)
 
       /* Render selected item + previous items */
       i = sy + pos.Index * fh;
-      for (option = temp_option; option && i >= sy; option = option->Prev, i -= fh)
-        pspVideoPrint(UiMetric.Font, k, i, option->Text, (option == temp_option) 
+      for (option = temp_option; option && i >= sy; option = option->prev, i -= fh)
+        pspVideoPrint(UiMetric.Font, k, i, option->text, (option == temp_option) 
           ? UiMetric.SelectedColor : UiMetric.MenuOptionBoxColor);
 
       /* Up arrow */
@@ -1860,8 +1864,8 @@ void pspUiOpenMenu(const PspUiMenu *uimenu, const char *title)
 
       /* Render following items */
       i = sy + (pos.Index  + 1) * fh;
-      for (option = temp_option->Next; option && i < dy; option = option->Next, i += fh)
-        pspVideoPrint(UiMetric.Font, k, i, option->Text, 
+      for (option = temp_option->next; option && i < dy; option = option->next, i += fh)
+        pspVideoPrint(UiMetric.Font, k, i, option->text, 
           UiMetric.MenuOptionBoxColor);
 
       /* Down arrow */
@@ -1884,7 +1888,7 @@ void pspUiOpenMenu(const PspUiMenu *uimenu, const char *title)
     last_sel_top = sel_top;
   }
 
-  menu->Selected = sel;
+  menu->selected = sel;
 }
 
 void pspUiSplashScreen(PspUiSplash *splash)
@@ -1940,9 +1944,9 @@ void pspUiSplashScreen(PspUiSplash *splash)
   }
 }
 
-const PspMenuItem* pspUiSelect(const char *title, const PspMenu *menu)
+const pl_menu_item* pspUiSelect(const char *title, const pl_menu *menu)
 {
-  const PspMenuItem *sel, *item, *last_sel = NULL;
+  const pl_menu_item *sel, *item, *last_sel = NULL;
   struct UiPos pos;
   int lnmax, lnhalf;
   int i, j, h, w, fh = pspFontGetLineHeight(UiMetric.Font);
@@ -1959,11 +1963,11 @@ const PspMenuItem* pspUiSelect(const char *title, const PspMenu *menu)
   memset(call_list, 0, sizeof(call_list));
 
   /* Determine width of the longest caption */
-  for (item = menu->First; item; item = item->Next)
+  for (item = menu->items; item; item = item->next)
   {
-    if (item->Caption)
+    if (item->caption)
     {
-      int item_w = pspFontGetTextWidth(UiMetric.Font, item->Caption);
+      int item_w = pspFontGetTextWidth(UiMetric.Font, item->caption);
       if (item_w > widest) 
         widest = item_w;
     }
@@ -1985,8 +1989,8 @@ const PspMenuItem* pspUiSelect(const char *title, const PspMenu *menu)
   lnmax = (dy - sy) / fh;
   lnhalf = lnmax >> 1;
 
-  sel = menu->First;
-  pos.Top = menu->First;
+  sel = menu->items;
+  pos.Top = menu->items;
   pos.Index = pos.Offset = 0;
 
   pspVideoWaitVSync();
@@ -2042,37 +2046,37 @@ const PspMenuItem* pspUiSelect(const char *title, const PspMenu *menu)
     if (sel)
     {
       if ((pad.Buttons & PSP_CTRL_DOWN || pad.Buttons & PSP_CTRL_ANALDOWN) 
-        && sel->Next)
+        && sel->next)
       {
         fast_scroll = pad.Buttons & PSP_CTRL_ANALDOWN;
-        if (pos.Index + 1 >= lnmax) { pos.Offset++; pos.Top = pos.Top->Next; } 
+        if (pos.Index + 1 >= lnmax) { pos.Offset++; pos.Top = pos.Top->next; } 
         else pos.Index++;
-        sel = sel->Next;
+        sel = sel->next;
       }
       else if ((pad.Buttons & PSP_CTRL_UP || pad.Buttons & PSP_CTRL_ANALUP) 
-        && sel->Prev)
+        && sel->prev)
       {
         fast_scroll = pad.Buttons & PSP_CTRL_ANALUP;
-        if (pos.Index - 1 < 0) { pos.Offset--; pos.Top = pos.Top->Prev; }
+        if (pos.Index - 1 < 0) { pos.Offset--; pos.Top = pos.Top->prev; }
         else pos.Index--;
-        sel = sel->Prev;
+        sel = sel->prev;
       }
       else if (pad.Buttons & PSP_CTRL_LEFT)
       {
-        for (i = 0; sel->Prev && i < lnhalf; i++)
+        for (i = 0; sel->prev && i < lnhalf; i++)
         {
-          if (pos.Index - 1 < 0) { pos.Offset--; pos.Top = pos.Top->Prev; }
+          if (pos.Index - 1 < 0) { pos.Offset--; pos.Top = pos.Top->prev; }
           else pos.Index--;
-          sel = sel->Prev;
+          sel = sel->prev;
         }
       }
       else if (pad.Buttons & PSP_CTRL_RIGHT)
       {
-        for (i = 0; sel->Next && i < lnhalf; i++)
+        for (i = 0; sel->next && i < lnhalf; i++)
         {
-          if (pos.Index + 1 >= lnmax) { pos.Offset++; pos.Top = pos.Top->Next; }
+          if (pos.Index + 1 >= lnmax) { pos.Offset++; pos.Top = pos.Top->next; }
           else pos.Index++;
-          sel=sel->Next;
+          sel=sel->next;
         }
       }
 
@@ -2096,16 +2100,16 @@ const PspMenuItem* pspUiSelect(const char *title, const PspMenu *menu)
         title, UiMetric.TitleColor);
 
     /* Render the items */
-    for (item = (PspMenuItem*)pos.Top, i = 0, j = sy; 
-      item && i < lnmax; item = item->Next, j += fh, i++)
+    for (item = (pl_menu_item*)pos.Top, i = 0, j = sy; 
+      item && i < lnmax; item = item->next, j += fh, i++)
     {
       if (item == sel) sel_top = j;
-      pspVideoPrintClipped(UiMetric.Font, sx + 10, j, item->Caption, w - 10, 
+      pspVideoPrintClipped(UiMetric.Font, sx + 10, j, item->caption, w - 10, 
         "...", (item == sel) ? UiMetric.SelectedColor : UiMetric.TextColor);
     }
 
     /* Up arrow */
-    if (pos.Top && pos.Top->Prev) pspVideoPrint(UiMetric.Font, 
+    if (pos.Top && pos.Top->prev) pspVideoPrint(UiMetric.Font, 
       SCR_WIDTH - arrow_w * 2, sy + anim_frame, 
       PSP_CHAR_UP_ARROW, UiMetric.MenuDecorColor);
 
@@ -2339,10 +2343,11 @@ int pspUiAdhocJoin(PspMAC mac)
   }
 
   /* Initialize menu */
-  PspMenu *menu = pspMenuCreate();
+  pl_menu menu;
+  pl_menu_create(&menu, NULL);
 
   int state = ADHOC_PENDING;
-  const PspMenuItem *sel, *item, *last_sel = NULL;
+  const pl_menu_item *sel, *item, *last_sel = NULL;
   struct UiPos pos;
   int lnmax, lnhalf;
   int i, j, h, w, fh = pspFontGetLineHeight(UiMetric.Font);
@@ -2360,11 +2365,11 @@ int pspUiAdhocJoin(PspMAC mac)
   memset(call_list, 0, sizeof(call_list));
 
   /* Determine width of the longest caption */
-  for (item = menu->First; item; item = item->Next)
+  for (item = menu.items; item; item = item->next)
   {
-    if (item->Caption)
+    if (item->caption)
     {
-      int item_w = pspFontGetTextWidth(UiMetric.Font, item->Caption);
+      int item_w = pspFontGetTextWidth(UiMetric.Font, item->caption);
       if (item_w > widest) 
         widest = item_w;
     }
@@ -2386,8 +2391,8 @@ int pspUiAdhocJoin(PspMAC mac)
   lnmax = (dy - sy) / fh;
   lnhalf = lnmax >> 1;
 
-  sel = menu->First;
-  pos.Top = menu->First;
+  sel = menu.items;
+  pos.Top = menu.items;
   pos.Index = pos.Offset = 0;
 
   pspVideoWaitVSync();
@@ -2429,14 +2434,14 @@ int pspUiAdhocJoin(PspMAC mac)
     if (_adhoc_match_event.NewEvent)
     {
       found_psp = 0;
-      PspMenuItem *adhoc_item;
+      pl_menu_item *adhoc_item;
       _adhoc_match_event.NewEvent = 0;
 
       if (_adhoc_match_event.EventID == MATCHING_JOINED)
       {
         /* Make sure the machine isn't already on the list */
-        for (adhoc_item = menu->First; adhoc_item; adhoc_item = adhoc_item->Next)
-          if (adhoc_item->Param && pspAdhocIsMACEqual((unsigned char*)adhoc_item->Param, 
+        for (adhoc_item = menu.items; adhoc_item; adhoc_item = adhoc_item->next)
+          if (adhoc_item->param && pspAdhocIsMACEqual((unsigned char*)adhoc_item->param, 
             _adhoc_match_event.EventMAC))
           {
             found_psp = 1;
@@ -2446,22 +2451,22 @@ int pspUiAdhocJoin(PspMAC mac)
         if (!found_psp)
         {
           /* Create item */
-          adhoc_item = pspMenuAppendItem(menu, _adhoc_match_event.OptData, 0);
+          adhoc_item = pl_menu_append_item(&menu, 0, _adhoc_match_event.OptData);
 
           /* Add MAC */
           unsigned char *opp_mac = (unsigned char*)malloc(6 * sizeof(unsigned char));
           memcpy(opp_mac, _adhoc_match_event.EventMAC, sizeof(unsigned char) * 6);
-          adhoc_item->Param = opp_mac;
+          adhoc_item->param = opp_mac;
 
           if (!pos.Top) 
-            sel = pos.Top = menu->First;
+            sel = pos.Top = menu.items;
         }
       }
       else if (_adhoc_match_event.EventID == MATCHING_DISCONNECT)
       {
         /* Make sure the machine IS on the list */
-        for (adhoc_item = menu->First; adhoc_item; adhoc_item = adhoc_item->Next)
-          if (adhoc_item->Param && pspAdhocIsMACEqual((unsigned char*)adhoc_item->Param, 
+        for (adhoc_item = menu.items; adhoc_item; adhoc_item = adhoc_item->next)
+          if (adhoc_item->param && pspAdhocIsMACEqual((unsigned char*)adhoc_item->param, 
             _adhoc_match_event.EventMAC))
           {
             found_psp = 1; 
@@ -2471,11 +2476,11 @@ int pspUiAdhocJoin(PspMAC mac)
         if (found_psp)
         {
           /* Free MAC & destroy item */
-          free((void*)adhoc_item->Param);
-          pspMenuDestroyItem(menu, adhoc_item);
+          free((void*)adhoc_item->param);
+          pl_menu_remove_item(&menu, adhoc_item);
 
           /* Reset items */
-          sel = pos.Top = menu->First;
+          sel = pos.Top = menu.items;
           pos.Index = pos.Offset = 0;
         }
       }
@@ -2514,37 +2519,37 @@ int pspUiAdhocJoin(PspMAC mac)
     if (sel)
     {
       if ((pad.Buttons & PSP_CTRL_DOWN || pad.Buttons & PSP_CTRL_ANALDOWN) 
-        && sel->Next)
+        && sel->next)
       {
         fast_scroll = pad.Buttons & PSP_CTRL_ANALDOWN;
-        if (pos.Index + 1 >= lnmax) { pos.Offset++; pos.Top = pos.Top->Next; } 
+        if (pos.Index + 1 >= lnmax) { pos.Offset++; pos.Top = pos.Top->next; } 
         else pos.Index++;
-        sel = sel->Next;
+        sel = sel->next;
       }
       else if ((pad.Buttons & PSP_CTRL_UP || pad.Buttons & PSP_CTRL_ANALUP) 
-        && sel->Prev)
+        && sel->prev)
       {
         fast_scroll = pad.Buttons & PSP_CTRL_ANALUP;
-        if (pos.Index - 1 < 0) { pos.Offset--; pos.Top = pos.Top->Prev; }
+        if (pos.Index - 1 < 0) { pos.Offset--; pos.Top = pos.Top->prev; }
         else pos.Index--;
-        sel = sel->Prev;
+        sel = sel->prev;
       }
       else if (pad.Buttons & PSP_CTRL_LEFT)
       {
-        for (i = 0; sel->Prev && i < lnhalf; i++)
+        for (i = 0; sel->prev && i < lnhalf; i++)
         {
-          if (pos.Index - 1 < 0) { pos.Offset--; pos.Top = pos.Top->Prev; }
+          if (pos.Index - 1 < 0) { pos.Offset--; pos.Top = pos.Top->prev; }
           else pos.Index--;
-          sel = sel->Prev;
+          sel = sel->prev;
         }
       }
       else if (pad.Buttons & PSP_CTRL_RIGHT)
       {
-        for (i = 0; sel->Next && i < lnhalf; i++)
+        for (i = 0; sel->next && i < lnhalf; i++)
         {
-          if (pos.Index + 1 >= lnmax) { pos.Offset++; pos.Top = pos.Top->Next; }
+          if (pos.Index + 1 >= lnmax) { pos.Offset++; pos.Top = pos.Top->next; }
           else pos.Index++;
-          sel=sel->Next;
+          sel=sel->next;
         }
       }
 
@@ -2553,7 +2558,7 @@ int pspUiAdhocJoin(PspMAC mac)
         if (state == ADHOC_PENDING)
         {
           state = ADHOC_WAIT_HOST;
-          memcpy(selected, sel->Param, sizeof(unsigned char) * 6);
+          memcpy(selected, sel->param, sizeof(unsigned char) * 6);
           pspAdhocSelectTarget(selected);
         }
       }
@@ -2576,16 +2581,16 @@ int pspUiAdhocJoin(PspMAC mac)
         title, UiMetric.TitleColor);
 
     /* Render the items */
-    for (item = (PspMenuItem*)pos.Top, i = 0, j = sy; 
-      item && i < lnmax; item = item->Next, j += fh, i++)
+    for (item = (pl_menu_item*)pos.Top, i = 0, j = sy; 
+      item && i < lnmax; item = item->next, j += fh, i++)
     {
       if (item == sel) sel_top = j;
-      pspVideoPrintClipped(UiMetric.Font, sx + 10, j, item->Caption, w - 10, 
+      pspVideoPrintClipped(UiMetric.Font, sx + 10, j, item->caption, w - 10, 
         "...", (item == sel) ? UiMetric.SelectedColor : UiMetric.TextColor);
     }
 
     /* Up arrow */
-    if (pos.Top && pos.Top->Prev) pspVideoPrint(UiMetric.Font, 
+    if (pos.Top && pos.Top->prev) pspVideoPrint(UiMetric.Font, 
       SCR_WIDTH - arrow_w * 2, sy + anim_frame, 
       PSP_CHAR_UP_ARROW, UiMetric.MenuDecorColor);
 
@@ -2680,9 +2685,9 @@ int pspUiAdhocJoin(PspMAC mac)
   pspImageDestroy(screen);
 
   /* Free memory used for MACs; menu resources */
-  for (item = menu->First; item; item=item->Next)
-    if (item->Param) free((void*)item->Param);
-  pspMenuDestroy(menu);
+  for (item = menu.items; item; item=item->next)
+    if (item->param) free((void*)item->param);
+  pl_menu_destroy(&menu);
 
   if (state == ADHOC_EST_AS_CLI)
   {

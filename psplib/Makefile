@@ -30,8 +30,7 @@ DEFINES=-D_PSP_FW_VERSION=$(PSP_FW_VERSION)
 
 all: libmypsp.a
 
-libmypsp.a: adhoc.o menu.o font.o \
-            file.o audio.o \
+libmypsp.a: adhoc.o font.o file.o audio.o \
             ctrl.o video.o image.o ui.o \
             pl_ini.o pl_perf.o pl_vk.o pl_util.o \
             pl_psp.o pl_menu.o
@@ -41,9 +40,6 @@ libmypsp.a: adhoc.o menu.o font.o \
 
 clean:
 	$(RM) *.o genfont stockfont.h *.a
-
-menu.o: menu.c menu.h
-	$(CC) $(DEFINES) $(CFLAGS) -c -o $@ $<
 
 font.o: font.c font.h stockfont.h
 	$(CC) $(DEFINES) $(CFLAGS) -c -o $@ $<
@@ -66,7 +62,7 @@ file.o: file.c file.h
 adhoc.o: adhoc.c adhoc.h
 	$(CC) $(DEFINES) $(CFLAGS) -c -o $@ $<
 
-ui.o: ui.c ui.h file.o pl_psp.o ctrl.o font.o menu.o video.o adhoc.o
+ui.o: ui.c ui.h file.o pl_psp.o ctrl.o font.o pl_menu.o video.o adhoc.o
 	$(CC) $(DEFINES) $(CFLAGS) -c -o $@ $<
 
 pl_psp.o: pl_psp.c pl_psp.h
