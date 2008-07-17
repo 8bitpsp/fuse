@@ -34,7 +34,7 @@ libmypsp.a: adhoc.o menu.o font.o \
             file.o audio.o \
             ctrl.o video.o image.o ui.o \
             pl_ini.o pl_perf.o pl_vk.o pl_util.o \
-            pl_psp.o
+            pl_psp.o pl_menu.o
 	$(AR) cru $@ $?
 	$(RANLIB) $@
 	@echo Compiled for firmware $(PSP_FW_VERSION)
@@ -82,6 +82,9 @@ pl_util.o: pl_util.c pl_util.h image.o file.o video.o
 	$(CC) $(DEFINES) $(CFLAGS) -c -o $@ $<
 
 pl_perf.o: pl_perf.c pl_perf.h
+	$(CC) $(DEFINES) $(CFLAGS) -c -o $@ $<
+
+pl_menu.o: pl_menu.c pl_menu.h
 	$(CC) $(DEFINES) $(CFLAGS) -c -o $@ $<
 
 stockfont.h: stockfont.fd genfont
