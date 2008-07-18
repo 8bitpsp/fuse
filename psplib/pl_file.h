@@ -44,23 +44,30 @@ typedef struct pl_file_list_t
 } pl_file_list;
 
 void pl_file_get_parent_directory(const char *path,
-                                  pl_file_path parent);
+                                  char *parent,
+                                  int length);
 const char*
      pl_file_get_filename(const char *path);
 const char*
      pl_file_get_extension(const char *path);
-int  pl_file_get_file_size(const char *path);
+int64_t
+     pl_file_get_file_size(const char *path);
 int  pl_file_is_root_directory(const char *path);
 int  pl_file_exists(const char *path);
 int  pl_file_is_of_type(const char *path,
                         const char *extension);
 int  pl_file_rm(const char *path);
-/* Returns number of files successfully read; negative number if error */
+/* Returns number of files successfully read; <0 if error */
 int  pl_file_get_file_list(pl_file_list *list,
                            const char *path,
                            const char **filter);
 void pl_file_destroy_file_list(pl_file_list *list);
 int  pl_file_get_file_list_count(const pl_file_list *list);
+int  pl_file_open_directory(const char *path,
+                            const char *subdir,
+                            char *result,
+                            int  result_len);
+int  pl_file_is_directory(const char *path);
 
 #ifdef __cplusplus
 }

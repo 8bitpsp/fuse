@@ -30,7 +30,7 @@ DEFINES=-D_PSP_FW_VERSION=$(PSP_FW_VERSION)
 
 all: libmypsp.a
 
-libmypsp.a: adhoc.o font.o file.o audio.o \
+libmypsp.a: adhoc.o font.o audio.o \
             ctrl.o video.o image.o ui.o \
             pl_ini.o pl_perf.o pl_vk.o pl_util.o \
             pl_psp.o pl_menu.o pl_file.o
@@ -56,13 +56,11 @@ audio.o: audio.c audio.h
 ctrl.o: ctrl.c ctrl.h
 	$(CC) $(DEFINES) $(CFLAGS) -c -o $@ $<
 
-file.o: file.c file.h
-	$(CC) $(DEFINES) $(CFLAGS) -c -o $@ $<
-
 adhoc.o: adhoc.c adhoc.h
 	$(CC) $(DEFINES) $(CFLAGS) -c -o $@ $<
 
-ui.o: ui.c ui.h file.o pl_psp.o ctrl.o font.o pl_menu.o video.o adhoc.o
+ui.o: ui.c ui.h pl_file.o pl_psp.o \
+      ctrl.o font.o pl_menu.o video.o adhoc.o
 	$(CC) $(DEFINES) $(CFLAGS) -c -o $@ $<
 
 pl_psp.o: pl_psp.c pl_psp.h
@@ -71,10 +69,12 @@ pl_psp.o: pl_psp.c pl_psp.h
 pl_ini.o: pl_ini.c pl_ini.h
 	$(CC) $(DEFINES) $(CFLAGS) -c -o $@ $<
 
-pl_vk.o: pl_vk.c pl_vk.h video.o font.o ctrl.o
+pl_vk.o: pl_vk.c pl_vk.h video.o font.o \
+         ctrl.o
 	$(CC) $(DEFINES) $(CFLAGS) -c -o $@ $<
 
-pl_util.o: pl_util.c pl_util.h image.o file.o video.o
+pl_util.o: pl_util.c pl_util.h image.o \
+           pl_file.o video.o
 	$(CC) $(DEFINES) $(CFLAGS) -c -o $@ $<
 
 pl_perf.o: pl_perf.c pl_perf.h

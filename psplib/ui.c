@@ -30,12 +30,13 @@
 #include <pspnet_adhocmatching.h>
 
 #include "pl_psp.h"
-#include "file.h"
+#include "pl_file.h"
 #include "ctrl.h"
 #include "ui.h"
 #include "font.h"
 
-#define MAX_DIR_LEN 1024
+#define MAX(a, b) (((a) > (b)) ? (a) : (b))
+#define MIN(a, b) (((a) < (b)) ? (a) : (b))
 
 #define UI_ANIM_FRAMES   8
 #define UI_ANIM_FOG_STEP 0x0f
@@ -74,6 +75,9 @@ enum
   BrowserTemplateOpen     = 2,
   BrowserTemplateEnter    = 3,
 };
+
+void enter_directory(pl_file_path current_dir, 
+                     const char *subdir);
 
 #define BROWSER_TEMPLATE_COUNT 4
 
@@ -609,8 +613,8 @@ void pspUiFlashMessage(const char *message)
 
 void pspUiOpenBrowser(PspUiFileBrowser *browser, const char *start_path)
 {
-  PspFile *file;
-  PspFileList *list;
+  pl_file *file;
+  pl_file_list list;
   const pl_menu_item *sel, *last_sel;
   pl_menu_item *item;
   SceCtrlData pad;
@@ -627,8 +631,17 @@ void pspUiOpenBrowser(PspUiFileBrowser *browser, const char *start_path)
   if (!start_path)
     start_path = pl_psp_get_app_directory();
 
-  char *cur_path = pspFileGetParentDirectory(start_path);
-  const char *cur_file = pspFileGetFilename(start_path);
+  pl_file_path cur_path;
+  if (!pl_file_is_directory(start_path))
+    pl_file_get_parent_directory(start_path, cur_path, sizeof(cur_path));
+  else
+  {
+    int copy_len = MIN(strlen(start_path), sizeof(cur_path) - 1);
+    strncpy(cur_path, start_path, copy_len);
+    cur_path[copy_len] = '\0';
+  }
+
+  const char *cur_file = pl_file_get_filename(start_path);
   struct UiPos pos;
   int lnmax, lnhalf;
   int sby, sbh, j, h, w, fh = pspFontGetLineHeight(UiMetric.Font);
@@ -657,41 +670,41 @@ void pspUiOpenBrowser(PspUiFileBrowser *browser, const char *start_path)
     pl_menu_clear_items(&menu);
 
     /* Load list of files for the selected path */
-    if ((list = pspFileGetFileList(cur_path, browser->Filter)))
+    if (pl_file_get_file_list(&list, cur_path, browser->Filter) >= 0)
     {
       /* Check for a parent path, prepend .. if necessary */
-      if ((hasparent =! pspFileIsRootDirectory(cur_path)))
+      if ((hasparent =! pl_file_is_root_directory(cur_path)))
       {
         item = pl_menu_append_item(&menu, 0, "..");
-        item->param = (void*)PSP_FILE_DIR;
+        item->param = (void*)PL_FILE_DIRECTORY;
       }
 
       /* Add a menu item for each file */
-      for (file = list->First; file; file = file->Next)
+      for (file = list.files; file; file = file->next)
       {
         /* Skip files that begin with '.' */
-        if (file->Name && file->Name[0] == '.')
+        if (file->name && file->name[0] == '.')
           continue;
 
-        item = pl_menu_append_item(&menu, 0, file->Name);
-        item->param = (void*)file->Attrs;
+        item = pl_menu_append_item(&menu, 0, file->name);
+        item->param = (void*)(int)file->attrs;
 
-        if (cur_file && strcmp(file->Name, cur_file) == 0)
+        if (cur_file && strcmp(file->name, cur_file) == 0)
           sel = item;
       }
 
       cur_file = NULL;
 
       /* Destroy the file list */
-      pspFileDestroyFileList(list);
+      pl_file_destroy_file_list(&list);
     }
     else
     {
       /* Check for a parent path, prepend .. if necessary */
-      if ((hasparent =! pspFileIsRootDirectory(cur_path)))
+      if ((hasparent = !pl_file_is_root_directory(cur_path)))
       {
         item = pl_menu_append_item(&menu, 0, "..");
-        item->param = (void*)PSP_FILE_DIR;
+        item->param = (void*)PL_FILE_DIRECTORY;
       }
     }
 
@@ -773,10 +786,9 @@ void pspUiOpenBrowser(PspUiFileBrowser *browser, const char *start_path)
         /* File/dir selection */
         if (pad.Buttons & UiMetric.OkButton)
         {
-          if (((unsigned int)sel->param & PSP_FILE_DIR))
+          if (((unsigned int)sel->param & PL_FILE_DIRECTORY))
           {
-            /* Selected a directory, descend */
-            pspFileEnterDirectory(&cur_path, sel->caption);
+            enter_directory(cur_path, sel->caption);
             break;
           }
           else
@@ -800,9 +812,9 @@ void pspUiOpenBrowser(PspUiFileBrowser *browser, const char *start_path)
 
       if (pad.Buttons & PSP_CTRL_TRIANGLE)
       {
-        if (!pspFileIsRootDirectory(cur_path))
+        if (!pl_file_is_root_directory(cur_path))
         {
-          pspFileEnterDirectory(&cur_path, "..");
+          enter_directory(cur_path, "..");
           break;
         }
       }
@@ -830,7 +842,7 @@ void pspUiOpenBrowser(PspUiFileBrowser *browser, const char *start_path)
         if (exit) goto exit_browser;
       }
 
-      is_dir = (unsigned int)sel->param & PSP_FILE_DIR;
+      is_dir = (unsigned int)sel->param & PL_FILE_DIRECTORY;
 
       sceGuStart(GU_CALL, call_list);
 
@@ -870,7 +882,7 @@ void pspUiOpenBrowser(PspUiFileBrowser *browser, const char *start_path)
 
         pspVideoPrintClipped(UiMetric.Font, sx + 10, j, item->caption, w - 10, 
           "...", (item == sel) ? UiMetric.SelectedColor
-            : ((unsigned int)item->param & PSP_FILE_DIR)
+            : ((unsigned int)item->param & PL_FILE_DIRECTORY)
             ? UiMetric.BrowserDirectoryColor : UiMetric.BrowserFileColor);
      }
 
@@ -943,7 +955,6 @@ exit_browser:
     free(instructions[i]);
 
   pl_menu_destroy(&menu);
-  free(cur_path);
 }
 
 void pspUiOpenGallery(PspUiGallery *gallery, const char *title)
@@ -1192,9 +1203,9 @@ void pspUiOpenGallery(PspUiGallery *gallery, const char *title)
     /* Draw instructions */
     if (sel && sel->help_text)
     {
-      static char help_copy[MAX_DIR_LEN];
-      strncpy(help_copy, sel->help_text, MAX_DIR_LEN);
-      help_copy[MAX_DIR_LEN - 1] = '\0';
+      static char help_copy[PL_FILE_MAX_PATH_LEN];
+      strncpy(help_copy, sel->help_text, PL_FILE_MAX_PATH_LEN - 1);
+      help_copy[PL_FILE_MAX_PATH_LEN - 1] = '\0';
       ReplaceIcons(help_copy);
 
       pspVideoPrintCenter(UiMetric.Font, 
@@ -1705,18 +1716,18 @@ void pspUiOpenMenu(PspUiMenu *uimenu, const char *title)
 
       if (!option_mode && sel->help_text)
       {
-        static char help_copy[MAX_DIR_LEN];
-        strncpy(help_copy, sel->help_text, MAX_DIR_LEN);
-        help_copy[MAX_DIR_LEN - 1] = '\0';
+        static char help_copy[PL_FILE_MAX_PATH_LEN];
+        strncpy(help_copy, sel->help_text, PL_FILE_MAX_PATH_LEN - 1);
+        help_copy[PL_FILE_MAX_PATH_LEN - 1] = '\0';
         ReplaceIcons(help_copy);
 
         dirs = help_copy;
       }
       else if (option_mode)
       {
-        static char help_copy[MAX_DIR_LEN];
-        strncpy(help_copy, OptionModeTemplate, MAX_DIR_LEN);
-        help_copy[MAX_DIR_LEN - 1] = '\0';
+        static char help_copy[PL_FILE_MAX_PATH_LEN];
+        strncpy(help_copy, OptionModeTemplate, PL_FILE_MAX_PATH_LEN - 1);
+        help_copy[PL_FILE_MAX_PATH_LEN - 1] = '\0';
         ReplaceIcons(help_copy);
 
         dirs = help_copy;
@@ -2731,4 +2742,15 @@ void pspUiFadeout()
 	}
 
   pspImageDestroy(screen);
+}
+
+void enter_directory(pl_file_path current_dir, 
+                     const char *subdir)
+{
+  pl_file_path new_path;
+  pl_file_open_directory(current_dir,
+                         subdir,
+                         new_path,
+                         sizeof(new_path));
+  strcpy(current_dir, new_path);
 }

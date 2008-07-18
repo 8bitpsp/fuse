@@ -24,7 +24,7 @@
 #include "psplib/audio.h"
 #include "psplib/font.h"
 #include "psplib/ctrl.h"
-#include "psplib/file.h"
+#include "pl_file.h"
 #include "pl_psp.h"
 #include "pl_ini.h"
 #include "pl_util.h"
@@ -64,7 +64,7 @@ PSP_MAIN_THREAD_ATTR(PSP_THREAD_ATTR_USER);
 #define CURRENT_GAME (psp_current_game)
 #define GAME_LOADED (psp_current_game[0] != '\0')
 #define SET_AS_CURRENT_GAME(filename) \
-  strncpy(psp_current_game, filename, PSP_FILE_MAX_PATH_LEN - 1)
+  strncpy(psp_current_game, filename, sizeof(psp_current_game) - 1)
 
 static const char 
   PresentSlotText[] = "\026\244\020 Save\t\026\001\020 Load\t\026\243\020 Delete",
@@ -396,11 +396,11 @@ extern PspImage *Screen;
 extern int clear_screen;
 extern int fuse_exiting;
 
-static char psp_current_game[PSP_FILE_MAX_PATH_LEN] = {'\0'},
-            psp_game_path[PSP_FILE_MAX_PATH_LEN] = {'\0'},
-            psp_save_state_path[PSP_FILE_MAX_PATH_LEN],
-            psp_screenshot_path[PSP_FILE_MAX_PATH_LEN],
-            psp_config_path[PSP_FILE_MAX_PATH_LEN];
+pl_file_path psp_current_game = {'\0'},
+             psp_game_path = {'\0'},
+             psp_save_state_path,
+             psp_screenshot_path,
+             psp_config_path;
 
 psp_ctrl_mask_to_index_map_t physical_to_emulated_button_map[] =
 {
@@ -700,7 +700,7 @@ static void psp_display_control_tab()
 {
   pl_menu_item *item;
   const char *config_name = (GAME_LOADED)
-    ? pspFileGetFilename(psp_current_game) : "BASIC";
+    ? pl_file_get_filename(psp_current_game) : "BASIC";
   char *game_name = strdup(config_name);
   char *dot = strrchr(game_name, '.');
   int i;
@@ -721,7 +721,7 @@ static void psp_display_state_tab()
   ScePspDateTime latest;
   char caption[32];
   const char *config_name = (GAME_LOADED)
-    ? pspFileGetFilename(psp_current_game) : "BASIC";
+    ? pl_file_get_filename(psp_current_game) : "BASIC";
   char *path = (char*)malloc(strlen(psp_save_state_path) + strlen(config_name) + 8);
   char *game_name = strdup(config_name);
   char *dot = strrchr(game_name, '.');
@@ -734,7 +734,7 @@ static void psp_display_state_tab()
   {
     sprintf(path, "%s%s_%02i.sta", psp_save_state_path, config_name, item->id);
 
-    if (pspFileCheckIfExists(path))
+    if (pl_file_exists(path))
     {
       if (sceIoGetstat(path, &stat) < 0)
         sprintf(caption, "ERROR");
@@ -851,8 +851,8 @@ static PspImage* psp_save_state(const char *path, PspImage *icon)
 
 static void psp_load_options()
 {
-  char path[PSP_FILE_MAX_PATH_LEN];
-  snprintf(path, PSP_FILE_MAX_PATH_LEN-1, "%s%s", pl_psp_get_app_directory(), "options.ini");
+  pl_file_path path;
+  snprintf(path, sizeof(path) - 1, "%s%s", pl_psp_get_app_directory(), "options.ini");
 
   /* Load INI */
   pl_ini_file file;
@@ -870,7 +870,7 @@ static void psp_load_options()
                                       LIBSPECTRUM_MACHINE_48);
   psp_options.autoload_slot = pl_ini_get_int(&file, "System", "Autoload Slot", 9);
   pl_ini_get_string(&file, "File", "Game Path", NULL, 
-                    psp_game_path, PSP_FILE_MAX_PATH_LEN-1);
+                    psp_game_path, sizeof(psp_game_path));
 
   /* Clean up */
   pl_ini_destroy(&file);
@@ -878,8 +878,8 @@ static void psp_load_options()
 
 static int psp_save_options()
 {
-  char path[PSP_FILE_MAX_PATH_LEN];
-  snprintf(path, PSP_FILE_MAX_PATH_LEN-1, "%s%s", pl_psp_get_app_directory(), "options.ini");
+  pl_file_path path;
+  snprintf(path, sizeof(path)-1, "%s%s", pl_psp_get_app_directory(), "options.ini");
 
   /* Initialize INI structure */
   pl_ini_file file;
@@ -914,7 +914,7 @@ static int psp_save_options()
 static int psp_load_game(const char *path)
 {
   int success, reboot;
-  if (pspFileEndsWith(path, "ZIP"))
+  if (pl_file_is_of_type(path, "ZIP"))
   {
     char archived_file[512];
     unzFile zipfile = NULL;
@@ -946,7 +946,7 @@ static int psp_load_game(const char *path)
         return 0;
       }
 
-      extension = pspFileGetFileExtension(archived_file);
+      extension = pl_file_get_extension(archived_file);
       for (j = 1; *QuickloadFilter[j]; j++)
       {
         if (strcasecmp(QuickloadFilter[j], extension) == 0)
@@ -989,12 +989,12 @@ close_archive:
     unzClose(zipfile);
 
     success = (utils_open_file_buffer(file, archived_file, 0, NULL) == 0);
-    reboot = !pspFileEndsWith(archived_file, "Z80");
+    reboot = !pl_file_is_of_type(archived_file, "Z80");
   }
   else
   {
     success = (utils_open_file(path, 0, NULL) == 0);
-    reboot = !pspFileEndsWith(path, "Z80");
+    reboot = !pl_file_is_of_type(path, "Z80");
   }
 
   if (reboot) machine_reset(0);
@@ -1010,11 +1010,11 @@ static void psp_init_controls(psp_ctrl_map_t *config)
 
 static int psp_load_controls(const char *filename, psp_ctrl_map_t *config)
 {
-  char path[PSP_FILE_MAX_PATH_LEN];
-  snprintf(path, PSP_FILE_MAX_PATH_LEN-1, "%s%s.cnf", psp_config_path, filename);
+  pl_file_path path;
+  snprintf(path, sizeof(path), "%s%s.cnf", psp_config_path, filename);
 
   /* If no configuration, load defaults */
-  if (!pspFileCheckIfExists(path))
+  if (!pl_file_exists(path))
   {
     psp_init_controls(config);
     return 1;
@@ -1039,8 +1039,8 @@ static int psp_load_controls(const char *filename, psp_ctrl_map_t *config)
 
 static int psp_save_controls(const char *filename, const psp_ctrl_map_t *config)
 {
-  char path[PSP_FILE_MAX_PATH_LEN];
-  snprintf(path, PSP_FILE_MAX_PATH_LEN-1, "%s%s.cnf", psp_config_path, filename);
+  pl_file_path path;
+  snprintf(path, sizeof(path)-1, "%s%s.cnf", psp_config_path, filename);
 
   /* Open file for writing */
   FILE *file = fopen(path, "w");
@@ -1152,7 +1152,7 @@ static int OnMenuOk(const void *uimenu, const void* sel_item)
   {
     /* Save to MS */
     if (psp_save_controls((GAME_LOADED)
-                          ? pspFileGetFilename(psp_current_game) : "BASIC", 
+                          ? pl_file_get_filename(psp_current_game) : "BASIC", 
                           &current_map))
       pspUiAlert("Changes saved");
     else
@@ -1173,7 +1173,7 @@ static int OnMenuOk(const void *uimenu, const void* sel_item)
     case SYSTEM_SCRNSHOT:
       /* Save screenshot */
       if (!pl_util_save_image_seq(psp_screenshot_path, (GAME_LOADED)
-                                  ? pspFileGetFilename(psp_current_game) : "BASIC",
+                                  ? pl_file_get_filename(psp_current_game) : "BASIC",
                                   Screen))
         pspUiAlert("ERROR: Screenshot not saved");
       else
@@ -1303,10 +1303,12 @@ static int OnQuickloadOk(const void *browser, const void *path)
   display_refresh_all();
 
   SET_AS_CURRENT_GAME(path);
-  pspFileGetParentDirectoryCopy(path, psp_game_path);
+  pl_file_get_parent_directory(path,
+                               psp_game_path,
+                               sizeof(psp_game_path));
 
   if (!psp_load_controls((GAME_LOADED)
-                           ? pspFileGetFilename(psp_current_game) : "BASIC",
+                           ? pl_file_get_filename(psp_current_game) : "BASIC",
                          &current_map));
 
 
@@ -1314,9 +1316,9 @@ static int OnQuickloadOk(const void *browser, const void *path)
   if (psp_options.autoload_slot >= 0)
   {
     const char *config_name = (GAME_LOADED)
-                              ? pspFileGetFilename(psp_current_game) : "BASIC";
-    char state_file[PSP_FILE_MAX_PATH_LEN];
-    snprintf(state_file, PSP_FILE_MAX_PATH_LEN - 1, 
+                              ? pl_file_get_filename(psp_current_game) : "BASIC";
+    pl_file_path state_file;
+    snprintf(state_file, sizeof(state_file) - 1, 
              "%s%s_%02i.sta", psp_save_state_path, config_name, 
              psp_options.autoload_slot);
 
@@ -1334,13 +1336,13 @@ static int OnSaveStateOk(const void *gallery, const void *item)
 {
   char *path;
   const char *config_name = (GAME_LOADED) 
-    ? pspFileGetFilename(psp_current_game) : "BASIC";
+    ? pl_file_get_filename(psp_current_game) : "BASIC";
 
   path = (char*)malloc(strlen(psp_save_state_path) + strlen(config_name) + 8);
   sprintf(path, "%s%s_%02i.sta", psp_save_state_path, config_name,
     ((const pl_menu_item*)item)->id);
 
-  if (pspFileCheckIfExists(path) && pspUiConfirm("Load state?"))
+  if (pl_file_exists(path) && pspUiConfirm("Load state?"))
   {
     if (psp_load_state(path))
     {
@@ -1369,7 +1371,7 @@ static int OnSaveStateButtonPress(const PspUiGallery *gallery,
     char *path;
     char caption[32];
     const char *config_name = (GAME_LOADED) 
-      ? pspFileGetFilename(psp_current_game) : "BASIC";
+      ? pl_file_get_filename(psp_current_game) : "BASIC";
     pl_menu_item *item = pl_menu_find_item_by_id(&gallery->Menu, sel->id);
 
     path = (char*)malloc(strlen(psp_save_state_path) + strlen(config_name) + 8);
@@ -1379,7 +1381,7 @@ static int OnSaveStateButtonPress(const PspUiGallery *gallery,
     {
       if (button_mask & PSP_CTRL_SQUARE)
       {
-        if (pspFileCheckIfExists(path) && !pspUiConfirm("Overwrite existing state?"))
+        if (pl_file_exists(path) && !pspUiConfirm("Overwrite existing state?"))
           break;
 
         pspUiFlashMessage("Saving, please wait ...");
@@ -1416,10 +1418,10 @@ static int OnSaveStateButtonPress(const PspUiGallery *gallery,
       }
       else if (button_mask & PSP_CTRL_TRIANGLE)
       {
-        if (!pspFileCheckIfExists(path) || !pspUiConfirm("Delete state?"))
+        if (!pl_file_exists(path) || !pspUiConfirm("Delete state?"))
           break;
 
-        if (!pspFileDelete(path))
+        if (!pl_file_rm(path))
         {
           pspUiAlert("ERROR: State not deleted");
           break;

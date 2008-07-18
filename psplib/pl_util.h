@@ -35,12 +35,8 @@ int pl_util_save_image_seq(const char *path,
                            const PspImage *image);
 int pl_util_save_vram_seq(const char *path,
                           const char *prefix);
-
-/* Date compare */
 int pl_util_date_compare(const ScePspDateTime *date1,
                          const ScePspDateTime *date2);
-
-/* CRC32 */
 int pl_util_compute_crc32_buffer(const void *buf,
                                  size_t buf_len,
                                  uint32_t *crc_32);

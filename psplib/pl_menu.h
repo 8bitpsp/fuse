@@ -82,59 +82,48 @@ typedef struct pl_menu_def_t
   pl_menu_option_def *options;
 } pl_menu_def;
 
-int
-  pl_menu_create(pl_menu *menu,
-                 const pl_menu_def *def);
-void
-  pl_menu_destroy(pl_menu *menu);
-
-void
-  pl_menu_clear_items(pl_menu *menu);
+int  pl_menu_create(pl_menu *menu,
+                    const pl_menu_def *def);
+void pl_menu_destroy(pl_menu *menu);
+void pl_menu_clear_items(pl_menu *menu);
 pl_menu_item*
-  pl_menu_append_item(pl_menu *menu,
-                      unsigned int id,
-                      const char *caption);
+     pl_menu_append_item(pl_menu *menu,
+                         unsigned int id,
+                         const char *caption);
 pl_menu_item*
-  pl_menu_find_item_by_index(const pl_menu *menu,
-                             int index);
+     pl_menu_find_item_by_index(const pl_menu *menu,
+                                int index);
 pl_menu_item*
-  pl_menu_find_item_by_id(const pl_menu *menu,
-                          unsigned int id);
-int
-  pl_menu_remove_item(pl_menu *menu,
+     pl_menu_find_item_by_id(const pl_menu *menu,
+                             unsigned int id);
+int  pl_menu_remove_item(pl_menu *menu,
                       pl_menu_item *which);
-int
-  pl_menu_get_item_count(const pl_menu *menu);
-int
-  pl_menu_set_item_caption(pl_menu_item *item,
-                           const char *caption);
-int
-  pl_menu_set_item_help_text(pl_menu_item *item,
-                             const char *help_text);
-
-void
-  pl_menu_clear_options(pl_menu_item *item);
+int  pl_menu_get_item_count(const pl_menu *menu);
+int  pl_menu_set_item_caption(pl_menu_item *item,
+                              const char *caption);
+int  pl_menu_set_item_help_text(pl_menu_item *item,
+                                const char *help_text);
+void pl_menu_clear_options(pl_menu_item *item);
 pl_menu_option*
-  pl_menu_append_option(pl_menu_item *item,
-                        const char *text,
-                        const void *value,
-                        int select);
+     pl_menu_append_option(pl_menu_item *item,
+                           const char *text,
+                           const void *value,
+                           int select);
 pl_menu_option*
-  pl_menu_find_option_by_index(const pl_menu_item *item,
-                               int index);
+     pl_menu_find_option_by_index(const pl_menu_item *item,
+                                  int index);
 pl_menu_option*
-  pl_menu_find_option_by_value(const pl_menu_item *item,
-                               const void *value);
+     pl_menu_find_option_by_value(const pl_menu_item *item,
+                                  const void *value);
 pl_menu_option*
-  pl_menu_select_option_by_index(pl_menu_item *item,
-                                 int index);
+     pl_menu_select_option_by_index(pl_menu_item *item,
+                                    int index);
 pl_menu_option*
-  pl_menu_select_option_by_value(pl_menu_item *item,
-                                 const void *value);
-int
-  pl_menu_update_option(pl_menu_option *option,
-                        const char *text,
-                        const void *value);
+     pl_menu_select_option_by_value(pl_menu_item *item,
+                                    const void *value);
+int  pl_menu_update_option(pl_menu_option *option,
+                           const char *text,
+                           const void *value);
 
 #ifdef __cplusplus
 }

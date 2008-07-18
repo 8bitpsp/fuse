@@ -27,7 +27,7 @@
 #include <pspkernel.h>
 #include <psprtc.h>
 
-#include "file.h"
+#include "pl_file.h"
 #include "video.h"
 
 #define CRC_BUFFER_SIZE  8192
@@ -42,13 +42,14 @@ int pl_util_save_image_seq(const char *path,
 {
   /* Loop until first free screenshot slot is found */
   int i = 0;
-  char full_path[PSP_FILE_MAX_PATH_LEN];
+  pl_file_path full_path;
   do
   {
-    snprintf(full_path, PSP_FILE_MAX_PATH_LEN - 1,
+    snprintf(full_path, 
+             sizeof(full_path) - 1,
              "%s%s-%02i.png",
              path, filename, i);
-  } while (pspFileCheckIfExists(full_path) && ++i < 100);
+  } while (pl_file_exists(full_path) && ++i < 100);
 
   /* Save the screenshot */
   return pspImageSavePng(full_path, image);

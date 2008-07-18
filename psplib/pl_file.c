@@ -29,24 +29,37 @@
 
 #include "pl_file.h"
 
-static void sort_file_list(pl_file_list *list);
-static int  compare_files_by_name(const void *s1, const void *s2);
+#define MAX(a, b) (((a) > (b)) ? (a) : (b))
+#define MIN(a, b) (((a) < (b)) ? (a) : (b))
+
+static void
+  sort_file_list(pl_file_list *list,
+                 int count);
+static int
+  compare_files_by_name(const void *s1, 
+                        const void *s2);
 
 void pl_file_get_parent_directory(const char *path,
-                                  pl_file_path parent)
+                                  char *parent,
+                                  int length)
 {
-  if (strlen(path) >= PL_FILE_MAX_PATH_LEN)
-    return;
+  int pos = strlen(path) - 1,
+      len;
 
-  char *pos;
-  if (!(pos = strrchr(path, '/')))
+  for (; pos >= 0 && path[pos] == '/'; pos--);
+  for (; pos >= 0 && path[pos] != '/'; pos--);
+
+  if (pos < 0)
   {
-    strcpy(parent, path);
+    len = MIN(strlen(path), length - 1);
+    strncpy(parent, path, len);
+    parent[len] = '\0';
     return;
   }
 
-  strncpy(parent, path, pos - path + 1);
-  parent[pos - path + 1] = '\0';
+  len = MIN(pos + 1, length - 1);
+  strncpy(parent, path, len);
+  parent[len] = '\0';
 }
 
 const char* pl_file_get_filename(const char *path)
@@ -71,18 +84,15 @@ int pl_file_rm(const char *path)
   return sceIoRemove(path) >= 0;
 }
 
-int pl_file_get_file_size(const char *path)
+/* Returns size of file in bytes or <0 if error */
+int64_t pl_file_get_file_size(const char *path)
 {
-  /* TODO: there's probably a better way to do this */
-  FILE *file; 
-  if (!(file = fopen(path, "r")))
-    return 0;
+  SceIoStat stat;
+  memset(&stat, 0, sizeof(stat));
+  if (sceIoGetstat(path, &stat) < 0)
+    return -1;
 
-  fseek(file, 0, SEEK_END);
-  int size = ftell(file);
-  fclose(file);
-
-  return size;
+  return stat.st_size;
 }
 
 int pl_file_is_root_directory(const char *path)
@@ -93,12 +103,7 @@ int pl_file_is_root_directory(const char *path)
 
 int pl_file_exists(const char *path)
 {
-  SceIoStat stat;
-  memset(&stat, 0, sizeof(stat));
-  if (sceIoGetstat(path, &stat) < 0)
-    return 0;
-
-  return 1;
+  return (pl_file_get_file_size(path) >= 0);
 }
 
 int pl_file_is_of_type(const char *path,
@@ -149,20 +154,17 @@ int pl_file_get_file_list(pl_file_list *list,
                           const char **filter)
 {
   SceUID fd = sceIoDopen(path);
-
-  if (fd < 0) return 0;
+  if (fd < 0) return -1;
 
   SceIoDirent dir;
   memset(&dir, 0, sizeof(dir));
 
-  PspFile *file = 0;
-  PspFileList *list = (PspFileList*)malloc(sizeof(PspFileList));
+  pl_file *file, *last = NULL;
+  list->files = NULL;
+
   const char **pext;
   int loop;
-
-  list->Count = 0;
-  list->First = 0;
-  list->Last = 0;
+  int count = 0;
 
   while (sceIoDread(fd, &dir) > 0)
   {
@@ -171,7 +173,7 @@ int pl_file_get_file_list(pl_file_list *list,
       /* Loop through the list of allowed extensions and compare */
       for (pext = filter, loop = 1; *pext; pext++)
       {
-        if (pspFileEndsWith(dir.d_name, *pext))
+        if (pl_file_is_of_type(dir.d_name, *pext))
         {
           loop = 0;
           break;
@@ -181,51 +183,46 @@ int pl_file_get_file_list(pl_file_list *list,
       if (loop) continue;
     }
 
-    // Create a new file entry
-
-    file = (PspFile*)malloc(sizeof(PspFile));
-    file->Name = strdup(dir.d_name);
-    file->Next = 0;
-    file->Attrs = (dir.d_stat.st_attr & FIO_SO_IFDIR) ? PSP_FILE_DIR : 0;
-
-    list->Count++;
-
-    // Update preceding element
-
-    if (list->Last)
+    /* Create a new file entry */
+    if (!(file = (pl_file*)malloc(sizeof(pl_file))))
     {
-      list->Last->Next = file;
-      list->Last = file;
+      pl_file_destroy_file_list(list);
+      return -1;
     }
-    else
-    {
-      list->First = file;
-      list->Last = file;
-    }
+
+    file->name = strdup(dir.d_name);
+    file->next = NULL;
+    file->attrs = (dir.d_stat.st_attr & FIO_SO_IFDIR) 
+                  ? PL_FILE_DIRECTORY : 0;
+
+    /* Update preceding element */
+    if (last) last->next = file;
+    else list->files = file;
+
+    last = file;
+    count++;
   }
 
   sceIoDclose(fd);
 
-  // Sort the files by name
-
-  _pspFileSortFileList(list);
-
-  return list;
+  /* Sort the files by name */
+  sort_file_list(list, count);
+  return count;
 }
 
-static void sort_file_list(pl_file_list *list)
+static void sort_file_list(pl_file_list *list,
+                           int count)
 {
-  pl_file **files, *file, *fp;
-  int i, count;
+  pl_file **files, *file, **fp;
+  int i;
 
-  count = pl_file_get_file_list_count(list);
   if (count < 1)
     return;
 
   /* Copy the file entries to an array */
   files = (pl_file**)malloc(sizeof(pl_file*) * count);
-  for (file = list->files, fp = *files; file; file = file->next, i++, fp++)
-    fp = file;
+  for (file = list->files, fp = files; file; file = file->next, i++, fp++)
+    *fp = file;
 
   /* Sort the array */
   qsort((void*)files, count, sizeof(pl_file*), compare_files_by_name);
@@ -252,46 +249,45 @@ static int compare_files_by_name(const void *s1, const void *s2)
   else return 1;
 }
 
-
-/*
-
-/*
-// Returns a list of all files in a directory
-// path: path containing the files
-// filter: array of strings, each containing an extension. last element contains NULL ('\0')
-
-PspFileList* pspFileGetFileList(const char *path, const char **filter)
+int pl_file_open_directory(const char *path,
+                           const char *subdir,
+                           char *result,
+                           int  result_len)
 {
-}
+  /* This routine should be made more robust */
+  /* to accept subdirs like ../../ etc... */
+  int path_len = strlen(path);
+  int copy_len;
 
-void pspFileEnterDirectory(char **cur_path, char *dir)
-{
-  /* Same directory *
-  if (strcmp(dir, ".") == 0)
-    return;
-
-  int len, pos;
-  len = strlen(*cur_path);
-  pos = len - 1;
-
-  /* Ascend one level *
-  if (strcmp(dir, "..") == 0)
+  /* Ascend one level */
+  if (strcmp(subdir, "..") == 0)
   {
-    for (; pos >= 0 && (*cur_path)[pos] == '/'; pos--);
-    for (; pos >= 0 && (*cur_path)[pos] != '/'; pos--);
-
-    if (pos >= 0)
-      (*cur_path)[pos + 1] = '\0';
-
-    return;
+    pl_file_get_parent_directory(path,
+                                 result,
+                                 result_len);
+    return 1;
+  }
+  else
+  {
+    copy_len = MIN(result_len - 1, strlen(subdir) + path_len + 2);
+    snprintf(result, copy_len, "%s%s/", path, subdir);
+    result[copy_len] = '\0';
+    return 1;
   }
 
-  /* Descend one level *
-  char *new_path = (char*)malloc(sizeof(char) * (strlen(dir) + len + 2)); // 2: '\0' + '/'
-  sprintf(new_path, "%s%s/", *cur_path, dir);
+  /* If we're here, then we couldn't figure out final path */
+  /* Just copy the original path */
+  copy_len = MIN(result_len - 1, path_len);
+  strncpy(result, path, copy_len);
+  result[copy_len] = '\0';
 
-  free(*cur_path);
-  *cur_path = new_path;
+  return (strcmp(subdir, ".") == 0);
 }
 
-*/
+int pl_file_is_directory(const char *path)
+{
+  int len;
+  if ((len = strlen(path)) < 1)
+    return 0;
+  return (path[len - 1] == '/');
+}

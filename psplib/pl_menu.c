@@ -37,9 +37,8 @@ int pl_menu_create(pl_menu *menu,
   menu->items = NULL;
   menu->selected = NULL;
 
-  /* No definition; nothing to do */
-  if (!def)
-    return 1;
+  /* No definition; nothing more to do */
+  if (!def) return 1;
 
   pl_menu_item *item;
 
