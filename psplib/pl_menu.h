@@ -56,7 +56,7 @@ typedef struct pl_menu_t
         pl_menu_def ident[] = {
 #define PL_MENU_HEADER(text) \
         {0,"\t"text,NULL,NULL},
-#define PL_MENU_ITEM(id,caption,help,option_list) \
+#define PL_MENU_ITEM(caption,id,option_list,help) \
         {id,caption,help,option_list},
 #define PL_MENU_ITEMS_END \
         {0,NULL,NULL,NULL}};
@@ -105,6 +105,12 @@ int
                       pl_menu_item *which);
 int
   pl_menu_get_item_count(const pl_menu *menu);
+int
+  pl_menu_set_item_caption(pl_menu_item *item,
+                           const char *caption);
+int
+  pl_menu_set_item_help_text(pl_menu_item *item,
+                             const char *help_text);
 
 void
   pl_menu_clear_options(pl_menu_item *item);
@@ -129,12 +135,6 @@ int
   pl_menu_update_option(pl_menu_option *option,
                         const char *text,
                         const void *value);
-int
-  pl_menu_update_item_caption(pl_menu_item *item,
-                              const char *caption);
-int
-  pl_menu_update_item_help_text(pl_menu_item *item,
-                                const char *help_text);
 
 #ifdef __cplusplus
 }

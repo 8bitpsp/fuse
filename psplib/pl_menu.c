@@ -333,8 +333,8 @@ int pl_menu_update_option(pl_menu_option *option,
   return (!text || option->text);
 }
 
-int pl_menu_update_item_caption(pl_menu_item *item,
-                                const char *caption)
+int pl_menu_set_item_caption(pl_menu_item *item,
+                             const char *caption)
 {
   if (item->caption)
     free(item->caption);
@@ -342,8 +342,8 @@ int pl_menu_update_item_caption(pl_menu_item *item,
   return (!caption || item->caption);
 }
 
-int pl_menu_update_item_help_text(pl_menu_item *item,
-                                  const char *help_text)
+int pl_menu_set_item_help_text(pl_menu_item *item,
+                               const char *help_text)
 {
   if (item->help_text)
     free(item->help_text);

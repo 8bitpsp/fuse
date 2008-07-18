@@ -82,7 +82,6 @@ typedef struct PspUiFileBrowser
 
 typedef struct PspUiMenu
 {
-  pl_menu *Menu;
   void (*OnRender)(const void *uimenu, const void *item);
   int  (*OnOk)(const void *menu, const void *item);
   int  (*OnCancel)(const void *menu, const void *item);
@@ -90,17 +89,18 @@ typedef struct PspUiMenu
          u32 button_mask);
   int  (*OnItemChanged)(const struct PspUiMenu *menu, pl_menu_item *item, 
          const pl_menu_option *option);
+  pl_menu Menu;
 } PspUiMenu;
 
 typedef struct PspUiGallery
 {
-  pl_menu *Menu;
   void (*OnRender)(const void *gallery, const void *item);
   int  (*OnOk)(const void *gallery, const void *item);
   int  (*OnCancel)(const void *gallery, const void *item);
   int  (*OnButtonPress)(const struct PspUiGallery *gallery, pl_menu_item* item, 
           u32 button_mask);
   void *Userdata;
+  pl_menu Menu;
 } PspUiGallery;
 
 typedef struct PspUiSplash
@@ -120,8 +120,8 @@ typedef struct PspUiSplash
 char pspUiGetButtonIcon(u32 button_mask);
 
 void pspUiOpenBrowser(PspUiFileBrowser *browser, const char *start_path);
-void pspUiOpenGallery(const PspUiGallery *gallery, const char *title);
-void pspUiOpenMenu(const PspUiMenu *uimenu, const char *title);
+void pspUiOpenGallery(PspUiGallery *gallery, const char *title);
+void pspUiOpenMenu(PspUiMenu *uimenu, const char *title);
 void pspUiSplashScreen(PspUiSplash *splash);
 
 int pspUiAdhocHost(const char *name, PspMAC mac);

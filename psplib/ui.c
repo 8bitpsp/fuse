@@ -946,9 +946,9 @@ exit_browser:
   free(cur_path);
 }
 
-void pspUiOpenGallery(const PspUiGallery *gallery, const char *title)
+void pspUiOpenGallery(PspUiGallery *gallery, const char *title)
 {
-  pl_menu *menu = gallery->Menu;
+  pl_menu *menu = &(gallery->Menu);
   const pl_menu_item *top, *item;
   SceCtrlData pad;
   pl_menu_item *sel = menu->selected;
@@ -1343,10 +1343,10 @@ void pspUiOpenGallery(const PspUiGallery *gallery, const char *title)
   menu->selected = sel;
 }
 
-void pspUiOpenMenu(const PspUiMenu *uimenu, const char *title)
+void pspUiOpenMenu(PspUiMenu *uimenu, const char *title)
 {
   struct UiPos pos;
-  pl_menu *menu = uimenu->Menu;
+  pl_menu *menu = &(uimenu->Menu);
   const pl_menu_item *item;
   SceCtrlData pad;
   const pl_menu_option *temp_option;
