@@ -574,7 +574,7 @@ int pspImageSavePngFd(FILE *fp, const PspImage* image)
 int FindPowerOfTwoLargerThan(int n)
 {
   int i;
-  for (i = n; i < n; i *= 2);
+  for (i = 1; i < n; i *= 2);
   return i;
 }
 

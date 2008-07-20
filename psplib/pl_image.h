@@ -22,11 +22,15 @@
 #ifndef _PL_IMAGE_H
 #define _PL_IMAGE_H
 
+#include <stdio.h>
+
 #ifdef __cplusplus
 extern "C" {
 #endif
 
-#define PL_IMAGE_FLAGS_USE_VRAM  0x01
+#define PL_IMAGE_USE_VRAM  0x01
+
+typedef unsigned int uint;
 
 typedef enum pl_image_format_t
 {
@@ -56,6 +60,7 @@ typedef struct pl_image_t
   pl_image_view
           view;
   uint    height;
+  uint    line_width;
   uint    pitch;
   pl_image_format
           format;
@@ -71,8 +76,8 @@ int  pl_image_create(pl_image *image,
                      pl_image_format format,
                      uint8_t flags);
 void pl_image_destroy(pl_image *image);
-int  pl_image_duplicate(const pl_image *original,
-                        pl_image *copy);
+int  pl_image_create_duplicate(const pl_image *original,
+                               pl_image *copy);
 int  pl_image_palettize(pl_image *image,
                         pl_image_format pal_format,
                         uint pal_colors);
@@ -101,6 +106,8 @@ int  pl_image_load_png(pl_image *image,
                        const char *path);
 int  pl_image_save_png(const pl_image *image,
                        const char *path);
+int  pl_image_create_thumbnail(const pl_image *original,
+                               pl_image *thumb);
 
 /*
 void pl_image_clear(pl_image *image,

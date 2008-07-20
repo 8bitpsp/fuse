@@ -12,27 +12,43 @@
 #include "pl_vk.h"
 #include "pl_perf.h"
 
-/* raw canvas width is 1 << 9 (512) */
-#define CANVAS_WIDTH_SHIFTBY 9
-#define CANVAS_WIDTH         (1 << CANVAS_WIDTH_SHIFTBY)
-
 extern pl_vk_layout vk_spectrum;
 PspImage *Screen = NULL;
+pl_image plScreen;
 static pl_perf_counter perf_counter;
 int clear_screen;
-
 static int ScreenX, ScreenY, ScreenW, ScreenH;
+static const unsigned char spectrum_palette[16][3] = 
+{
+  {   0,   0,   0 },
+  {   0,   0, 192 },
+  { 192,   0,   0 },
+  { 192,   0, 192 },
+  {   0, 192,   0 },
+  {   0, 192, 192 },
+  { 192, 192,   0 },
+  { 192, 192, 192 },
+  {   0,   0,   0 },
+  {   0,   0, 255 },
+  { 255,   0,   0 },
+  { 255,   0, 255 },
+  {   0, 255,   0 },
+  {   0, 255, 255 },
+  { 255, 255,   0 },
+  { 255, 255, 255 },
+};
+
 
 int uidisplay_init( int width, int height )
 {
   pspVideoInit();
 
   /* Initialize screen buffer */
-  if (!(Screen = pspImageCreateVram(CANVAS_WIDTH,
+  if (!(Screen = pspImageCreateVram(512,
                                     DISPLAY_SCREEN_HEIGHT,
                                     PSP_IMAGE_INDEXED)))
       return 1;
-
+#if 0
   /* Initialize color palette */
   const unsigned char rgb_colours[16][3] = 
   {
@@ -69,6 +85,22 @@ int uidisplay_init( int width, int height )
     Screen->Palette[i] = RGB(red, green, blue);
   }
   Screen->PalSize = 16;
+#endif
+  /* Initialize screen buffer */
+  if (!pl_image_create(&plScreen,
+                       DISPLAY_SCREEN_WIDTH,
+                       DISPLAY_SCREEN_HEIGHT,
+                       pl_image_indexed,
+                       PL_IMAGE_USE_VRAM))
+      return 1;
+
+  if (!pl_image_palettize(&plScreen,
+                          pl_image_5551,
+                          16))
+  {
+    pl_image_destroy(&plScreen);
+    return 1;
+  }
 
   psp_uidisplay_reinit();
   display_refresh_all();
@@ -78,19 +110,38 @@ int uidisplay_init( int width, int height )
 
 void psp_uidisplay_reinit()
 {
+  /* Reset palette (color/gray) */
+  int i;
+  for (i = 0; i < 16; i++) 
+  {
+    unsigned char red, green, blue, grey;
+
+    red   = spectrum_palette[i][0];
+    green = spectrum_palette[i][1];
+    blue  = spectrum_palette[i][2];
+
+    /* Addition of 0.5 is to avoid rounding errors */
+    grey = ( 0.299 * red + 0.587 * green + 0.114 * blue ) + 0.5;
+
+    pl_image_set_palette_color(&plScreen,
+                               i,
+                               RGB(red, green, blue));
+  }
+
+  /* Reinitialize view */
   if (psp_options.show_border)
   {
-    Screen->Viewport.X = 0;
-    Screen->Viewport.Y = 0;
-    Screen->Viewport.Width = DISPLAY_SCREEN_WIDTH / 2;
-    Screen->Viewport.Height = DISPLAY_SCREEN_HEIGHT;
+    plScreen.view.x = 0;
+    plScreen.view.y = 0;
+    plScreen.view.w = DISPLAY_SCREEN_WIDTH / 2;
+    plScreen.view.h = DISPLAY_SCREEN_HEIGHT;
   }
   else
   {
-    Screen->Viewport.X = DISPLAY_BORDER_WIDTH / 2;
-    Screen->Viewport.Y = DISPLAY_BORDER_HEIGHT;
-    Screen->Viewport.Width = DISPLAY_WIDTH / 2;
-    Screen->Viewport.Height = DISPLAY_HEIGHT;
+    plScreen.view.x = DISPLAY_BORDER_WIDTH / 2;
+    plScreen.view.y = DISPLAY_BORDER_HEIGHT;
+    plScreen.view.w = DISPLAY_WIDTH / 2;
+    plScreen.view.h = DISPLAY_HEIGHT;
   }
 
   /* Set up viewing ratios */
@@ -99,12 +150,12 @@ void psp_uidisplay_reinit()
   {
   default:
   case DISPLAY_MODE_UNSCALED:
-    ScreenW = Screen->Viewport.Width;
-    ScreenH = Screen->Viewport.Height;
+    ScreenW = plScreen.view.w;
+    ScreenH = plScreen.view.h;
     break;
   case DISPLAY_MODE_FIT_HEIGHT:
-    ratio = (float)SCR_HEIGHT / (float)Screen->Viewport.Height;
-    ScreenW = (float)Screen->Viewport.Width * ratio - 2;
+    ratio = (float)SCR_HEIGHT / (float)plScreen.view.h;
+    ScreenW = (float)plScreen.view.w * ratio - 2;
     ScreenH = SCR_HEIGHT;
     break;
   case DISPLAY_MODE_FILL_SCREEN:
@@ -134,8 +185,10 @@ void uidisplay_frame_end()
     clear_screen--;
     pspVideoClearScreen();
   }
-
+#if 0
   pspVideoPutImage(Screen, ScreenX, ScreenY, ScreenW, ScreenH);
+#endif
+  pl_video_put_image(&plScreen, ScreenX, ScreenY, ScreenW, ScreenH);
 
   /* Draw keyboard */
   if (show_kybd_held)
@@ -165,6 +218,8 @@ int uidisplay_end()
     Screen = NULL;
   }
 
+  pl_image_destroy(&plScreen);
+
   pspVideoShutdown();
 
   return 0;
@@ -173,8 +228,8 @@ int uidisplay_end()
 /* Set one pixel in the display */
 void uidisplay_putpixel(int x, int y, int colour)
 {
-  u8 *screen_start = (u8*)Screen->Pixels;
-  screen_start[(y << CANVAS_WIDTH_SHIFTBY) + x] = colour;
+  u8 *screen_start = (u8*)plScreen.bitmap;
+  screen_start[y * plScreen.line_width + x] = colour;
 }
 
 /* Print the 8 pixels in `data' using ink colour `ink' and paper
@@ -183,9 +238,8 @@ void uidisplay_plot8(int x, int y, libspectrum_byte data,
                      libspectrum_byte ink, libspectrum_byte paper)
 {
   x <<= 3;
-  u8 *line_start = (u8*)Screen->Pixels +
-                    ((y << CANVAS_WIDTH_SHIFTBY) + x);
-
+  u8 *line_start = (u8*)plScreen.bitmap +
+                    (y * plScreen.line_width + x);
   *line_start++ = ( data & 0x80 ) ? ink : paper;
   *line_start++ = ( data & 0x40 ) ? ink : paper;
   *line_start++ = ( data & 0x20 ) ? ink : paper;
@@ -203,9 +257,8 @@ void uidisplay_plot16(int x, int y, libspectrum_word data,
 {
   /* Forces a low-res render, discarding every other pixel */
   x <<= 4;
-  u8 *line_start = (u8*)Screen->Pixels +
-                   ((y << CANVAS_WIDTH_SHIFTBY) + x);
-
+  u8 *line_start = (u8*)plScreen.bitmap +
+                   (y * plScreen.line_width + x);
   *line_start++ = ( data & 0x8000 ) ? ink : paper;
   *line_start++ = ( data & 0x2000 ) ? ink : paper;
   *line_start++ = ( data & 0x0800 ) ? ink : paper;

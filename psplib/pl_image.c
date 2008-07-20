@@ -27,7 +27,6 @@
 #include "pl_image.h"
 
 static uint get_next_power_of_two(uint n);
-static uint get_physical_width(const pl_image *image);
 static uint get_bitmap_size(const pl_image *image);
 
 int pl_image_create(pl_image *image,
@@ -41,11 +40,12 @@ int pl_image_create(pl_image *image,
     return 0;
 
   /* Allocate memory */
-  uint pitch = get_next_power_of_two(width) * bytes_per_pixel;
+  uint line_width = get_next_power_of_two(width);
+  uint pitch = line_width * bytes_per_pixel;
   uint buf_len = pitch * height;
   void *buffer = NULL;
 
-  if (flags & PL_IMAGE_FLAGS_USE_VRAM) /* use VRAM */
+  if (flags & PL_IMAGE_USE_VRAM) /* use VRAM */
     buffer = pspVideoAllocateVramChunk(buf_len);
   else   /* use heap */
     buffer = memalign(16, buf_len);
@@ -59,6 +59,7 @@ int pl_image_create(pl_image *image,
   image->view.w = width;
   image->view.h = height;
   image->height = height;
+  image->line_width = line_width;
   image->pitch  = pitch;
   image->format = format;
   image->flags  = flags;
@@ -74,7 +75,7 @@ int pl_image_create(pl_image *image,
 void pl_image_destroy(pl_image *image)
 {
   /* Release bitmap */
-  if (!(image->flags & PL_IMAGE_FLAGS_USE_VRAM))
+  if (!(image->flags & PL_IMAGE_USE_VRAM))
     free(image->bitmap);
 
   /* Release palette */
@@ -130,12 +131,12 @@ int pl_image_set_palette_color(pl_image *image,
   }
 }
 
-int pl_image_duplicate(const pl_image *original,
-                       pl_image *copy)
+int pl_image_create_duplicate(const pl_image *original,
+                              pl_image *copy)
 {
   /* create image */
   if (!pl_image_create(copy,
-                       get_physical_width(original),
+                       original->line_width,
                        original->height,
                        original->format,
                        0)) /* TODO: all but vram flag */
@@ -476,6 +477,91 @@ int pl_image_save_png(const pl_image *image,
   fclose(stream);
 
   return status;
+}
+
+/*
+  PspImage *thumb;
+  int i, j, p;
+
+  if (!(thumb = pspImageCreate(image->Viewport.Width >> 1,
+    image->Viewport.Height >> 1, image->Depth)))
+      return NULL;
+
+  int dy = image->Viewport.Y + image->Viewport.Height;
+  int dx = image->Viewport.X + image->Viewport.Width;
+
+  for (i = image->Viewport.Y, p = 0; i < dy; i += 2)
+    for (j = image->Viewport.X; j < dx; j += 2)
+      if (image->Depth == PSP_IMAGE_INDEXED)
+        ((unsigned char*)thumb->Pixels)[p++]
+          = ((unsigned char*)image->Pixels)[(image->Width * i) + j];
+      else
+        ((unsigned short*)thumb->Pixels)[p++]
+          = ((unsigned short*)image->Pixels)[(image->Width * i) + j];
+
+  if (image->Depth == PSP_IMAGE_INDEXED)
+  {
+    memcpy(thumb->Palette, image->Palette, sizeof(image->Palette));
+    thumb->PalSize = image->PalSize;
+  }
+
+  return thumb;
+*/
+int pl_image_create_thumbnail(const pl_image *original,
+                              pl_image *thumb)
+{
+return pl_image_create_duplicate(original, thumb);
+#if(0)
+  /* create image */
+  if (!pl_image_create(thumb,
+                       original->view.w / 2,
+                       original->view.h / 2,
+                       original->format,
+                       0)) /* TODO: all but vram flag */
+    return 0;
+
+  int dy = original->view.y + original->view.h;
+  int dx = original->view.x + original->view.w;
+
+  for (i = original->view.y, p = 0; i < dy; i += 2)
+    for (j = original->view.x; j < dx; j += 2)
+    {
+    }
+      if (original->Depth == PSP_IMAGE_INDEXED)
+        ((unsigned char*)thumb->Pixels)[p++]
+          = ((unsigned char*)image->Pixels)[(image->Width * i) + j];
+      else
+        ((unsigned short*)thumb->Pixels)[p++]
+          = ((unsigned short*)image->Pixels)[(image->Width * i) + j];
+
+  /* copy palette */
+  if (original->palette.palette)
+  {
+    if (!pl_image_palettize(copy,
+                            original->palette.format,
+                            original->palette.colors))
+    {
+      pl_image_destroy(copy);
+      return 0;
+    }
+
+    uint pal_size = copy->palette.colors *
+                    pl_image_get_bytes_per_pixel(copy->palette.format);
+    memcpy(copy->palette.palette,
+           original->palette.palette,
+           pal_size);
+  }
+
+  /* copy image */
+  memcpy(copy->bitmap,
+         original->bitmap,
+         get_bitmap_size(copy));
+
+  /* copy misc. attributes */
+  copy->view = original->view;
+
+  return 1;
+#endif
 }
 
 /*
@@ -913,12 +999,6 @@ static uint get_next_power_of_two(uint n)
   uint i;
   for (i = 1; i < n; i <<= 1);
   return i;
-}
-
-static uint get_physical_width(const pl_image *image)
-{
-  return image->pitch /
-         pl_image_get_bytes_per_pixel(image->format);
 }
 
 static uint get_bitmap_size(const pl_image *image)

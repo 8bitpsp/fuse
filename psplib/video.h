@@ -26,6 +26,7 @@
 
 #include "font.h"
 #include "image.h"
+#include "pl_image.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -107,6 +108,14 @@ void pspVideoCallList(const void *list);
 void* pspVideoAllocateVramChunk(unsigned int bytes);
 
 unsigned int pspVideoGetVSyncFreq();
+
+void pl_video_put_image(const pl_image *image, 
+                        int dx,
+                        int dy,
+                        int dw,
+                        int dh);
+int  pl_video_copy_vram(pl_image *image);
+
 
 #ifdef __cplusplus
 }

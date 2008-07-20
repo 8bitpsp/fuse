@@ -138,6 +138,31 @@ void pspVideoInit()
   sceGuDisplay(GU_TRUE);
 }
 
+int pl_video_copy_vram(pl_image *image)
+{
+  int i, j;
+  uint16_t *pixel;
+  volatile uint16_t *vram_addr = (u16*)((u8*)VRAM_START + 0x40000000);
+
+  if (!pl_image_create(image, 
+                       SCR_WIDTH,
+                       SCR_HEIGHT,
+                       pl_image_5551, // TODO: adapt to actual format 
+                       0))
+    return 0;
+
+  for (i = 0; i < image->height; i++)
+  {
+    for (j = 0; j < image->view.w; j++)
+    {
+      pixel = (unsigned short*)image->bitmap + (i * image->line_width + j);
+      *pixel = *(vram_addr + (i * BUF_WIDTH + j)) | 0x8000;
+    }
+  }
+
+  return 1;
+}
+
 void* GetBuffer(const PspImage *image)
 {
   int i, j, w, h;
@@ -209,6 +234,7 @@ void pspVideoEnd()
 
 void pspVideoPutImage(const PspImage *image, int dx, int dy, int dw, int dh)
 {
+return; /* STUB */
   sceGuScissor(dx, dy, dx + dw, dy + dh);
 
   void *pixels;
@@ -285,6 +311,77 @@ void pspVideoPutImage(const PspImage *image, int dx, int dy, int dw, int dh)
     sceGuDisable(GU_TEXTURE_2D);
   }
 
+  sceGuScissor(0, 0, SCR_WIDTH, SCR_HEIGHT);
+}
+
+unsigned int GetTextureFormat(pl_image_format format)
+{
+  switch (format)
+  {
+  case pl_image_indexed:
+    return GU_PSM_T8;
+  case pl_image_5551:
+    return GU_PSM_5551;
+  case pl_image_4444:
+    return GU_PSM_4444;
+  default:
+    return 0;
+  }
+}
+
+void pl_video_put_image(const pl_image *image, 
+                        int dx,
+                        int dy,
+                        int dw,
+                        int dh)
+{
+  sceGuScissor(dx, dy, dx + dw, dy + dh);
+
+  sceKernelDcacheWritebackAll();
+  sceGuEnable(GU_TEXTURE_2D);
+
+  if (image->format == pl_image_indexed)
+  {
+    sceGuClutMode(GetTextureFormat(image->palette.format), 0, 0xff, 0);
+    sceGuClutLoad(image->palette.colors >> 3, image->palette.palette);
+  }
+
+  sceGuTexMode(GetTextureFormat(image->format), 0, 0, GU_FALSE);
+  sceGuTexImage(0, image->line_width, image->line_width, image->line_width, image->bitmap);
+  sceGuTexFunc(GU_TFX_REPLACE, GU_TCC_RGBA);
+  sceGuTexFilter(GU_LINEAR, GU_LINEAR);
+
+  struct TexVertex* vertices;
+  int start, end, sc_end, slsz_scaled;
+  slsz_scaled = ceil((float)dw * (float)SLICE_SIZE) / (float)image->view.w;
+
+  start = image->view.x;
+  end = image->view.x + image->view.w;
+  sc_end = dx + dw;
+
+  /* TODO: Convert to floating-point coords */
+  for (; start < end; start += SLICE_SIZE, dx += slsz_scaled)
+  {
+    vertices = (struct TexVertex*)sceGuGetMemory(2 * sizeof(struct TexVertex));
+
+    vertices[0].u = start;
+    vertices[0].v = image->view.y;
+    vertices[1].u = start + SLICE_SIZE;
+    vertices[1].v = image->view.h + image->view.y;
+
+    vertices[0].x = dx; vertices[0].y = dy;
+    vertices[1].x = dx + slsz_scaled; vertices[1].y = dy + dh;
+
+    vertices[0].color
+      = vertices[1].color
+      = vertices[0].z 
+      = vertices[1].z = 0;
+
+    sceGuDrawArray(GU_SPRITES,
+      GU_TEXTURE_16BIT|TexColor|GU_VERTEX_16BIT|GU_TRANSFORM_2D,2,0,vertices);
+  }
+
+  sceGuDisable(GU_TEXTURE_2D);
   sceGuScissor(0, 0, SCR_WIDTH, SCR_HEIGHT);
 }
 

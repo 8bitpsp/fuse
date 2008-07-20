@@ -389,7 +389,6 @@ u8 show_kybd_held;
 
 static u8 psp_exit_menu;
 static int TabIndex;
-static PspImage *Background;
 static PspImage *NoSaveIcon;
 
 extern PspImage *Screen;
@@ -440,7 +439,7 @@ int ui_init(int *argc, char ***argv)
                   "spectrum.l2",
                   "speckeys.png",
                   NULL, psp_keyboard_toggle))
-    return 0;
+    return 1;
 
   /* Initialize paths */
   sprintf(psp_save_state_path, "%sstates/", pl_psp_get_app_directory());
@@ -451,9 +450,6 @@ int ui_init(int *argc, char ***argv)
   pl_menu_create(&OptionUiMenu.Menu, OptionMenuDef);
   pl_menu_create(&SystemUiMenu.Menu, SystemMenuDef);
   pl_menu_create(&ControlUiMenu.Menu, ControlMenuDef);
-
-  /* Load the background image */
-  Background = pspImageLoadPng("background.png");
 
   /* Init NoSaveState icon image */
   NoSaveIcon = pspImageCreate(256, 192, PSP_IMAGE_16BPP);
@@ -471,7 +467,12 @@ int ui_init(int *argc, char ***argv)
   psp_load_options();
 
   /* Initialize UI components */
-  UiMetric.Background = Background;
+  if (!pl_image_load_png(&UiMetric.background, "background.png"))
+  {
+    pl_vk_destroy(&vk_spectrum);
+    return 1;
+  }
+
   UiMetric.Font = &PspStockFont;
   UiMetric.Left = 8;
   UiMetric.Top = 24;
@@ -668,8 +669,9 @@ int ui_event( void )
 
 int ui_end( void )
 {
-  if (Background) pspImageDestroy(Background);
   if (NoSaveIcon) pspImageDestroy(NoSaveIcon);
+
+  pl_image_destroy(&UiMetric.background);
 
   pl_menu_destroy(&OptionUiMenu.Menu);
   pl_menu_destroy(&SystemUiMenu.Menu);
