@@ -78,6 +78,9 @@ void psp_uidisplay_reinit()
     /* Addition of 0.5 is to avoid rounding errors */
     grey = ( 0.299 * red + 0.587 * green + 0.114 * blue ) + 0.5;
 
+    if (psp_options.enable_bw)
+      red = green = blue = grey;
+
     pl_image_set_palette_color(&plScreen,
                                i,
                                RGB(red, green, blue));

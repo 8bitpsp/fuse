@@ -504,3 +504,8 @@ int bar()
 {
 return 1;
 }
+
+int barr()
+{
+return 1;
+}

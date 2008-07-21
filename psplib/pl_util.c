@@ -52,7 +52,7 @@ int pl_util_save_image_seq(const char *path,
   } while (pl_file_exists(full_path) && ++i < 100);
 
   /* Save the screenshot */
-  return pl_image_save_png(image, full_path);
+  return pl_image_save(image, full_path);
 }
 
 int pl_util_save_vram_seq(const char *path, 

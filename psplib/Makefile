@@ -45,7 +45,7 @@ font.o: font.c font.h stockfont.h
 	$(CC) $(DEFINES) $(CFLAGS) -O2 -c -o $@ $<
 
 video.o: video.c video.h
-	$(CC) $(DEFINES) $(CFLAGS) -O2 -c -o $@ $<
+	$(CC) $(DEFINES) $(CFLAGS) -O0 -c -o $@ $<
 
 audio.o: audio.c audio.h
 	$(CC) $(DEFINES) $(CFLAGS) -O2 -c -o $@ $<

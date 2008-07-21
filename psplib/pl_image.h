@@ -76,36 +76,43 @@ int  pl_image_create(pl_image *image,
                      pl_image_format format,
                      uint8_t flags);
 void pl_image_destroy(pl_image *image);
-int  pl_image_create_duplicate(const pl_image *original,
-                               pl_image *copy);
+
 int  pl_image_palettize(pl_image *image,
                         pl_image_format pal_format,
                         uint pal_colors);
 int  pl_image_set_palette_color(pl_image *image,
                                 uint index,
                                 uint32_t color);
+
 uint pl_image_get_depth(const pl_image *image);
 uint pl_image_get_bytes_per_pixel(pl_image_format format);
-uint32_t
-     pl_image_get_composite_color(pl_image_format dest_format,
-                                  uint8_t red,
-                                  uint8_t green,
-                                  uint8_t blue,
-                                  uint8_t alpha);
-void pl_image_split_color(pl_image_format src_format,
+
+int  pl_image_compose_color(pl_image_format dest_format,
+                            uint32_t *color,
+                            uint8_t red,
+                            uint8_t green,
+                            uint8_t blue,
+                            uint8_t alpha);
+int  pl_image_split_color(pl_image_format src_format,
+                          const pl_image_palette *src_palette,
                           uint32_t color,
                           uint8_t *red,
                           uint8_t *green,
                           uint8_t *blue,
                           uint8_t *alpha);
+
 int  pl_image_load_png_stream(pl_image *image,
                               FILE *stream);
 int  pl_image_save_png_stream(const pl_image *image,
                               FILE *stream);
-int  pl_image_load_png(pl_image *image,
-                       const char *path);
-int  pl_image_save_png(const pl_image *image,
-                       const char *path);
+
+int  pl_image_load(pl_image *image,
+                   const char *path);
+int  pl_image_save(const pl_image *image,
+                   const char *path);
+
+int  pl_image_create_duplicate(const pl_image *original,
+                               pl_image *copy);
 int  pl_image_create_thumbnail(const pl_image *original,
                                pl_image *thumb);
 

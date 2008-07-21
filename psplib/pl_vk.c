@@ -93,8 +93,8 @@ int pl_vk_load(pl_vk_layout *layout,
     layout->selected = layout->held_down = 0;
 
   /* Load image */
-  if (image_path && !(pl_image_load_png(&layout->keyb_image,
-                                        image_path)))
+  if (image_path && !(pl_image_load(&layout->keyb_image,
+                                    image_path)))
     return 0;
 
   /* Init callbacks */

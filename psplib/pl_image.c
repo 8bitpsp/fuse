@@ -25,9 +25,16 @@
 
 #include "video.h" /* TODO: */
 #include "pl_image.h"
+#include "pl_file.h"
 
 static uint get_next_power_of_two(uint n);
 static uint get_bitmap_size(const pl_image *image);
+int copy_from_void(pl_image_format format,
+                   void *from,
+                   uint32_t *to);
+int copy_to_void(pl_image_format format,
+                 uint32_t from,
+                 void *to);
 
 int pl_image_create(pl_image *image,
                     uint width,
@@ -189,52 +196,71 @@ uint pl_image_get_depth(const pl_image *image)
   return pl_image_get_bytes_per_pixel(image->format) << 3;
 }
 
-uint32_t pl_image_get_composite_color(pl_image_format dest_format,
-                                      uint8_t red,
-                                      uint8_t green,
-                                      uint8_t blue,
-                                      uint8_t alpha)
+int pl_image_compose_color(pl_image_format dest_format,
+                           uint32_t *color,
+                           uint8_t red,
+                           uint8_t green,
+                           uint8_t blue,
+                           uint8_t alpha)
 {
   switch (dest_format)
   {
   case pl_image_4444:
-    return (((alpha >> 4) & 0x0F) << 12) |
-           (((blue  >> 4) & 0x0F) << 8) |
-           (((green >> 4) & 0x0F) << 4) |
-              ((red >> 4) & 0x0F);
+    *color = (((alpha >> 4) & 0x0F) << 12) |
+             (((blue  >> 4) & 0x0F) << 8) |
+             (((green >> 4) & 0x0F) << 4) |
+                ((red >> 4) & 0x0F);
+    return 1;
   case pl_image_5551:
-    return (((alpha >> 7) & 0x01) << 15) |
-           (((blue  >> 3) & 0x1F) << 10) |
-           (((green >> 3) & 0x1F) << 5) |
-              ((red >> 3) & 0x1F);
+    *color = (((alpha >> 7) & 0x01) << 15) |
+             (((blue  >> 3) & 0x1F) << 10) |
+             (((green >> 3) & 0x1F) << 5) |
+                ((red >> 3) & 0x1F);
+    return 1;
   default:
     return 0;
   }
 }
 
-void pl_image_split_color(pl_image_format src_format,
-                          uint32_t color,
-                          uint8_t *red,
-                          uint8_t *green,
-                          uint8_t *blue,
-                          uint8_t *alpha)
+int pl_image_split_color(pl_image_format src_format,
+                         const pl_image_palette *src_palette,
+                         uint32_t color,
+                         uint8_t *red,
+                         uint8_t *green,
+                         uint8_t *blue,
+                         uint8_t *alpha)
 {
   switch (src_format)
   {
+  case pl_image_indexed:
+    /* Get actual color */
+    copy_from_void(src_palette->format,
+                   src_palette->palette + color *
+                     pl_image_get_bytes_per_pixel(src_palette->format),
+                   &color);
+
+    /* Split color */
+    return pl_image_split_color(src_palette->format,
+                                NULL,
+                                color,
+                                red,
+                                green,
+                                blue,
+                                alpha);
   case pl_image_4444:
     *red   = (color & 0x0F) * 0xFF/0x0F;
     *green = ((color >> 4) & 0x0F) * 0xFF/0x0F;
     *blue  = ((color >> 8) & 0x0F) * 0xFF/0x0F;
     *alpha = ((color >> 12) & 0x0F) * 0xFF/0x0F;
-    break;
+    return 1;
   case pl_image_5551:
     *red   = (color & 0x1F) * 0xFF/0x1F;
     *green = ((color >> 5) & 0x1F) * 0xFF/0x1F;
     *blue  = ((color >> 10) & 0x1F) * 0xFF/0x1F;
     *alpha = ((color >> 15) & 0x01) * 0xFF/0x01;
-    break;
+    return 1;
   default:
-    return;
+    return 0;
   }
 }
 
@@ -336,8 +362,8 @@ int pl_image_load_png_stream(pl_image *image,
           break;
       }
 
-      color = pl_image_get_composite_color(format, r, g, b, a);
-      memcpy(pel_ptr, &color, bytes_per_pixel); /* TODO: verify */
+      pl_image_compose_color(format, &color, r, g, b, a);
+      copy_to_void(format, color, pel_ptr);
     }
   }
 
@@ -349,52 +375,36 @@ int pl_image_load_png_stream(pl_image *image,
 int pl_image_save_png_stream(const pl_image *image,
                              FILE *stream)
 {
-/*
   unsigned char *bitmap;
-  int i, j, width, height;
-
-  width = image->Viewport.Width;
-  height = image->Viewport.Height;
+  int i, j;
+  uint8_t r, g, b, a;
+  int width = image->view.w;
+  int height = image->view.h;
+  int bytes_per_pixel = pl_image_get_bytes_per_pixel(image->format);
+  void *line_ptr, *pel_ptr;
+  uint32_t color;
 
   if (!(bitmap = (u8*)malloc(sizeof(u8) * width * height * 3)))
     return 0;
 
-  if (image->Depth == PSP_IMAGE_INDEXED)
+  for (i = 0, line_ptr = image->bitmap + (image->view.y * image->pitch);
+       i < height;
+       i++, line_ptr += image->pitch)
   {
-    const unsigned char *pixel;
-    pixel = (unsigned char*)image->Pixels + (image->Viewport.Y * image->Width);
-
-    for (i = 0; i < height; i++)
+    /* Skip to the start of the viewport */
+    for (j = 0, pel_ptr = line_ptr + (image->view.x * bytes_per_pixel);
+         j < width;
+         j++, pel_ptr += bytes_per_pixel)
     {
-      /* Skip to the start of the viewport /
-      pixel += image->Viewport.X;
-      for (j = 0; j < width; j++, pixel++)
-      {
-        bitmap[i * width * 3 + j * 3 + 0] = RED(image->Palette[*pixel]);
-        bitmap[i * width * 3 + j * 3 + 1] = GREEN(image->Palette[*pixel]);
-        bitmap[i * width * 3 + j * 3 + 2] = BLUE(image->Palette[*pixel]);
-      }
-      /* Skip to the end of the line /
-      pixel += image->Width - (image->Viewport.X + width);
-    }
-  }
-  else
-  {
-    const unsigned short *pixel;
-    pixel = (unsigned short*)image->Pixels + (image->Viewport.Y * image->Width);
+      copy_from_void(image->format, pel_ptr, &color);
+      pl_image_split_color(image->format,
+                           &image->palette,
+                           color,
+                           &r,&g,&b,&a);
 
-    for (i = 0; i < height; i++)
-    {
-      /* Skip to the start of the viewport /
-      pixel += image->Viewport.X;
-      for (j = 0; j < width; j++, pixel++)
-      {
-        bitmap[i * width * 3 + j * 3 + 0] = RED(*pixel);
-        bitmap[i * width * 3 + j * 3 + 1] = GREEN(*pixel);
-        bitmap[i * width * 3 + j * 3 + 2] = BLUE(*pixel);
-      }
-      /* Skip to the end of the line /
-      pixel += image->Width - (image->Viewport.X + width);
+      bitmap[i * width * 3 + j * 3 + 0] = r;
+      bitmap[i * width * 3 + j * 3 + 1] = g;
+      bitmap[i * width * 3 + j * 3 + 2] = b;
     }
   }
 
@@ -425,7 +435,7 @@ int pl_image_save_png_stream(const pl_image *image,
 
   unsigned int y;
   for (y = 0; y < height; y++)
-    buf[y] = (byte*)&bitmap[y * width * 3];
+    buf[y] = (uint8_t*)&bitmap[y * width * 3];
 
   if (setjmp( pPngStruct->jmpbuf ))
   {
@@ -448,33 +458,43 @@ int pl_image_save_png_stream(const pl_image *image,
   png_destroy_write_struct( &pPngStruct, &pPngInfo );
   free(buf);
   free(bitmap);
-*/
+
   return 1;
 }
 
-int pl_image_load_png(pl_image *image,
-                      const char *path)
+int pl_image_load(pl_image *image,
+                  const char *path)
 {
-  FILE *stream = fopen(path,"r");
-  if (!stream) return 0;
+  int status = 0;
+  FILE *stream = NULL;
 
-  int status = pl_image_load_png_stream(image,
+  if (pl_file_is_of_type(path, "png"))
+  {
+    if ((stream = fopen(path, "r")))
+      status = pl_image_load_png_stream(image,
                                         stream);
-  fclose(stream);
+  }
+  else status = 0;
 
+  if (stream) fclose(stream);
   return status;
 }
 
-int pl_image_save_png(const pl_image *image,
-                      const char *path)
+int pl_image_save(const pl_image *image,
+                  const char *path)
 {
-  FILE *stream = fopen(path,"w");
-  if (!stream) return 0;
+  int status = 0;
+  FILE *stream = NULL;
 
-  int status = pl_image_save_png_stream(image,
+  if (pl_file_is_of_type(path, "png"))
+  {
+    if ((stream = fopen(path, "w")))
+      status = pl_image_save_png_stream(image,
                                         stream);
-  fclose(stream);
+  }
+  else status = 0;
 
+  if (stream) fclose(stream);
   return status;
 }
 
@@ -510,7 +530,7 @@ int pl_image_create_thumbnail(const pl_image *original,
                               pl_image *thumb)
 {
 return pl_image_create_duplicate(original, thumb);
-#if(0)
+#if 0
   /* create image */
   if (!pl_image_create(thumb,
                        original->view.w / 2,
@@ -1003,4 +1023,40 @@ static uint get_next_power_of_two(uint n)
 static uint get_bitmap_size(const pl_image *image)
 {
   return image->pitch * image->height;
+}
+
+int copy_from_void(pl_image_format format,
+                   void *from,
+                   uint32_t *to)
+{
+  switch (format)
+  {
+  case pl_image_indexed:
+    *to = *(uint8_t*)from;
+    return 1;
+  case pl_image_5551:
+  case pl_image_4444:
+    *to = *(uint16_t*)from;
+    return 1;
+  default:
+    return 0;
+  }
+}
+
+int copy_to_void(pl_image_format format,
+                 uint32_t from,
+                 void *to)
+{
+  switch (format)
+  {
+  case pl_image_indexed:
+    *(uint8_t*)to = (uint8_t)from;
+    return 1;
+  case pl_image_5551:
+  case pl_image_4444:
+    *(uint16_t*)to = (uint16_t)from;
+    return 1;
+  default:
+    return 0;
+  }
 }
