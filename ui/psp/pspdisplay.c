@@ -13,7 +13,6 @@
 #include "pl_perf.h"
 
 extern pl_vk_layout vk_spectrum;
-PspImage *Screen = NULL;
 pl_image plScreen;
 static pl_perf_counter perf_counter;
 int clear_screen;
@@ -44,49 +43,6 @@ int uidisplay_init( int width, int height )
   pspVideoInit();
 
   /* Initialize screen buffer */
-  if (!(Screen = pspImageCreateVram(512,
-                                    DISPLAY_SCREEN_HEIGHT,
-                                    PSP_IMAGE_INDEXED)))
-      return 1;
-#if 0
-  /* Initialize color palette */
-  const unsigned char rgb_colours[16][3] = 
-  {
-    {   0,   0,   0 },
-    {   0,   0, 192 },
-    { 192,   0,   0 },
-    { 192,   0, 192 },
-    {   0, 192,   0 },
-    {   0, 192, 192 },
-    { 192, 192,   0 },
-    { 192, 192, 192 },
-    {   0,   0,   0 },
-    {   0,   0, 255 },
-    { 255,   0,   0 },
-    { 255,   0, 255 },
-    {   0, 255,   0 },
-    {   0, 255, 255 },
-    { 255, 255,   0 },
-    { 255, 255, 255 },
-  };
-
-  int i;
-  for (i = 0; i < 16; i++) 
-  {
-    unsigned char red, green, blue, grey;
-
-    red   = rgb_colours[i][0];
-    green = rgb_colours[i][1];
-    blue  = rgb_colours[i][2];
-
-    /* Addition of 0.5 is to avoid rounding errors */
-    grey = ( 0.299 * red + 0.587 * green + 0.114 * blue ) + 0.5;
-
-    Screen->Palette[i] = RGB(red, green, blue);
-  }
-  Screen->PalSize = 16;
-#endif
-  /* Initialize screen buffer */
   if (!pl_image_create(&plScreen,
                        DISPLAY_SCREEN_WIDTH,
                        DISPLAY_SCREEN_HEIGHT,
@@ -103,7 +59,6 @@ int uidisplay_init( int width, int height )
   }
 
   psp_uidisplay_reinit();
-  display_refresh_all();
 
   return 0;
 }
@@ -169,6 +124,8 @@ void psp_uidisplay_reinit()
 
   /* Reset FPS counter */
   pl_perf_init_counter(&perf_counter);
+
+  display_refresh_all();
 }
 
 void uidisplay_frame_end()
@@ -185,9 +142,7 @@ void uidisplay_frame_end()
     clear_screen--;
     pspVideoClearScreen();
   }
-#if 0
-  pspVideoPutImage(Screen, ScreenX, ScreenY, ScreenW, ScreenH);
-#endif
+
   pl_video_put_image(&plScreen, ScreenX, ScreenY, ScreenW, ScreenH);
 
   /* Draw keyboard */
@@ -212,12 +167,6 @@ void uidisplay_frame_end()
 
 int uidisplay_end()
 {
-  if (Screen) 
-  {
-    pspImageDestroy(Screen);
-    Screen = NULL;
-  }
-
   pl_image_destroy(&plScreen);
 
   pspVideoShutdown();

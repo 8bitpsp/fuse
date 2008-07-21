@@ -115,7 +115,6 @@ int pl_image_set_palette_color(pl_image *image,
                                uint index,
                                uint32_t color)
 {
-/* TODO */
   if (image->format != pl_image_indexed ||
       index > image->palette.colors)
     return 0;

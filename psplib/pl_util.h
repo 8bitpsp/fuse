@@ -23,7 +23,7 @@
 #define _PL_UTIL_H
 
 #include <psptypes.h>
-#include "image.h"
+#include "pl_image.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -32,7 +32,7 @@ extern "C" {
 /* Sequential image saves */
 int pl_util_save_image_seq(const char *path,
                            const char *filename,
-                           const PspImage *image);
+                           const pl_image *image);
 int pl_util_save_vram_seq(const char *path,
                           const char *prefix);
 int pl_util_date_compare(const ScePspDateTime *date1,

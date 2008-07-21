@@ -25,7 +25,6 @@
 #include <psptypes.h>
 
 #include "font.h"
-#include "image.h"
 #include "pl_image.h"
 
 #ifdef __cplusplus
@@ -94,14 +93,8 @@ int pspVideoPrintN(const PspFont *font, int sx, int sy, const char *string, int 
 int pspVideoPrintClipped(const PspFont *font, int sx, int sy, const char* string, int max_w, char* clip, u32 color);
 int pspVideoPrintNRaw(const PspFont *font, int sx, int sy, const char *string, int count, u32 color);
 int pspVideoPrintRaw(const PspFont *font, int sx, int sy, const char *string, u32 color);
-
-void pspVideoPutImage(const PspImage *image, int dx, int dy, int dw, int dh);
-
 void pspVideoGlowRect(int sx, int sy, int dx, int dy, u32 color, int radius);
 void pspVideoShadowRect(int sx, int sy, int dx, int dy, u32 color, int depth);
-
-PspImage* pspVideoGetVramBufferCopy();
-
 void pspVideoBeginList(void *list);
 void pspVideoCallList(const void *list);
 

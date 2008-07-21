@@ -31,7 +31,7 @@ DEFINES=-D_PSP_FW_VERSION=$(PSP_FW_VERSION)
 all: libmypsp.a
 
 libmypsp.a: adhoc.o font.o audio.o \
-            ctrl.o video.o image.o ui.o \
+            ctrl.o video.o ui.o \
             pl_ini.o pl_perf.o pl_vk.o pl_util.o \
             pl_psp.o pl_menu.o pl_file.o pl_image.o
 	$(AR) cru $@ $?
@@ -44,11 +44,8 @@ clean:
 font.o: font.c font.h stockfont.h
 	$(CC) $(DEFINES) $(CFLAGS) -O2 -c -o $@ $<
 
-image.o: image.c image.h video.o
-	$(CC) $(DEFINES) $(CFLAGS) -O2 -c -o $@ $<
-
 video.o: video.c video.h
-	$(CC) $(DEFINES) $(CFLAGS) -O0 -c -o $@ $<
+	$(CC) $(DEFINES) $(CFLAGS) -O2 -c -o $@ $<
 
 audio.o: audio.c audio.h
 	$(CC) $(DEFINES) $(CFLAGS) -O2 -c -o $@ $<
@@ -74,7 +71,7 @@ pl_vk.o: pl_vk.c pl_vk.h video.o font.o \
          ctrl.o
 	$(CC) $(DEFINES) $(CFLAGS) -O2 -c -o $@ $<
 
-pl_util.o: pl_util.c pl_util.h image.o \
+pl_util.o: pl_util.c pl_util.h pl_image.o \
            pl_file.o video.o
 	$(CC) $(DEFINES) $(CFLAGS) -O2 -c -o $@ $<
 

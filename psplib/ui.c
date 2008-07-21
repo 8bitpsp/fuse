@@ -1011,8 +1011,8 @@ void pspUiOpenGallery(PspUiGallery *gallery, const char *title)
   {
     if (item->param)
     {
-      orig_w = ((PspImage*)item->param)->Viewport.Width;
-      orig_h = ((PspImage*)item->param)->Height;
+      orig_w = ((pl_image*)item->param)->view.w;
+      orig_h = ((pl_image*)item->param)->view.h;
       break;
     }
   }
@@ -1187,13 +1187,13 @@ void pspUiOpenGallery(PspUiGallery *gallery, const char *title)
             if (item->param && item != last_sel)
             {
               pspVideoBegin();
-              pspVideoPutImage((PspImage*)item->param, j, i, icon_w, icon_h);
+              pl_video_put_image((pl_image*)item->param, j, i, icon_w, icon_h);
               pspVideoEnd();
             }
 
         pspVideoBegin();
 
-        pspVideoPutImage((PspImage*)last_sel->param, 
+        pl_video_put_image((pl_image*)last_sel->param, 
           sel_left-(icon_w+((max_w-icon_w)/n)*f)/2, 
           sel_top-(icon_h+((max_h-icon_h)/n)*f)/2, 
           icon_w+((max_w-icon_w)/n)*f, 
@@ -1304,13 +1304,13 @@ void pspUiOpenGallery(PspUiGallery *gallery, const char *title)
             if (item->param && item != sel)
             {
               pspVideoBegin();
-              pspVideoPutImage((PspImage*)item->param, j, i, icon_w, icon_h);
+              pl_video_put_image((pl_image*)item->param, j, i, icon_w, icon_h);
               pspVideoEnd();
             }
 
         pspVideoBegin();
 
-        pspVideoPutImage((PspImage*)sel->param, 
+        pl_video_put_image((pl_image*)sel->param, 
           sel_left-(icon_w+((max_w-icon_w)/n)*f)/2, 
           sel_top-(icon_h+((max_h-icon_h)/n)*f)/2, 
           icon_w+((max_w-icon_w)/n)*f, 
@@ -1340,7 +1340,7 @@ void pspUiOpenGallery(PspUiGallery *gallery, const char *title)
         if (item->param && item != sel)
         {
           pspVideoBegin();
-          pspVideoPutImage((PspImage*)item->param, j, i, icon_w, icon_h);
+          pl_video_put_image((pl_image*)item->param, j, i, icon_w, icon_h);
           pspVideoEnd();
         }
 
@@ -1348,7 +1348,7 @@ void pspUiOpenGallery(PspUiGallery *gallery, const char *title)
 
     if (sel && sel->param)
     {
-      pspVideoPutImage((PspImage*)sel->param, sel_left-max_w/2, sel_top-max_h/2,
+      pl_video_put_image((pl_image*)sel->param, sel_left-max_w/2, sel_top-max_h/2,
         max_w, max_h);
       pspVideoGlowRect(sel_left-max_w/2, sel_top-max_h/2,
         sel_left+max_w/2 - 1, sel_top+max_h/2 - 1,

@@ -87,13 +87,14 @@ int pl_vk_load(pl_vk_layout *layout,
   /* Initialize */
   layout->keys = NULL;
   layout->stickies = NULL;
-  layout->keyb_image = NULL;
+  layout->keyb_image.bitmap = NULL;
   layout->key_count = layout->sticky_count =
     layout->offset_x = layout->offset_y =
     layout->selected = layout->held_down = 0;
 
   /* Load image */
-  if (image_path && !(layout->keyb_image = pspImageLoadPng(image_path)))
+  if (image_path && !(pl_image_load_png(&layout->keyb_image,
+                                        image_path)))
     return 0;
 
   /* Init callbacks */
@@ -443,14 +444,14 @@ void pl_vk_render(const pl_vk_layout *layout)
 
   pspVideoCallList(layout->call_list);
 
-  off_x = (SCR_WIDTH / 2 - layout->keyb_image->Viewport.Width / 2);
-  off_y = (SCR_HEIGHT / 2 - layout->keyb_image->Viewport.Height / 2);
+  off_x = (SCR_WIDTH / 2 - layout->keyb_image.view.w / 2);
+  off_y = (SCR_HEIGHT / 2 - layout->keyb_image.view.h / 2);
 
-  if (layout->keyb_image)
-    pspVideoPutImage(layout->keyb_image, 
-                     off_x, off_y,
-                     layout->keyb_image->Viewport.Width,
-                     layout->keyb_image->Viewport.Height);
+  if (layout->keyb_image.bitmap)
+    pl_video_put_image(&layout->keyb_image, 
+                       off_x, off_y,
+                       layout->keyb_image.view.w,
+                       layout->keyb_image.view.h);
   else
   {
     /* TODO: render the entire layout */
@@ -503,8 +504,8 @@ void pl_vk_destroy(pl_vk_layout *layout)
   if (layout->keys)
     free(layout->keys);
 
-  if (layout->keyb_image)
-    pspImageDestroy(layout->keyb_image);
+  if (layout->keyb_image.bitmap)
+    pl_image_destroy(&layout->keyb_image);
 }
 
 static void render_to_display_list(pl_vk_layout *layout)
@@ -515,16 +516,19 @@ static void render_to_display_list(pl_vk_layout *layout)
   sceGuStart(GU_CALL, layout->call_list);
 
   const pl_vk_button *button;
+  int width = layout->keyb_image.view.w;
+  int height = layout->keyb_image.view.h;
   int off_x, off_y;
   int i;
 
-  off_x = (SCR_WIDTH / 2 - layout->keyb_image->Viewport.Width / 2);
-  off_y = (SCR_HEIGHT / 2 - layout->keyb_image->Viewport.Height / 2);
+  /* TODO: this part depends on an image */
+  off_x = (SCR_WIDTH / 2 - width / 2);
+  off_y = (SCR_HEIGHT / 2 - height / 2);
 
   pspVideoFillRect(off_x,
                    off_y,
-                   off_x + layout->keyb_image->Viewport.Width + 1,
-                   off_y + layout->keyb_image->Viewport.Height + 1,
+                   off_x + width + 1,
+                   off_y + height + 1,
                    PL_VK_LAYOUT_BG);
 
   off_x += layout->offset_x;
