@@ -603,6 +603,9 @@ static void psp_display_menu()
     psp_uidisplay_reinit();
     psp_sound_resume();
     fuse_emulation_unpause();
+
+    if (psp_options.animate_menu)
+      pspUiFadeout();
   }
 }
 

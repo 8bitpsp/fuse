@@ -317,7 +317,10 @@ void pspUiAlert(const char *message)
 
 int pspUiYesNoCancel(const char *message)
 {
-  PspImage *screen = NULL;
+  pl_image screen;
+  if (!pl_video_copy_vram(&screen))
+    return PSP_UI_CANCEL;
+
   int sx, sy, dx, dy, th, fh, mw, cw, w, h;
   int i, n = UI_ANIM_FRAMES;
   char *instr = strdup(YesNoCancelDialogButtonTemplate);
@@ -338,15 +341,15 @@ int pspUiYesNoCancel(const char *message)
   /* Intro animation */
   if (UiMetric.Animate)
   {
-    /* Get copy of screen */
-    screen = pspVideoGetVramBufferCopy();
-
     for (i = 0; i < n; i++)
     {
   	  pspVideoBegin();
 
   	  /* Clear screen */
-  	  pspVideoPutImage(screen, 0, 0, screen->Viewport.Width, screen->Height);
+      pl_video_put_image(&screen,
+                          0, 0,
+                          screen.view.w,
+                          screen.view.h);
 
   	  /* Apply fog and draw frame */
   	  pspVideoFillRect(0, 0, SCR_WIDTH, SCR_HEIGHT, 
@@ -369,7 +372,10 @@ int pspUiYesNoCancel(const char *message)
   pspVideoBegin();
 
   if (UiMetric.Animate)
-    pspVideoPutImage(screen, 0, 0, screen->Viewport.Width, screen->Height);
+    pl_video_put_image(&screen,
+                        0, 0,
+                        screen.view.w,
+                        screen.view.h);
   pspVideoFillRect(0, 0, SCR_WIDTH, SCR_HEIGHT, 
     COLOR(0,0,0,UI_ANIM_FOG_STEP*n));
   pspVideoFillRect(sx, sy, dx, dy, UiMetric.MenuOptionBoxBg);
@@ -406,7 +412,10 @@ int pspUiYesNoCancel(const char *message)
 		  pspVideoBegin();
 
 		  /* Clear screen */
-		  pspVideoPutImage(screen, 0, 0, screen->Viewport.Width, screen->Height);
+      pl_video_put_image(&screen,
+                          0, 0,
+                          screen.view.w,
+                          screen.view.h);
 
 		  /* Apply fog and draw frame */
   	  pspVideoFillRect(0, 0, SCR_WIDTH, SCR_HEIGHT, 
@@ -426,7 +435,7 @@ int pspUiYesNoCancel(const char *message)
 		}
 	}
 
-  if (screen) pspImageDestroy(screen);
+  pl_image_destroy(&screen);
   free(instr);
 
   if (pad.Buttons & UiMetric.CancelButton) return PSP_UI_CANCEL;
@@ -436,7 +445,10 @@ int pspUiYesNoCancel(const char *message)
 
 int pspUiConfirm(const char *message)
 {
-  PspImage *screen = NULL;
+  pl_image screen;
+  if (!pl_video_copy_vram(&screen))
+    return 0;
+
   int sx, sy, dx, dy, th, fh, mw, cw, w, h;
   int i, n = UI_ANIM_FRAMES;
   char *instr = strdup(ConfirmDialogButtonTemplate);
@@ -456,16 +468,16 @@ int pspUiConfirm(const char *message)
 
   if (UiMetric.Animate)
   {
-    /* Get copy of screen */
-    screen = pspVideoGetVramBufferCopy();
-
     /* Intro animation */
     for (i = 0; i < n; i++)
     {
   	  pspVideoBegin();
 
   	  /* Clear screen */
-  	  pspVideoPutImage(screen, 0, 0, screen->Viewport.Width, screen->Height);
+      pl_video_put_image(&screen,
+                          0, 0,
+                          screen.view.w,
+                          screen.view.h);
 
   	  /* Apply fog and draw frame */
   	  pspVideoFillRect(0, 0, SCR_WIDTH, SCR_HEIGHT, 
@@ -488,7 +500,10 @@ int pspUiConfirm(const char *message)
   pspVideoBegin();
 
   if (UiMetric.Animate)
-    pspVideoPutImage(screen, 0, 0, screen->Viewport.Width, screen->Height);
+    pl_video_put_image(&screen,
+                        0, 0,
+                        screen.view.w,
+                        screen.view.h);
   pspVideoFillRect(0, 0, SCR_WIDTH, SCR_HEIGHT, 
     COLOR(0,0,0,UI_ANIM_FOG_STEP*n));
   pspVideoFillRect(sx, sy, dx, dy, UiMetric.MenuOptionBoxBg);
@@ -525,7 +540,10 @@ int pspUiConfirm(const char *message)
 		  pspVideoBegin();
 
 		  /* Clear screen */
-		  pspVideoPutImage(screen, 0, 0, screen->Viewport.Width, screen->Height);
+      pl_video_put_image(&screen,
+                          0, 0,
+                          screen.view.w,
+                          screen.view.h);
 
 		  /* Apply fog and draw frame */
   	  pspVideoFillRect(0, 0, SCR_WIDTH, SCR_HEIGHT, 
@@ -545,7 +563,7 @@ int pspUiConfirm(const char *message)
 		}
 	}
 
-  if (screen) pspImageDestroy(screen);
+  pl_image_destroy(&screen);
   free(instr);
 
   return pad.Buttons & UiMetric.OkButton;
@@ -553,7 +571,10 @@ int pspUiConfirm(const char *message)
 
 void pspUiFlashMessage(const char *message)
 {
-  PspImage *screen = NULL;
+  pl_image screen;
+  if (!pl_video_copy_vram(&screen))
+    return;
+
   int sx, sy, dx, dy, fh, mw, mh, w, h;
   int i, n = UI_ANIM_FRAMES;
 
@@ -570,16 +591,16 @@ void pspUiFlashMessage(const char *message)
 
   if (UiMetric.Animate)
   {
-    /* Get copy of screen */
-    screen = pspVideoGetVramBufferCopy();
-
     /* Intro animation */
     for (i = 0; i < n; i++)
     {
   	  pspVideoBegin();
 
   	  /* Clear screen */
-  	  pspVideoPutImage(screen, 0, 0, screen->Viewport.Width, screen->Height);
+      pl_video_put_image(&screen,
+                          0, 0,
+                          screen.view.w,
+                          screen.view.h);
 
   	  /* Apply fog and draw frame */
   	  pspVideoFillRect(0, 0, SCR_WIDTH, SCR_HEIGHT, 
@@ -602,7 +623,10 @@ void pspUiFlashMessage(const char *message)
   pspVideoBegin();
 
   if (UiMetric.Animate)
-    pspVideoPutImage(screen, 0, 0, screen->Viewport.Width, screen->Height);
+    pl_video_put_image(&screen,
+                        0, 0,
+                        screen.view.w,
+                        screen.view.h);
   pspVideoFillRect(0, 0, SCR_WIDTH, SCR_HEIGHT, 
     COLOR(0,0,0,UI_ANIM_FOG_STEP*n));
   pspVideoFillRect(sx, sy, dx, dy, UiMetric.MenuOptionBoxBg);
@@ -617,7 +641,7 @@ void pspUiFlashMessage(const char *message)
   pspVideoWaitVSync();
   pspVideoSwapBuffers();
 
-  if (screen) pspImageDestroy(screen);
+  pl_image_destroy(&screen);
 }
 
 void pspUiOpenBrowser(PspUiFileBrowser *browser, const char *start_path)
@@ -1955,6 +1979,10 @@ void pspUiSplashScreen(PspUiSplash *splash)
 
 const pl_menu_item* pspUiSelect(const char *title, const pl_menu *menu)
 {
+  pl_image screen;
+  if (!pl_video_copy_vram(&screen))
+    return NULL;
+
   const pl_menu_item *sel, *item, *last_sel = NULL;
   struct UiPos pos;
   int lnmax, lnhalf;
@@ -2009,9 +2037,6 @@ const pl_menu_item* pspUiSelect(const char *title, const pl_menu *menu)
   sceRtcGetCurrentTick(&last_tick);
   ticks_per_upd = ticks_per_sec / UiMetric.MenuFps;
 
-  /* Get copy of screen */
-  PspImage *screen = pspVideoGetVramBufferCopy();
-
   if (UiMetric.Animate)
   {
     /* Intro animation */
@@ -2020,7 +2045,10 @@ const pl_menu_item* pspUiSelect(const char *title, const pl_menu *menu)
   	  pspVideoBegin();
 
   	  /* Clear screen */
-  	  pspVideoPutImage(screen, 0, 0, screen->Viewport.Width, screen->Height);
+      pl_video_put_image(&screen,
+                          0, 0,
+                          screen.view.w,
+                          screen.view.h);
 
   	  /* Apply fog and draw right frame */
   	  pspVideoFillRect(0, 0, SCR_WIDTH, SCR_HEIGHT, 
@@ -2142,7 +2170,10 @@ const pl_menu_item* pspUiSelect(const char *title, const pl_menu *menu)
         pspVideoBegin();
 
         /* Clear screen */
-        pspVideoPutImage(screen, 0, 0, screen->Viewport.Width, screen->Height);
+        pl_video_put_image(&screen,
+                            0, 0,
+                            screen.view.w,
+                            screen.view.h);
         pspVideoFillRect(sx, 0, dx, SCR_HEIGHT, UiMetric.MenuOptionBoxBg);
 
         /* Selection box */
@@ -2162,7 +2193,10 @@ const pl_menu_item* pspUiSelect(const char *title, const pl_menu *menu)
     pspVideoBegin();
 
     /* Clear screen */
-    pspVideoPutImage(screen, 0, 0, screen->Viewport.Width, screen->Height);
+    pl_video_put_image(&screen,
+                        0, 0,
+                        screen.view.w,
+                        screen.view.h);
     pspVideoFillRect(sx, 0, dx, SCR_HEIGHT, UiMetric.MenuOptionBoxBg);
 
     if (sel) pspVideoFillRect(sx, sel_top, sx + w, sel_top + fh, 
@@ -2193,7 +2227,10 @@ const pl_menu_item* pspUiSelect(const char *title, const pl_menu *menu)
   	  pspVideoBegin();
 
   	  /* Clear screen */
-  	  pspVideoPutImage(screen, 0, 0, screen->Viewport.Width, screen->Height);
+      pl_video_put_image(&screen,
+                          0, 0,
+                          screen.view.w,
+                          screen.view.h);
 
   	  /* Apply fog and draw right frame */
   	  pspVideoFillRect(0, 0, SCR_WIDTH, SCR_HEIGHT, 
@@ -2210,7 +2247,7 @@ const pl_menu_item* pspUiSelect(const char *title, const pl_menu *menu)
   }
 
   free(help_text);
-  pspImageDestroy(screen);
+  pl_image_destroy(&screen);
 
   return sel;
 }
@@ -2335,10 +2372,11 @@ int pspUiAdhocJoin(PspMAC mac)
     return 0;
   }
 
-  char *title = "Select host";
+  pl_image screen;
+  if (!pl_video_copy_vram(&screen))
+    return 0;
 
-  /* Get copy of screen */
-  PspImage *screen = pspVideoGetVramBufferCopy();
+  char *title = "Select host";
 
   pspUiFlashMessage(ADHOC_INITIALIZING);
   _adhoc_match_event.NewEvent = 0;
@@ -2347,7 +2385,7 @@ int pspUiAdhocJoin(PspMAC mac)
   if (!pspAdhocInit("ULUS99999", adhocMatchingCallback))
   {
     pspUiAlert("Ad-hoc networking initialization failed"); 
-    pspImageDestroy(screen);
+    pl_image_destroy(&screen);
     return 0;
   }
 
@@ -2419,7 +2457,10 @@ int pspUiAdhocJoin(PspMAC mac)
       pspVideoBegin();
 
       /* Clear screen */
-      pspVideoPutImage(screen, 0, 0, screen->Viewport.Width, screen->Height);
+      pl_video_put_image(&screen,
+                          0, 0,
+                          screen.view.w,
+                          screen.view.h);
 
       /* Apply fog and draw right frame */
       pspVideoFillRect(0, 0, SCR_WIDTH, SCR_HEIGHT, 
@@ -2623,7 +2664,10 @@ int pspUiAdhocJoin(PspMAC mac)
         pspVideoBegin();
 
         /* Clear screen */
-        pspVideoPutImage(screen, 0, 0, screen->Viewport.Width, screen->Height);
+        pl_video_put_image(&screen,
+                            0, 0,
+                            screen.view.w,
+                            screen.view.h);
         pspVideoFillRect(sx, 0, dx, SCR_HEIGHT, UiMetric.MenuOptionBoxBg);
 
         /* Selection box */
@@ -2643,7 +2687,10 @@ int pspUiAdhocJoin(PspMAC mac)
     pspVideoBegin();
 
     /* Clear screen */
-    pspVideoPutImage(screen, 0, 0, screen->Viewport.Width, screen->Height);
+    pl_video_put_image(&screen,
+                        0, 0,
+                        screen.view.w,
+                        screen.view.h);
     pspVideoFillRect(sx, 0, dx, SCR_HEIGHT, UiMetric.MenuOptionBoxBg);
 
     if (sel) pspVideoFillRect(sx, sel_top, sx + w, sel_top + fh, 
@@ -2674,7 +2721,10 @@ int pspUiAdhocJoin(PspMAC mac)
       pspVideoBegin();
 
       /* Clear screen */
-      pspVideoPutImage(screen, 0, 0, screen->Viewport.Width, screen->Height);
+      pl_video_put_image(&screen,
+                          0, 0,
+                          screen.view.w,
+                          screen.view.h);
 
       /* Apply fog and draw right frame */
       pspVideoFillRect(0, 0, SCR_WIDTH, SCR_HEIGHT, 
@@ -2691,7 +2741,7 @@ int pspUiAdhocJoin(PspMAC mac)
   }
 
   free(help_text);
-  pspImageDestroy(screen);
+  pl_image_destroy(&screen);
 
   /* Free memory used for MACs; menu resources */
   for (item = menu.items; item; item=item->next)
@@ -2716,7 +2766,9 @@ int pspUiAdhocJoin(PspMAC mac)
 void pspUiFadeout()
 {
   /* Get copy of screen */
-  PspImage *screen = pspVideoGetVramBufferCopy();
+  pl_image screen;
+  if (!pl_video_copy_vram(&screen))
+    return;
 
   /* Exit animation */
   int i, alpha;
@@ -2725,7 +2777,10 @@ void pspUiFadeout()
 	  pspVideoBegin();
 
 	  /* Clear screen */
-	  pspVideoPutImage(screen, 0, 0, screen->Viewport.Width, screen->Height);
+    pl_video_put_image(&screen,
+                        0, 0,
+                        screen.view.w,
+                        screen.view.h);
 
 	  /* Apply fog */
 	  alpha = (0x100/UI_ANIM_FRAMES)*i-1;
@@ -2739,7 +2794,7 @@ void pspUiFadeout()
     pspVideoSwapBuffers();
 	}
 
-  pspImageDestroy(screen);
+  pl_image_destroy(&screen);
 }
 
 void enter_directory(pl_file_path current_dir, 
