@@ -462,8 +462,12 @@ int ui_init(int *argc, char ***argv)
   pl_image_create(&NoSaveIcon,
                   256, 192,
                   pl_image_5551, 0);
-/* TODO */
-//  pspImageClear(NoSaveIcon, RGB(0x66,0x66,0x66));
+
+  pl_image_clear(&NoSaveIcon,
+                 0x66,
+                 0x66,
+                 0x66,
+                 0xff);
 
   /* Initialize state menu */
   int i;
@@ -869,7 +873,7 @@ static pl_image* psp_save_state(const char *path,
   }
 
   int status;
-  if (icon->view.w <= 256)
+  if (icon->view.w < 256)
     status = pl_image_create_duplicate(icon, thumb);
   else
     status = pl_image_create_thumbnail(icon, thumb);

@@ -927,6 +927,7 @@ void pspUiOpenBrowser(PspUiFileBrowser *browser, const char *start_path)
         browser->OnRender(browser, "not implemented");
 
       sceGuFinish();
+      sceKernelDcacheWritebackAll();
 
       if (sel != last_sel && !fast_scroll && sel && last_sel
         && UiMetric.Animate)
@@ -947,6 +948,7 @@ void pspUiOpenBrowser(PspUiFileBrowser *browser, const char *start_path)
             UiMetric.SelectedBgColor);
 
           sceGuCallList(call_list);
+          sceKernelDcacheWritebackAll();
 
           pspVideoEnd();
 
@@ -966,6 +968,7 @@ void pspUiOpenBrowser(PspUiFileBrowser *browser, const char *start_path)
         UiMetric.SelectedBgColor);
 
       sceGuCallList(call_list);
+      sceKernelDcacheWritebackAll();
 
       pspVideoEnd();
 
@@ -1178,6 +1181,7 @@ void pspUiOpenGallery(PspUiGallery *gallery, const char *title)
                             UiMetric.background.view.h);
 
         sceGuCallList(call_list); 
+        sceKernelDcacheWritebackAll();
 
         pspVideoEnd();
 
@@ -1281,6 +1285,7 @@ void pspUiOpenGallery(PspUiGallery *gallery, const char *title)
       gallery->OnRender(gallery, sel);
 
     sceGuFinish();
+    sceKernelDcacheWritebackAll();
 
     if (last_sel != sel && last_sel && sel && sel->param && UiMetric.Animate)
     {
@@ -1295,6 +1300,7 @@ void pspUiOpenGallery(PspUiGallery *gallery, const char *title)
                             UiMetric.background.view.h);
 
         sceGuCallList(call_list); 
+        sceKernelDcacheWritebackAll();
 
         pspVideoEnd();
 
@@ -1331,6 +1337,7 @@ void pspUiOpenGallery(PspUiGallery *gallery, const char *title)
                         UiMetric.background.view.h);
 
     sceGuCallList(call_list); 
+    sceKernelDcacheWritebackAll();
 
     pspVideoEnd();
 
@@ -1618,7 +1625,8 @@ void pspUiOpenMenu(PspUiMenu *uimenu, const char *title)
                                 UiMetric.background.view.w,
                                 UiMetric.background.view.h);
 
-          	  pspVideoCallList(call_list);
+          	  sceGuCallList(call_list);
+              sceKernelDcacheWritebackAll();
 
               /* Perform any custom drawing */
               if (uimenu->OnRender)
@@ -1689,7 +1697,8 @@ void pspUiOpenMenu(PspUiMenu *uimenu, const char *title)
                                 UiMetric.background.view.w,
                                 UiMetric.background.view.h);
 
-          	  pspVideoCallList(call_list);
+          	  sceGuCallList(call_list);
+              sceKernelDcacheWritebackAll();
 
               /* Perform any custom drawing */
               if (uimenu->OnRender)
@@ -1824,6 +1833,7 @@ void pspUiOpenMenu(PspUiMenu *uimenu, const char *title)
 
     /* End writing to call list */
     sceGuFinish();
+    sceKernelDcacheWritebackAll();
 
     if (!option_mode && !fast_scroll && sel && last_sel
       && UiMetric.Animate && last_sel != sel)
@@ -1843,6 +1853,7 @@ void pspUiOpenMenu(PspUiMenu *uimenu, const char *title)
           UiMetric.SelectedBgColor);
 
         sceGuCallList(call_list);
+        sceKernelDcacheWritebackAll();
 
         /* Perform any custom drawing */
         if (uimenu->OnRender)
@@ -1868,7 +1879,8 @@ void pspUiOpenMenu(PspUiMenu *uimenu, const char *title)
       pspVideoFillRect(sx, sel_top, sx+w, sel_top+fh, 
         UiMetric.SelectedBgColor);
 
-    pspVideoCallList(call_list);
+    sceGuCallList(call_list);
+    sceKernelDcacheWritebackAll();
 
     /* Perform any custom drawing */
     if (uimenu->OnRender)
@@ -2159,6 +2171,7 @@ const pl_menu_item* pspUiSelect(const char *title, const pl_menu *menu)
       help_text, UiMetric.StatusBarColor);
 
     sceGuFinish();
+    sceKernelDcacheWritebackAll();
 
     if (sel != last_sel && !fast_scroll && sel && last_sel 
       && UiMetric.Animate)
@@ -2182,6 +2195,7 @@ const pl_menu_item* pspUiSelect(const char *title, const pl_menu *menu)
           UiMetric.SelectedBgColor);
 
         sceGuCallList(call_list);
+        sceKernelDcacheWritebackAll();
 
         pspVideoEnd();
 
@@ -2203,6 +2217,7 @@ const pl_menu_item* pspUiSelect(const char *title, const pl_menu *menu)
       UiMetric.SelectedBgColor);
 
     sceGuCallList(call_list);
+    sceKernelDcacheWritebackAll();
 
     pspVideoEnd();
 
@@ -2653,6 +2668,7 @@ int pspUiAdhocJoin(PspMAC mac)
       help_text, UiMetric.StatusBarColor);
 
     sceGuFinish();
+    sceKernelDcacheWritebackAll();
 
     if (sel != last_sel && !fast_scroll && sel && last_sel 
       && UiMetric.Animate)
@@ -2676,6 +2692,7 @@ int pspUiAdhocJoin(PspMAC mac)
           UiMetric.SelectedBgColor);
 
         sceGuCallList(call_list);
+        sceKernelDcacheWritebackAll();
 
         pspVideoEnd();
 
@@ -2697,6 +2714,7 @@ int pspUiAdhocJoin(PspMAC mac)
       UiMetric.SelectedBgColor);
 
     sceGuCallList(call_list);
+    sceKernelDcacheWritebackAll();
 
     pspVideoEnd();
 

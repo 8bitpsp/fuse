@@ -442,7 +442,8 @@ void pl_vk_render(const pl_vk_layout *layout)
   int off_x, off_y, i, j;
   const pl_vk_button *button;
 
-  pspVideoCallList(layout->call_list);
+  sceGuCallList(layout->call_list);
+  sceKernelDcacheWritebackAll();
 
   off_x = (SCR_WIDTH / 2 - layout->keyb_image.view.w / 2);
   off_y = (SCR_HEIGHT / 2 - layout->keyb_image.view.h / 2);

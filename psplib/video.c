@@ -136,7 +136,7 @@ int pl_video_copy_vram(pl_image *image)
 {
   int i, j;
   uint16_t *pixel;
-  volatile uint16_t *vram_addr = (u16*)((u8*)VRAM_START + 0x40000000);
+  uint16_t *vram_addr = (u16*)((u8*)VRAM_START + 0x40000000);
 
   if (!pl_image_create(image, 
                        SCR_WIDTH,
@@ -321,11 +321,6 @@ void pspVideoFillRect(int sx, int sy, int dx, int dy, u32 color)
   sceGuDrawArray(GU_TRIANGLE_FAN, GU_COLOR_8888|GU_VERTEX_16BIT|GU_TRANSFORM_2D, 4, NULL, vert);
 }
 
-void pspVideoCallList(const void *list)
-{
-  sceGuCallList(list);
-}
-
 void pspVideoClearScreen()
 {
   sceGuClear(GU_COLOR_BUFFER_BIT);
@@ -491,21 +486,4 @@ void* pspVideoAllocateVramChunk(unsigned int bytes)
 unsigned int pspVideoGetVSyncFreq()
 {
   return VBlankFreq;
-}
-
-/* TODO: review void pspVideoClearScreen() */
-
-int foo()
-{
-return 0;
-}
-
-int bar()
-{
-return 1;
-}
-
-int barr()
-{
-return 1;
 }

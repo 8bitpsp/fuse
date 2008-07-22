@@ -180,7 +180,7 @@ int uidisplay_end()
 /* Set one pixel in the display */
 void uidisplay_putpixel(int x, int y, int colour)
 {
-  u8 *screen_start = (u8*)plScreen.bitmap;
+  volatile u8 *screen_start = (u8*)plScreen.bitmap;
   screen_start[y * plScreen.line_width + x] = colour;
 }
 
@@ -190,7 +190,7 @@ void uidisplay_plot8(int x, int y, libspectrum_byte data,
                      libspectrum_byte ink, libspectrum_byte paper)
 {
   x <<= 3;
-  u8 *line_start = (u8*)plScreen.bitmap +
+  volatile u8 *line_start = (u8*)plScreen.bitmap +
                     (y * plScreen.line_width + x);
   *line_start++ = ( data & 0x80 ) ? ink : paper;
   *line_start++ = ( data & 0x40 ) ? ink : paper;
@@ -209,7 +209,7 @@ void uidisplay_plot16(int x, int y, libspectrum_word data,
 {
   /* Forces a low-res render, discarding every other pixel */
   x <<= 4;
-  u8 *line_start = (u8*)plScreen.bitmap +
+  volatile u8 *line_start = (u8*)plScreen.bitmap +
                    (y * plScreen.line_width + x);
   *line_start++ = ( data & 0x8000 ) ? ink : paper;
   *line_start++ = ( data & 0x2000 ) ? ink : paper;

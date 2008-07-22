@@ -34,9 +34,9 @@ typedef unsigned int uint;
 
 typedef enum pl_image_format_t
 {
-  pl_image_indexed = 1,
-  pl_image_4444,
-  pl_image_5551
+  pl_image_indexed = 0x01, /* & 0x07 gives    */
+  pl_image_4444    = 0x02, /* bytes per pixel */
+  pl_image_5551    = 0x12,
 } pl_image_format;
 
 typedef struct pl_image_palette_t
@@ -85,7 +85,6 @@ int  pl_image_set_palette_color(pl_image *image,
                                 uint32_t color);
 
 uint pl_image_get_depth(const pl_image *image);
-uint pl_image_get_bytes_per_pixel(pl_image_format format);
 
 int  pl_image_compose_color(pl_image_format dest_format,
                             uint32_t *color,
@@ -116,10 +115,15 @@ int  pl_image_create_duplicate(const pl_image *original,
 int  pl_image_create_thumbnail(const pl_image *original,
                                pl_image *thumb);
 
-/*
-void pl_image_clear(pl_image *image,
-                    uint32_t color);
-*/
+#define pl_image_get_bytes_per_pixel(format) \
+  ((format) & 0x07)
+
+int pl_image_clear(pl_image *image,
+                   uint8_t red,
+                   uint8_t green,
+                   uint8_t blue,
+                   uint8_t alpha);
+
 /* Create/destroy *
 
 PspImage* pspImageRotate(const PspImage *orig, int angle_cw);

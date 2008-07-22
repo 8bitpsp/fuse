@@ -96,7 +96,6 @@ int pspVideoPrintRaw(const PspFont *font, int sx, int sy, const char *string, u3
 void pspVideoGlowRect(int sx, int sy, int dx, int dy, u32 color, int radius);
 void pspVideoShadowRect(int sx, int sy, int dx, int dy, u32 color, int depth);
 void pspVideoBeginList(void *list);
-void pspVideoCallList(const void *list);
 
 void* pspVideoAllocateVramChunk(unsigned int bytes);
 

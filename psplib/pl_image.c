@@ -30,7 +30,7 @@
 static uint get_next_power_of_two(uint n);
 static uint get_bitmap_size(const pl_image *image);
 int copy_from_void(pl_image_format format,
-                   void *from,
+                   const void *from,
                    uint32_t *to);
 int copy_to_void(pl_image_format format,
                  uint32_t from,
@@ -177,25 +177,6 @@ int pl_image_create_duplicate(const pl_image *original,
   return 1;
 }
 
-uint pl_image_get_bytes_per_pixel(pl_image_format format)
-{
-  switch (format)
-  {
-  case pl_image_indexed:
-    return 1;
-  case pl_image_4444:
-  case pl_image_5551:
-    return 2;
-  default:
-    return 0;
-  }
-}
-
-uint pl_image_get_depth(const pl_image *image)
-{
-  return pl_image_get_bytes_per_pixel(image->format) << 3;
-}
-
 int pl_image_compose_color(pl_image_format dest_format,
                            uint32_t *color,
                            uint8_t red,
@@ -205,6 +186,9 @@ int pl_image_compose_color(pl_image_format dest_format,
 {
   switch (dest_format)
   {
+  case pl_image_indexed:
+    /* TODO: indexed color? */
+    return 0;
   case pl_image_4444:
     *color = (((alpha >> 4) & 0x0F) << 12) |
              (((blue  >> 4) & 0x0F) << 8) |
@@ -233,6 +217,10 @@ int pl_image_split_color(pl_image_format src_format,
   switch (src_format)
   {
   case pl_image_indexed:
+    /* Palette's format may not be indexed */
+    if (src_palette->format == pl_image_indexed)
+      return 0;
+
     /* Get actual color */
     copy_from_void(src_palette->format,
                    src_palette->palette + color *
@@ -498,39 +486,54 @@ int pl_image_save(const pl_image *image,
   return status;
 }
 
-/*
-  PspImage *thumb;
-  int i, j, p;
+int pl_image_clear(pl_image *image,
+                   uint8_t red,
+                   uint8_t green,
+                   uint8_t blue,
+                   uint8_t alpha)
+{
+  uint32_t color;
+  int x, y;
+  void *line_ptr, *pel_ptr;
+  uint bytes_per_pixel = pl_image_get_bytes_per_pixel(image->format);
 
-  if (!(thumb = pspImageCreate(image->Viewport.Width >> 1,
-    image->Viewport.Height >> 1, image->Depth)))
-      return NULL;
+  if (!pl_image_compose_color(image->format,
+                              &color,
+                              red,
+                              green,
+                              blue,
+                              alpha))
+    return 0;
 
-  int dy = image->Viewport.Y + image->Viewport.Height;
-  int dx = image->Viewport.X + image->Viewport.Width;
-
-  for (i = image->Viewport.Y, p = 0; i < dy; i += 2)
-    for (j = image->Viewport.X; j < dx; j += 2)
-      if (image->Depth == PSP_IMAGE_INDEXED)
-        ((unsigned char*)thumb->Pixels)[p++]
-          = ((unsigned char*)image->Pixels)[(image->Width * i) + j];
-      else
-        ((unsigned short*)thumb->Pixels)[p++]
-          = ((unsigned short*)image->Pixels)[(image->Width * i) + j];
-
-  if (image->Depth == PSP_IMAGE_INDEXED)
+  for (y = 0, line_ptr = image->bitmap;
+       y < image->height;
+       y++, line_ptr += image->pitch)
   {
-    memcpy(thumb->Palette, image->Palette, sizeof(image->Palette));
-    thumb->PalSize = image->PalSize;
+    for (x = 0, pel_ptr = line_ptr;
+         x < image->line_width;
+         x++, pel_ptr += bytes_per_pixel)
+    {
+      copy_to_void(image->format,
+                   color,
+                   pel_ptr);
+    }
   }
 
-  return thumb;
-*/
+  return 1;
+}
+
 int pl_image_create_thumbnail(const pl_image *original,
                               pl_image *thumb)
 {
-return pl_image_create_duplicate(original, thumb);
-#if 0
+  int x, y;
+  uint32_t color;
+  void *line_ptr, *pel_ptr;
+  uint bytes_per_pixel =
+    pl_image_get_bytes_per_pixel(original->format);
+
+FILE*foo=fopen("log.txt","w");
+fprintf(foo,"creating image\n");
+fclose(foo);
   /* create image */
   if (!pl_image_create(thumb,
                        original->view.w / 2,
@@ -539,56 +542,54 @@ return pl_image_create_duplicate(original, thumb);
                        0)) /* TODO: all but vram flag */
     return 0;
 
-  int dy = original->view.y + original->view.h;
-  int dx = original->view.x + original->view.w;
-
-  for (i = original->view.y, p = 0; i < dy; i += 2)
-    for (j = original->view.x; j < dx; j += 2)
-    {
-    }
-      if (original->Depth == PSP_IMAGE_INDEXED)
-        ((unsigned char*)thumb->Pixels)[p++]
-          = ((unsigned char*)image->Pixels)[(image->Width * i) + j];
-      else
-        ((unsigned short*)thumb->Pixels)[p++]
-          = ((unsigned short*)image->Pixels)[(image->Width * i) + j];
-
+foo=fopen("log.txt","a");
+fprintf(foo,"copying palette\n");
+fclose(foo);
   /* copy palette */
-  if (original->palette.palette)
+  if (original->format == pl_image_indexed &&
+      original->palette.palette)
   {
-    if (!pl_image_palettize(copy,
+    if (!pl_image_palettize(thumb,
                             original->palette.format,
                             original->palette.colors))
     {
-      pl_image_destroy(copy);
+      pl_image_destroy(thumb);
       return 0;
     }
 
-    uint pal_size = copy->palette.colors *
-                    pl_image_get_bytes_per_pixel(copy->palette.format);
-    memcpy(copy->palette.palette,
+    uint pal_size = thumb->palette.colors *
+                    pl_image_get_bytes_per_pixel(thumb->palette.format);
+    memcpy(thumb->palette.palette,
            original->palette.palette,
            pal_size);
   }
 
-  /* copy image */
-  memcpy(copy->bitmap,
-         original->bitmap,
-         get_bitmap_size(copy));
+foo=fopen("log.txt","a");
+fprintf(foo,"copying bitmap\n");
+fclose(foo);
+  void *lp, *pp;
+lp = original->bitmap + original->view.y * original->pitch;
 
-  /* copy misc. attributes */
-  copy->view = original->view;
+  /* copy bitmap */
+  for (y = 0, line_ptr = thumb->bitmap;
+       y < thumb->view.h;
+       y++, line_ptr += thumb->pitch, lp += (original->pitch * 2))
+  {
+    for (x = 0, pel_ptr = line_ptr, pp = lp + original->view.x * bytes_per_pixel;
+         x < thumb->view.w;
+         x++, pel_ptr += bytes_per_pixel, pp += (bytes_per_pixel * 2))
+    {
+      copy_from_void(original->format, &color, pp);
+      copy_to_void(thumb->format, color, pel_ptr);
+    }
+  }
+foo=fopen("log.txt","a");
+fprintf(foo,"done\n");
+fclose(foo);
 
   return 1;
-#endif
 }
 
-/*
-void pl_image_clear(pl_image *image, uint32_t color)
-{
-  memset(image->bitmap, 0, image->pitch * image->height);
-}
-*/
 /*
 
 
@@ -678,339 +679,6 @@ PspImage* pspImageRotate(const PspImage *orig, int angle_cw)
   return final;
 }
 
-/* Creates a half-sized thumbnail of an image *
-PspImage* pspImageCreateThumbnail(const PspImage *image)
-{
-  PspImage *thumb;
-  int i, j, p;
-
-  if (!(thumb = pspImageCreate(image->Viewport.Width >> 1,
-    image->Viewport.Height >> 1, image->Depth)))
-      return NULL;
-
-  int dy = image->Viewport.Y + image->Viewport.Height;
-  int dx = image->Viewport.X + image->Viewport.Width;
-
-  for (i = image->Viewport.Y, p = 0; i < dy; i += 2)
-    for (j = image->Viewport.X; j < dx; j += 2)
-      if (image->Depth == PSP_IMAGE_INDEXED)
-        ((unsigned char*)thumb->Pixels)[p++]
-          = ((unsigned char*)image->Pixels)[(image->Width * i) + j];
-      else
-        ((unsigned short*)thumb->Pixels)[p++]
-          = ((unsigned short*)image->Pixels)[(image->Width * i) + j];
-
-  if (image->Depth == PSP_IMAGE_INDEXED)
-  {
-    memcpy(thumb->Palette, image->Palette, sizeof(image->Palette));
-    thumb->PalSize = image->PalSize;
-  }
-
-  return thumb;
-}
-
-int pspImageDiscardColors(const PspImage *original)
-{
-  if (original->Depth != PSP_IMAGE_16BPP) return 0;
-
-  int y, x, gray;
-  unsigned short *p;
-
-  for (y = 0, p = (unsigned short*)original->Pixels; y < original->Height; y++)
-    for (x = 0; x < original->Width; x++, p++)
-    {
-      gray = (RED(*p) * 3 + GREEN(*p) * 4 + BLUE(*p) * 2) / 9;
-      *p = RGB(gray, gray, gray);
-    }
-
-  return 1;
-}
-
-int pspImageBlur(const PspImage *original, PspImage *blurred)
-{
-  if (original->Width != blurred->Width
-    || original->Height != blurred->Height
-    || original->Depth != blurred->Depth
-    || original->Depth != PSP_IMAGE_16BPP) return 0;
-
-  int r, g, b, n, i, y, x, dy, dx;
-  unsigned short p;
-
-  for (y = 0, i = 0; y < original->Height; y++)
-  {
-    for (x = 0; x < original->Width; x++, i++)
-    {
-      r = g = b = n = 0;
-      for (dy = y - 1; dy <= y + 1; dy++)
-      {
-        if (dy < 0 || dy >= original->Height) continue;
-
-        for (dx = x - 1; dx <= x + 1; dx++)
-        {
-          if (dx < 0 || dx >= original->Width) continue;
-
-          p = ((unsigned short*)original->Pixels)[dx + dy * original->Width];
-          r += RED(p);
-          g += GREEN(p);
-          b += BLUE(p);
-          n++;
-        }
-
-        r /= n;
-        g /= n;
-        b /= n;
-        ((unsigned short*)blurred->Pixels)[i] = RGB(r, g, b);
-      }
-    }
-  }
-
-  return 1;
-}
-
-/* Clears an image ****
-void pspImageClear(PspImage *image, unsigned int color)
-{
-  if (image->Depth == PSP_IMAGE_INDEXED)
-  {
-    memset(image->Pixels, color & 0xff, image->Width * image->Height);
-  }
-  else if (image->Depth == PSP_IMAGE_16BPP)
-  {
-    int i;
-    unsigned short *pixel = image->Pixels;
-    for (i = image->Width * image->Height - 1; i >= 0; i--, pixel++)
-      *pixel = color & 0xffff;
-  }
-}
-
-/* Saves an image to a file ****
-int pspImageSavePng(const char *path, const PspImage* image)
-{
-  FILE *fp = fopen( path, "wb" );
-	if (!fp) return 0;
-
-  int stat = pspImageSavePngFd(fp, image);
-  fclose(fp);
-
-  return stat;
-}
-
-#define IRGB(r,g,b,a)   (((((b)>>3)&0x1F)<<10)|((((g)>>3)&0x1F)<<5)|\
-  (((r)>>3)&0x1F)|(a?0x8000:0))
-
-/* Loads an image from an open file descriptor (16-bit PNG)****
-PspImage* pspImageLoadPngFd(FILE *fp)
-{
-  const size_t nSigSize = 8;
-  byte signature[nSigSize];
-  if (fread(signature, sizeof(byte), nSigSize, fp) != nSigSize)
-    return 0;
-
-  if (!png_check_sig(signature, nSigSize))
-    return 0;
-
-  png_struct *pPngStruct = png_create_read_struct(PNG_LIBPNG_VER_STRING, NULL, NULL, NULL);
-  if(!pPngStruct)
-    return 0;
-
-  png_info *pPngInfo = png_create_info_struct(pPngStruct);
-  if(!pPngInfo)
-  {
-    png_destroy_read_struct(&pPngStruct, NULL, NULL);
-    return 0;
-  }
-
-  if (setjmp(pPngStruct->jmpbuf))
-  {
-    png_destroy_read_struct(&pPngStruct, NULL, NULL);
-    return 0;
-  }
-
-  png_init_io(pPngStruct, fp);
-  png_set_sig_bytes(pPngStruct, nSigSize);
-  png_read_png(pPngStruct, pPngInfo,
-    PNG_TRANSFORM_STRIP_16 | PNG_TRANSFORM_PACKING |
-    PNG_TRANSFORM_EXPAND | PNG_TRANSFORM_BGR , NULL);
-
-  png_uint_32 width = pPngInfo->width;
-  png_uint_32 height = pPngInfo->height;
-  int color_type = pPngInfo->color_type;
-
-  PspImage *image;
-
-  int mod_width = FindPowerOfTwoLargerThan(width);
-  if (!(image = pspImageCreate(mod_width, height, PSP_IMAGE_16BPP)))
-  {
-    png_destroy_read_struct(&pPngStruct, &pPngInfo, NULL);
-    return 0;
-  }
-
-  image->Viewport.Width = width;
-
-  png_byte **pRowTable = pPngInfo->row_pointers;
-  unsigned int x, y;
-  byte r, g, b, a;
-  unsigned short *out = image->Pixels;
-
-  for (y=0; y<height; y++)
-  {
-    png_byte *pRow = pRowTable[y];
-
-    for (x=0; x<width; x++)
-    {
-      switch(color_type)
-      {
-        case PNG_COLOR_TYPE_GRAY:
-          r = g = b = *pRow++;
-          a = 1;
-          break;
-        case PNG_COLOR_TYPE_GRAY_ALPHA:
-          r = g = b = pRow[0];
-          a = pRow[1];
-          pRow += 2;
-          break;
-        case PNG_COLOR_TYPE_RGB:
-          b = pRow[0];
-          g = pRow[1];
-          r = pRow[2];
-          a = 1;
-          pRow += 3;
-          break;
-        case PNG_COLOR_TYPE_RGB_ALPHA:
-          b = pRow[0];
-          g = pRow[1];
-          r = pRow[2];
-          a = pRow[3];
-          pRow += 4;
-          break;
-        default:
-          r = g = b = a = 0;
-          break;
-      }
-
-//      *out++ = IRGB(r,g,b,a);
-      *out++ = IRGB(r,g,b,a);
-    }
-
-    out += (mod_width - width);
-  }
-
-  png_destroy_read_struct(&pPngStruct, &pPngInfo, NULL);
-
-  return image;
-}
-
-/* Saves an image to an open file descriptor (16-bit PNG)****
-int pspImageSavePngFd(FILE *fp, const PspImage* image)
-{
-  unsigned char *bitmap;
-  int i, j, width, height;
-
-  width = image->Viewport.Width;
-  height = image->Viewport.Height;
-
-  if (!(bitmap = (u8*)malloc(sizeof(u8) * width * height * 3)))
-    return 0;
-
-  if (image->Depth == PSP_IMAGE_INDEXED)
-  {
-    const unsigned char *pixel;
-    pixel = (unsigned char*)image->Pixels + (image->Viewport.Y * image->Width);
-
-    for (i = 0; i < height; i++)
-    {
-      /* Skip to the start of the viewport ****
-      pixel += image->Viewport.X;
-      for (j = 0; j < width; j++, pixel++)
-      {
-        bitmap[i * width * 3 + j * 3 + 0] = RED(image->Palette[*pixel]);
-        bitmap[i * width * 3 + j * 3 + 1] = GREEN(image->Palette[*pixel]);
-        bitmap[i * width * 3 + j * 3 + 2] = BLUE(image->Palette[*pixel]);
-      }
-      /* Skip to the end of the line ****
-      pixel += image->Width - (image->Viewport.X + width);
-    }
-  }
-  else
-  {
-    const unsigned short *pixel;
-    pixel = (unsigned short*)image->Pixels + (image->Viewport.Y * image->Width);
-
-    for (i = 0; i < height; i++)
-    {
-      /* Skip to the start of the viewport ****
-      pixel += image->Viewport.X;
-      for (j = 0; j < width; j++, pixel++)
-      {
-        bitmap[i * width * 3 + j * 3 + 0] = RED(*pixel);
-        bitmap[i * width * 3 + j * 3 + 1] = GREEN(*pixel);
-        bitmap[i * width * 3 + j * 3 + 2] = BLUE(*pixel);
-      }
-      /* Skip to the end of the line ****
-      pixel += image->Width - (image->Viewport.X + width);
-    }
-  }
-
-  png_struct *pPngStruct = png_create_write_struct( PNG_LIBPNG_VER_STRING,
-    NULL, NULL, NULL );
-
-  if (!pPngStruct)
-  {
-    free(bitmap);
-    return 0;
-  }
-
-  png_info *pPngInfo = png_create_info_struct( pPngStruct );
-  if (!pPngInfo)
-  {
-    png_destroy_write_struct( &pPngStruct, NULL );
-    free(bitmap);
-    return 0;
-  }
-
-  png_byte **buf = (png_byte**)malloc(height * sizeof(png_byte*));
-  if (!buf)
-  {
-    png_destroy_write_struct( &pPngStruct, &pPngInfo );
-    free(bitmap);
-    return 0;
-  }
-
-  unsigned int y;
-  for (y = 0; y < height; y++)
-    buf[y] = (byte*)&bitmap[y * width * 3];
-
-  if (setjmp( pPngStruct->jmpbuf ))
-  {
-    free(buf);
-    free(bitmap);
-    png_destroy_write_struct( &pPngStruct, &pPngInfo );
-    return 0;
-  }
-
-  png_init_io( pPngStruct, fp );
-  png_set_IHDR( pPngStruct, pPngInfo, width, height, 8,
-    PNG_COLOR_TYPE_RGB,
-    PNG_INTERLACE_NONE,
-    PNG_COMPRESSION_TYPE_DEFAULT,
-    PNG_FILTER_TYPE_DEFAULT);
-  png_write_info( pPngStruct, pPngInfo );
-  png_write_image( pPngStruct, buf );
-  png_write_end( pPngStruct, pPngInfo );
-
-  png_destroy_write_struct( &pPngStruct, &pPngInfo );
-  free(buf);
-  free(bitmap);
-
-  return 1;
-}
-
-int FindPowerOfTwoLargerThan(int n)
-{
-  int i;
-  for (i = n; i < n; i *= 2);
-  return i;
-}
 */
 
 static uint get_next_power_of_two(uint n)
@@ -1026,18 +694,19 @@ static uint get_bitmap_size(const pl_image *image)
 }
 
 int copy_from_void(pl_image_format format,
-                   void *from,
+                   const void *from,
                    uint32_t *to)
 {
-  switch (format)
+  switch (pl_image_get_bytes_per_pixel(format))
   {
-  case pl_image_indexed:
+  case 1:
     *to = *(uint8_t*)from;
     return 1;
-  case pl_image_5551:
-  case pl_image_4444:
+  case 2:
     *to = *(uint16_t*)from;
     return 1;
+  case 4:
+    *to = *(uint32_t*)from;
   default:
     return 0;
   }
@@ -1047,14 +716,16 @@ int copy_to_void(pl_image_format format,
                  uint32_t from,
                  void *to)
 {
-  switch (format)
+  switch (pl_image_get_bytes_per_pixel(format))
   {
-  case pl_image_indexed:
+  case 1:
     *(uint8_t*)to = (uint8_t)from;
     return 1;
-  case pl_image_5551:
-  case pl_image_4444:
+  case 2:
     *(uint16_t*)to = (uint16_t)from;
+    return 1;
+  case 4:
+    *(uint32_t*)to = (uint32_t)from;
     return 1;
   default:
     return 0;
