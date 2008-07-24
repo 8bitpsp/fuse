@@ -123,6 +123,9 @@ int pl_image_clear(pl_image *image,
                    uint8_t green,
                    uint8_t blue,
                    uint8_t alpha);
+int pl_image_rotate(const pl_image *original,
+                    pl_image *rotated,
+                    int angle_cw);
 
 /* Create/destroy *
 

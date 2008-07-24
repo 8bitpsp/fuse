@@ -525,15 +525,6 @@ int pl_image_clear(pl_image *image,
 int pl_image_create_thumbnail(const pl_image *original,
                               pl_image *thumb)
 {
-  int x, y;
-  uint32_t color;
-  void *line_ptr, *pel_ptr;
-  uint bytes_per_pixel =
-    pl_image_get_bytes_per_pixel(original->format);
-
-FILE*foo=fopen("log.txt","w");
-fprintf(foo,"creating image\n");
-fclose(foo);
   /* create image */
   if (!pl_image_create(thumb,
                        original->view.w / 2,
@@ -542,9 +533,6 @@ fclose(foo);
                        0)) /* TODO: all but vram flag */
     return 0;
 
-foo=fopen("log.txt","a");
-fprintf(foo,"copying palette\n");
-fclose(foo);
   /* copy palette */
   if (original->format == pl_image_indexed &&
       original->palette.palette)
@@ -564,28 +552,126 @@ fclose(foo);
            pal_size);
   }
 
-foo=fopen("log.txt","a");
-fprintf(foo,"copying bitmap\n");
-fclose(foo);
-  void *lp, *pp;
-lp = original->bitmap + original->view.y * original->pitch;
+  int x, y;
+  uint32_t color;
+  uint bytes_per_pixel =
+    pl_image_get_bytes_per_pixel(original->format);
+  void *slp = original->bitmap + original->view.y * original->pitch;
+  void *spp;
+  void *dlp = thumb->bitmap;
+  void *dpp;
 
   /* copy bitmap */
-  for (y = 0, line_ptr = thumb->bitmap;
+  for (y = 0;
        y < thumb->view.h;
-       y++, line_ptr += thumb->pitch, lp += (original->pitch * 2))
+       y++, dlp += thumb->pitch, slp += (original->pitch << 1))
   {
-    for (x = 0, pel_ptr = line_ptr, pp = lp + original->view.x * bytes_per_pixel;
+    for (x = 0, dpp = dlp, spp = slp + original->view.x * bytes_per_pixel;
          x < thumb->view.w;
-         x++, pel_ptr += bytes_per_pixel, pp += (bytes_per_pixel * 2))
+         x++, dpp += bytes_per_pixel, spp += (bytes_per_pixel << 1))
     {
-      copy_from_void(original->format, &color, pp);
-      copy_to_void(thumb->format, color, pel_ptr);
+      copy_from_void(original->format, spp, &color);
+      copy_to_void(thumb->format, color, dpp);
     }
   }
-foo=fopen("log.txt","a");
-fprintf(foo,"done\n");
-fclose(foo);
+
+  return 1;
+}
+
+int pl_image_rotate(const pl_image *original,
+                    pl_image *rotated,
+                    int angle_cw)
+{
+  int status = 0;
+
+  /* Create image */
+  switch(angle_cw)
+  {
+  case 0:   /* just duplicate */
+    return pl_image_create_duplicate(original,
+                                     rotated);
+  case 90:
+  case 270:
+    status = pl_image_create(rotated,
+                             original->view.h,
+                             original->view.w,
+                             original->format,
+                             0);
+    break;
+  case 180:
+    status = pl_image_create(rotated,
+                             original->view.w,
+                             original->view.h,
+                             original->format,
+                             0);
+    break;
+  default:
+    return 0;
+  }
+
+  if (!status) return 0;
+
+  /* copy palette */
+  if (original->format == pl_image_indexed &&
+      original->palette.palette)
+  {
+    if (!pl_image_palettize(rotated,
+                            original->palette.format,
+                            original->palette.colors))
+    {
+      pl_image_destroy(rotated);
+      return 0;
+    }
+
+    uint pal_size = rotated->palette.colors *
+                    pl_image_get_bytes_per_pixel(rotated->palette.format);
+    memcpy(rotated->palette.palette,
+           original->palette.palette,
+           pal_size);
+  }
+
+  int x, y, k;
+  uint32_t color;
+  uint bytes_per_pixel =
+    pl_image_get_bytes_per_pixel(original->format);
+  void *slp = original->bitmap + original->view.y * original->pitch;
+  void *spp, *dpp;
+
+  /* copy bitmap */
+  for (y = 0, k = 0;
+       y < original->view.h;
+       y++, slp += original->pitch)
+  {
+    for (x = 0, spp = slp + original->view.x * bytes_per_pixel;
+         x < original->view.w;
+         x++, k++, spp += bytes_per_pixel)
+    {
+      copy_from_void(original->format, spp, &color);
+      switch(angle_cw)
+      {
+      case 90:
+/*
+        dpp = rotated->bitmap + (rotated->line_width - (k / rotated->height) - 1) *
+              rotated->pitch;
+        dpp += (k % rotated->height) * rotated->pitch;
+*/
+//        di = (width - (k / height) - 1) + (k % height) * width;
+        break;
+      case 180:
+/*
+(height - i - 1) * width + 
+(width - j - 1);
+*/
+        dpp = rotated->bitmap + (rotated->height - y - 1) * rotated->pitch;
+        dpp += (rotated->line_width - x - 1) * bytes_per_pixel;
+        break;
+      case 270:
+//        di = (k / height) + (height - (k % height) - 1) * width;
+        break;
+      }
+      copy_to_void(rotated->format, color, dpp);
+    }
+  }
 
   return 1;
 }
@@ -609,26 +695,6 @@ PspImage* pspImageRotate(const PspImage *orig, int angle_cw)
   PspImage *final;
 
   /* Create image of appropriate size *
-  switch(angle_cw)
-  {
-  case 0:
-    return pspImageCreateCopy(orig);
-  case 90:
-    final = pspImageCreate(orig->Viewport.Height,
-      orig->Viewport.Width, orig->Depth);
-    break;
-  case 180:
-    final = pspImageCreate(orig->Viewport.Width,
-      orig->Viewport.Height, orig->Depth);
-    break;
-  case 270:
-    final = pspImageCreate(orig->Viewport.Height,
-      orig->Viewport.Width, orig->Depth);
-    break;
-  default:
-    return NULL;
-  }
-
   int i, j, k, di = 0;
   int width = final->Width;
   int height = final->Height;

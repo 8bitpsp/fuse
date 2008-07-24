@@ -74,8 +74,6 @@ void pspVideoInit()
   VramOffset = 0;
   FrameIndex = 0;
   VramChunkOffset = (void*)0x44088000;
-//  ScratchBufferSize = sizeof(unsigned short) * BUF_WIDTH * SCR_HEIGHT;
-//  ScratchBuffer = pspVideoAllocateVramChunk(ScratchBufferSize); //;memalign(16, ScratchBufferSize);
 
   int size;
   unsigned int vram_buffer_offset = 0;
@@ -134,6 +132,8 @@ void pspVideoInit()
 
 int pl_video_copy_vram(pl_image *image)
 {
+  sceKernelDcacheWritebackAll();
+
   int i, j;
   uint16_t *pixel;
   uint16_t *vram_addr = (u16*)((u8*)VRAM_START + 0x40000000);

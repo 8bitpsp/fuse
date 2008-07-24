@@ -6,6 +6,8 @@
 #include "ui/ui.h"
 #include "ui/uidisplay.h"
 
+#include <pspkernel.h>
+
 #include "pspui.h"
 
 #include "video.h"
@@ -40,8 +42,6 @@ static const unsigned char spectrum_palette[16][3] =
 
 int uidisplay_init( int width, int height )
 {
-  pspVideoInit();
-
   /* Initialize screen buffer */
   if (!pl_image_create(&plScreen,
                        DISPLAY_SCREEN_WIDTH,
@@ -171,17 +171,16 @@ void uidisplay_frame_end()
 int uidisplay_end()
 {
   pl_image_destroy(&plScreen);
-
-  pspVideoShutdown();
-
   return 0;
 }
 
 /* Set one pixel in the display */
 void uidisplay_putpixel(int x, int y, int colour)
 {
-  volatile u8 *screen_start = (u8*)plScreen.bitmap;
-  screen_start[y * plScreen.line_width + x] = colour;
+  u8 *pixel = (u8*)plScreen.bitmap +
+    (y * plScreen.pitch + x);
+  sceKernelDcacheWritebackInvalidateRange(pixel, 1);
+  *pixel = colour;
 }
 
 /* Print the 8 pixels in `data' using ink colour `ink' and paper
@@ -190,8 +189,10 @@ void uidisplay_plot8(int x, int y, libspectrum_byte data,
                      libspectrum_byte ink, libspectrum_byte paper)
 {
   x <<= 3;
-  volatile u8 *line_start = (u8*)plScreen.bitmap +
-                    (y * plScreen.line_width + x);
+  u8 *line_start = (u8*)plScreen.bitmap +
+                    (y * plScreen.pitch + x);
+  sceKernelDcacheWritebackInvalidateRange(line_start, 8);
+
   *line_start++ = ( data & 0x80 ) ? ink : paper;
   *line_start++ = ( data & 0x40 ) ? ink : paper;
   *line_start++ = ( data & 0x20 ) ? ink : paper;
@@ -209,8 +210,10 @@ void uidisplay_plot16(int x, int y, libspectrum_word data,
 {
   /* Forces a low-res render, discarding every other pixel */
   x <<= 4;
-  volatile u8 *line_start = (u8*)plScreen.bitmap +
-                   (y * plScreen.line_width + x);
+  u8 *line_start = (u8*)plScreen.bitmap +
+                   (y * plScreen.pitch + x);
+  sceKernelDcacheWritebackInvalidateRange(line_start, 8);
+
   *line_start++ = ( data & 0x8000 ) ? ink : paper;
   *line_start++ = ( data & 0x2000 ) ? ink : paper;
   *line_start++ = ( data & 0x0800 ) ? ink : paper;

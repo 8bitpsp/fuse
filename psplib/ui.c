@@ -236,6 +236,7 @@ void pspUiAlert(const char *message)
   	      GREEN_32(UiMetric.MenuOptionBoxBg),
   	      BLUE_32(UiMetric.MenuOptionBoxBg),(0xff/n)*i));
 
+      sceKernelDcacheWritebackAll();
   	  pspVideoEnd();
 
       /* Swap buffers */
@@ -262,6 +263,7 @@ void pspUiAlert(const char *message)
   pspVideoGlowRect(sx, sy, dx - 1, dy - 1, 
     COLOR(0xff,0xff,0xff,UI_ANIM_FOG_STEP*n), 2);
 
+  sceKernelDcacheWritebackAll();
   pspVideoEnd();
 
   /* Swap buffers */
@@ -303,6 +305,7 @@ void pspUiAlert(const char *message)
   	      GREEN_32(UiMetric.MenuOptionBoxBg),
   	      BLUE_32(UiMetric.MenuOptionBoxBg),(0xff/n)*i));
 
+      sceKernelDcacheWritebackAll();
 		  pspVideoEnd();
 
 	    /* Swap buffers */
@@ -361,6 +364,7 @@ int pspUiYesNoCancel(const char *message)
   	      GREEN_32(UiMetric.MenuOptionBoxBg),
   	      BLUE_32(UiMetric.MenuOptionBoxBg),(0xff/n)*i));
 
+      sceKernelDcacheWritebackAll();
   	  pspVideoEnd();
 
       /* Swap buffers */
@@ -386,6 +390,7 @@ int pspUiYesNoCancel(const char *message)
   pspVideoGlowRect(sx, sy, dx - 1, dy - 1, 
     COLOR(0xff,0xff,0xff,UI_ANIM_FOG_STEP*n), 2);
 
+  sceKernelDcacheWritebackAll();
   pspVideoEnd();
 
   /* Swap buffers */
@@ -427,6 +432,7 @@ int pspUiYesNoCancel(const char *message)
   	      GREEN_32(UiMetric.MenuOptionBoxBg),
   	      BLUE_32(UiMetric.MenuOptionBoxBg),(0xff/n)*i));
 
+      sceKernelDcacheWritebackAll();
 		  pspVideoEnd();
 
 	    /* Swap buffers */
@@ -489,6 +495,7 @@ int pspUiConfirm(const char *message)
   	      GREEN_32(UiMetric.MenuOptionBoxBg),
   	      BLUE_32(UiMetric.MenuOptionBoxBg),(0xff/n)*i));
 
+      sceKernelDcacheWritebackAll();
   	  pspVideoEnd();
 
       /* Swap buffers */
@@ -514,6 +521,7 @@ int pspUiConfirm(const char *message)
   pspVideoGlowRect(sx, sy, dx - 1, dy - 1, 
     COLOR(0xff,0xff,0xff,UI_ANIM_FOG_STEP*n), 2);
 
+  sceKernelDcacheWritebackAll();
   pspVideoEnd();
 
   /* Swap buffers */
@@ -555,6 +563,7 @@ int pspUiConfirm(const char *message)
   	      GREEN_32(UiMetric.MenuOptionBoxBg),
   	      BLUE_32(UiMetric.MenuOptionBoxBg),(0xff/n)*i));
 
+      sceKernelDcacheWritebackAll();
 		  pspVideoEnd();
 
 	    /* Swap buffers */
@@ -612,6 +621,7 @@ void pspUiFlashMessage(const char *message)
   	      GREEN_32(UiMetric.MenuOptionBoxBg),
   	      BLUE_32(UiMetric.MenuOptionBoxBg),(0xff/n)*i));
 
+      sceKernelDcacheWritebackAll();
   	  pspVideoEnd();
 
       /* Swap buffers */
@@ -635,6 +645,7 @@ void pspUiFlashMessage(const char *message)
   pspVideoGlowRect(sx, sy, dx - 1, dy - 1, 
     COLOR(0xff,0xff,0xff,UI_ANIM_FOG_STEP*n), 2);
 
+  sceKernelDcacheWritebackAll();
   pspVideoEnd();
 
   /* Swap buffers */
@@ -652,6 +663,8 @@ void pspUiOpenBrowser(PspUiFileBrowser *browser, const char *start_path)
   pl_menu_item *item;
   SceCtrlData pad;
   char *instructions[BROWSER_TEMPLATE_COUNT];
+
+  sceKernelDcacheWritebackInvalidateAll();
 
   /* Initialize instruction strings */
   int i;
@@ -948,8 +961,8 @@ void pspUiOpenBrowser(PspUiFileBrowser *browser, const char *start_path)
             UiMetric.SelectedBgColor);
 
           sceGuCallList(call_list);
-          sceKernelDcacheWritebackAll();
 
+          sceKernelDcacheWritebackAll();
           pspVideoEnd();
 
           pspVideoWaitVSync();
@@ -968,8 +981,8 @@ void pspUiOpenBrowser(PspUiFileBrowser *browser, const char *start_path)
         UiMetric.SelectedBgColor);
 
       sceGuCallList(call_list);
-      sceKernelDcacheWritebackAll();
 
+      sceKernelDcacheWritebackAll();
       pspVideoEnd();
 
       /* Swap buffers */
@@ -1008,6 +1021,8 @@ void pspUiOpenGallery(PspUiGallery *gallery, const char *title)
     rows, vis_v, vis_s,
     icons;
   const pl_menu_item *last_sel = NULL;
+
+  sceKernelDcacheWritebackInvalidateAll();
 
   /* Find first icon and save its width/height */
   for (item = menu->items; item; item = item->next)
@@ -1181,8 +1196,8 @@ void pspUiOpenGallery(PspUiGallery *gallery, const char *title)
                             UiMetric.background.view.h);
 
         sceGuCallList(call_list); 
-        sceKernelDcacheWritebackAll();
 
+        sceKernelDcacheWritebackAll();
         pspVideoEnd();
 
         /* Render the menu items */
@@ -1300,8 +1315,8 @@ void pspUiOpenGallery(PspUiGallery *gallery, const char *title)
                             UiMetric.background.view.h);
 
         sceGuCallList(call_list); 
-        sceKernelDcacheWritebackAll();
 
+        sceKernelDcacheWritebackAll();
         pspVideoEnd();
 
         /* Render the menu items */
@@ -1410,6 +1425,8 @@ void pspUiOpenMenu(PspUiMenu *uimenu, const char *title)
   dy = UiMetric.Bottom;
   w = dx - sx - UiMetric.ScrollbarWidth;
   h = dy - sy;
+
+  sceKernelDcacheWritebackInvalidateAll();
 
   memset(call_list, 0, sizeof(call_list));
 
@@ -1943,6 +1960,8 @@ void pspUiSplashScreen(PspUiSplash *splash)
 {
   SceCtrlData pad;
   int fh = pspFontGetLineHeight(UiMetric.Font);
+
+  sceKernelDcacheWritebackInvalidateAll();
 
   while (!ExitPSP)
   {

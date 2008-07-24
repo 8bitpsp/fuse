@@ -433,9 +433,6 @@ static void psp_exit_callback(void* arg)
 
 int ui_init(int *argc, char ***argv)
 {
-  pl_psp_init(*argv[0]);
-  pspCtrlInit();
-
   /* Initialize callbacks */
   pl_psp_register_callback(PSP_EXIT_CALLBACK,
                            psp_exit_callback,
@@ -873,10 +870,16 @@ static pl_image* psp_save_state(const char *path,
   }
 
   int status;
-  if (icon->view.w < 256)
+/*
+  if (icon->view.w <= 256)
     status = pl_image_create_duplicate(icon, thumb);
   else
     status = pl_image_create_thumbnail(icon, thumb);
+*/
+status = pl_image_rotate(icon,
+                    thumb,
+                    180);
+
 
   if (!status)
   {
@@ -1609,6 +1612,9 @@ int ui_error_specific(ui_error_level severity, const char *message)
 int main(int argc, char *argv[])
 {
   /* Initialize PSP */
+  pl_psp_init(argv[0]);
+  pspCtrlInit();
+  pspVideoInit();
   pspAudioInit(SOUND_BUFFER_SIZE, 0);
 
   /* Main emulation loop */
@@ -1616,6 +1622,7 @@ int main(int argc, char *argv[])
 
   /* Release PSP resources */
   pspAudioShutdown();
+  pspVideoShutdown();
   pl_psp_shutdown();
 
   return(0);
