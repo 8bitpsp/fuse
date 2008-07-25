@@ -578,6 +578,7 @@ int pl_image_create_thumbnail(const pl_image *original,
   return 1;
 }
 
+#if 0
 int pl_image_rotate(const pl_image *original,
                     pl_image *rotated,
                     int angle_cw)
@@ -630,7 +631,7 @@ int pl_image_rotate(const pl_image *original,
            pal_size);
   }
 
-  int x, y, k;
+  int x, y;
   uint32_t color;
   uint bytes_per_pixel =
     pl_image_get_bytes_per_pixel(original->format);
@@ -638,13 +639,13 @@ int pl_image_rotate(const pl_image *original,
   void *spp, *dpp;
 
   /* copy bitmap */
-  for (y = 0, k = 0;
+  for (y = 0;
        y < original->view.h;
        y++, slp += original->pitch)
   {
     for (x = 0, spp = slp + original->view.x * bytes_per_pixel;
          x < original->view.w;
-         x++, k++, spp += bytes_per_pixel)
+         x++, spp += bytes_per_pixel)
     {
       copy_from_void(original->format, spp, &color);
       switch(angle_cw)
@@ -675,82 +676,12 @@ int pl_image_rotate(const pl_image *original,
 
   return 1;
 }
-
-/*
-
-
-
-
-
-
-
-
-
-
-typedef unsigned char byte;
-
-
-PspImage* pspImageRotate(const PspImage *orig, int angle_cw)
-{
-  PspImage *final;
-
-  /* Create image of appropriate size *
-  int i, j, k, di = 0;
-  int width = final->Width;
-  int height = final->Height;
-  int l_shift = orig->BytesPerPixel >> 1;
-  
-  const unsigned char *source = (unsigned char*)orig->Pixels;
-  unsigned char *dest = (unsigned char*)final->Pixels;
-
-  /* Skip to Y viewport starting point *
-  source += (orig->Viewport.Y * orig->Width) << l_shift;
-
-  /* Copy image contents *
-  for (i = 0, k = 0; i < orig->Viewport.Height; i++)
-  {
-    /* Skip to the start of the X viewport *
-    source += orig->Viewport.X << l_shift;
-
-    for (j = 0; j < orig->Viewport.Width; j++, source += 1 << l_shift, k++)
-    {
-      switch(angle_cw)
-      {
-      case 90:
-        di = (width - (k / height) - 1) + (k % height) * width;
-        break;
-      case 180:
-        di = (height - i - 1) * width + (width - j - 1);
-        break;
-      case 270:
-        di = (k / height) + (height - (k % height) - 1) * width;
-        break;
-      }
-
-      /* Write to destination *
-      if (orig->Depth == PSP_IMAGE_INDEXED) dest[di] = *source;
-      else ((unsigned short*)dest)[di] = *(unsigned short*)source; /* 16 bpp *
-    }
-
-    /* Skip to the end of the line *
-    source += (orig->Width - (orig->Viewport.X + orig->Viewport.Width)) << l_shift;
-  }
-
-  if (orig->Depth == PSP_IMAGE_INDEXED)
-  {
-    memcpy(final->Palette, orig->Palette, sizeof(orig->Palette));
-    final->PalSize = orig->PalSize;
-  }
-
-  return final;
-}
-
-*/
+#endif
 
 static uint get_next_power_of_two(uint n)
 {
   uint i;
-  for (i = 1; i < n; i <<= 1);
+  for (i = 0x10; i < n; i <<= 1);
   return i;
 }
 

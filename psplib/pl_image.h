@@ -30,7 +30,7 @@ extern "C" {
 
 #define PL_IMAGE_USE_VRAM  0x01
 
-typedef unsigned int uint;
+#define uint unsigned int
 
 typedef enum pl_image_format_t
 {
@@ -123,24 +123,13 @@ int pl_image_clear(pl_image *image,
                    uint8_t green,
                    uint8_t blue,
                    uint8_t alpha);
+#if 0
 int pl_image_rotate(const pl_image *original,
                     pl_image *rotated,
                     int angle_cw);
+#endif
 
-/* Create/destroy *
-
-PspImage* pspImageRotate(const PspImage *orig, int angle_cw);
-PspImage* pspImageCreateThumbnail(const PspImage *image);
-void      pspImageClear(PspImage *image, unsigned int color);
-
-PspImage* pspImageLoadPng(const char *path);
-int       pspImageSavePng(const char *path, const PspImage* image);
-PspImage* pspImageLoadPngFd(FILE *fp);
-int       pspImageSavePngFd(FILE *fp, const PspImage* image);
-
-int pspImageBlur(const PspImage *original, PspImage *blurred);
-int pspImageDiscardColors(const PspImage *original);
-*/
+#undef uint
 
 #ifdef __cplusplus
 }

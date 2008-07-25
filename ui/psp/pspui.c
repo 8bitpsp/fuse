@@ -549,6 +549,9 @@ static void psp_display_menu()
   /* Set buttons to autorepeat */
   pspCtrlSetPollingMode(PSP_CTRL_AUTOREPEAT);
 
+  sceKernelDcacheWritebackInvalidateRange(plScreen.bitmap,
+                                          plScreen.pitch * plScreen.height);
+
   /* Menu loop */
   while (!ExitPSP && !psp_exit_menu)
   {
@@ -870,16 +873,10 @@ static pl_image* psp_save_state(const char *path,
   }
 
   int status;
-/*
   if (icon->view.w <= 256)
     status = pl_image_create_duplicate(icon, thumb);
   else
     status = pl_image_create_thumbnail(icon, thumb);
-*/
-status = pl_image_rotate(icon,
-                    thumb,
-                    180);
-
 
   if (!status)
   {
@@ -976,7 +973,11 @@ static int psp_save_options()
 
 static int psp_load_game(const char *path)
 {
-  int success, reboot;
+  libspectrum_id_t type;
+  libspectrum_class_t class;
+  utils_file file;
+  const char *game_path;
+
   if (pl_file_is_of_type(path, "ZIP"))
   {
     char archived_file[512];
@@ -996,7 +997,6 @@ static int psp_load_game(const char *path)
     }
 
     const char *extension;
-    utils_file file;
     int i, j;
 
     for (i = 0; i < (int)gi.number_entry; i++)
@@ -1048,20 +1048,46 @@ static int psp_load_game(const char *path)
       }
     }
 
+    /* No eligible files */
+    return 0;
+
 close_archive:
     unzClose(zipfile);
 
-    success = (utils_open_file_buffer(file, archived_file, 0, NULL) == 0);
-    reboot = !pl_file_is_of_type(archived_file, "Z80");
+    game_path = archived_file;
   }
   else
   {
-    success = (utils_open_file(path, 0, NULL) == 0);
-    reboot = !pl_file_is_of_type(path, "Z80");
+    if (utils_read_file(path, &file))
+      return 0;
+
+    game_path = path;
   }
 
-  if (reboot) machine_reset(0);
-  return success;
+  /* Identify file type */
+  int error;
+  error = libspectrum_identify_file_with_class(&type, 
+                                               &class, 
+                                               game_path,
+                                               file.buffer, 
+                                               file.length);
+
+  /* Load file */
+  if (error == 0) 
+    error = utils_open_file_buffer(file, 
+                                   game_path, 
+                                   0, NULL);
+
+  /* Free file resource */
+  utils_close_file(&file);
+
+  if (error)
+    return 0;
+
+  if (class != LIBSPECTRUM_CLASS_SNAPSHOT)
+    machine_reset(0);
+
+  return 1;
 }
 
 static void psp_init_controls(psp_ctrl_map_t *config)
