@@ -28,9 +28,9 @@ PSPSDK=$(shell psp-config --pspsdk-path)
 CFLAGS=-G0 -Wall -I$(PSPSDK)/include
 DEFINES=-DPSP -D_PSP_FW_VERSION=$(PSP_FW_VERSION)
 
-all: libmypsp.a
+all: libpsplib.a
 
-libmypsp.a: adhoc.o font.o audio.o \
+libpsplib.a:adhoc.o font.o audio.o \
             ctrl.o video.o pl_image.o ui.o \
             pl_ini.o pl_perf.o pl_vk.o pl_util.o \
             pl_psp.o pl_menu.o pl_file.o

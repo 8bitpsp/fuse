@@ -2,7 +2,7 @@ PSPSDK=$(shell psp-config --pspsdk-path)
 
 PSPAPP=psp
 LSP=ls
-PSPLIB=psplib
+PSPLIB=ui/psp/lib
 MZLIB=mzlib
 
 PSP_FW_VERSION=200
@@ -64,7 +64,7 @@ CXXFLAGS=$(CFLAGS) -fno-exceptions -fno-rtti
 ASFLAGS=$(CFLAGS)
 INCDIR=. $(PSPLIB) $(LSP) $(MZLIB) psp
 LIBDIR=$(PSPLIB)
-LIBS=-lmypsp -lpng -lpspgu -lpsppower -lz -lm -lc -lpspaudio -lpsprtc \
+LIBS=-lpsplib -lpng -lpspgu -lpsppower -lz -lm -lc -lpspaudio -lpsprtc \
      -lpspwlan -lpspnet_adhoc -lpspnet_adhocctl -lpspnet_adhocmatching
 
 all: build_psplib
