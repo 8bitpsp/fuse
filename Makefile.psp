@@ -1,7 +1,8 @@
 PSPSDK=$(shell psp-config --pspsdk-path)
 
 PSPAPP=psp
-LSP=ls
+LSP=aux/libspectrum
+L765=aux/lib765
 PSPLIB=ui/psp/lib
 MZLIB=mzlib
 
@@ -27,6 +28,8 @@ BUILD_LS=$(LSP)/creator.o $(LSP)/crypto.o $(LSP)/csw.o \
          $(LSP)/tzx_write.o $(LSP)/warajevo_read.o $(LSP)/wav.o \
          $(LSP)/z80.o $(LSP)/z80em.o $(LSP)/zlib.o $(LSP)/zxs.o \
          $(LSP)/myglib/ghash.o $(LSP)/myglib/gslist.o
+BUILD_765=$(L765)/lib/765drive.o $(L765)/lib/765dsk.o $(L765)/lib/765fdc.o \
+          $(L765)/lib/765ldsk.o $(L765)/lib/error.o
 BUILD_FUSE=debugger/breakpoint.o debugger/command.o debugger/commandl.o \
            debugger/commandy.o debugger/debugger.o debugger/disassemble.o \
            debugger/expression.o \
@@ -55,14 +58,15 @@ BUILD_PORT=ui/psp/keysyms.o timer/psp.o ui/psp/paths.o ui/psp/osname.o \
 BUILD_MZ=$(MZLIB)/ioapi.o $(MZLIB)/unzip.o
 
 
-OBJS=$(BUILD_LS) $(BUILD_FUSE) $(BUILD_PORT) $(BUILD_MZ)
+OBJS=$(BUILD_LS) $(BUILD_FUSE) $(BUILD_PORT) $(BUILD_MZ) $(BUILD_765)
 
-DEFINES=-DFUSEDATADIR="\"system\"" -DSOUND_BUFFER_SIZE=368 -DPSP_DEBUG
+DEFINES=-DFUSEDATADIR="\"system\"" -DSOUND_BUFFER_SIZE=368 -DPSP_DEBUG \
+        -DPATH_MAX=2048
 BASE_DEFS=-DPSP -DPSP_APP_VER=\"$(PSP_APP_VER)\" -DPSP_APP_NAME="\"$(PSP_APP_NAME)\""
 CFLAGS=-O2 -G0 -Wall $(BASE_DEFS) $(DEFINES)
 CXXFLAGS=$(CFLAGS) -fno-exceptions -fno-rtti
 ASFLAGS=$(CFLAGS)
-INCDIR=. $(PSPLIB) $(LSP) $(MZLIB) psp
+INCDIR=. $(PSPLIB) $(LSP) $(MZLIB) $(L765)/include psp
 LIBDIR=$(PSPLIB)
 LIBS=-lpsplib -lpng -lpspgu -lpsppower -lz -lm -lc -lpspaudio -lpsprtc \
      -lpspwlan -lpspnet_adhoc -lpspnet_adhocctl -lpspnet_adhocmatching

@@ -2,7 +2,7 @@
 /* config.h.in.  Generated from configure.in by autoheader.  */
 
 /* Define to 1 if you have the <765.h> header file. */
-/* #undef HAVE_765_H */
+#define HAVE_765_H 1
 
 /* Define to 1 if you have the `dirname' function. */
 #define HAVE_DIRNAME 1

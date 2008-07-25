@@ -28,10 +28,6 @@
 
 #include <stdlib.h>
 
-#if !defined(PATH_MAX) && defined(PSP)
-#define PATH_MAX 2048
-#endif
-
 /* Remove the gcc-specific incantations if we're not using gcc */
 #ifdef __GNUC__
 

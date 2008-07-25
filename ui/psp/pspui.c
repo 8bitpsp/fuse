@@ -77,7 +77,7 @@ SceCtrlData psp_pad_status;
 
 static const char *QuickloadFilter[] =
       { "ZIP", "DCK", "ROM", "MDR", "TAP", "SPC", "STA", "LTP", "TZX",
-#ifdef HAVE_765_H
+#ifdef HAVE_LIB765_H
         "DSK",
 #endif
         "SCL", "TRD", "HDF", "BZ2", "GZ", "RAW", "CSW",
