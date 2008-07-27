@@ -15,7 +15,7 @@ static inline void psp_joystick_toggle(unsigned int code, int on)
 {
   input_event_t fuse_event;
 
-  fuse_event.type = (on) 
+  fuse_event.type = (on)
     ? INPUT_EVENT_JOYSTICK_PRESS : INPUT_EVENT_JOYSTICK_RELEASE;
   fuse_event.types.joystick.which = 0;
   fuse_event.types.joystick.button = code;

@@ -44,7 +44,7 @@ int uidisplay_init( int width, int height )
 {
   /* Initialize screen buffer */
   if (!pl_image_create(&plScreen,
-                       DISPLAY_SCREEN_WIDTH,
+                       DISPLAY_SCREEN_WIDTH / 2,
                        DISPLAY_SCREEN_HEIGHT,
                        pl_image_indexed,
                        PL_IMAGE_USE_VRAM))

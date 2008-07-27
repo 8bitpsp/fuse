@@ -77,7 +77,7 @@ SceCtrlData psp_pad_status;
 
 static const char *QuickloadFilter[] =
       { "ZIP", "DCK", "ROM", "MDR", "TAP", "SPC", "STA", "LTP", "TZX",
-#ifdef HAVE_LIB765_H
+#ifdef HAVE_LIBDSK_H
         "DSK",
 #endif
         "SCL", "TRD", "HDF", "BZ2", "GZ", "RAW", "CSW",
@@ -258,11 +258,26 @@ PL_MENU_OPTIONS_BEGIN(MappableButtons)
   /* Special */
   PL_MENU_OPTION("Special: Open Menu",     (SPC|SPC_MENU))
   PL_MENU_OPTION("Special: Show keyboard", (SPC|SPC_KYBD))
+  /* Hack cursors */
+  PL_MENU_OPTION("Up",    (KBD|INPUT_KEY_Up))
+  PL_MENU_OPTION("Down",  (KBD|INPUT_KEY_Down))
+  PL_MENU_OPTION("Left",  (KBD|INPUT_KEY_Left))
+  PL_MENU_OPTION("Right", (KBD|INPUT_KEY_Right))
   /* Joystick */
   PL_MENU_OPTION("Joystick Up",    (JST|INPUT_JOYSTICK_UP))
   PL_MENU_OPTION("Joystick Down",  (JST|INPUT_JOYSTICK_DOWN))
   PL_MENU_OPTION("Joystick Left",  (JST|INPUT_JOYSTICK_LEFT))
   PL_MENU_OPTION("Joystick Right", (JST|INPUT_JOYSTICK_RIGHT))
+  PL_MENU_OPTION("Joystick Fire 1", (JST|INPUT_JOYSTICK_FIRE_1))
+  PL_MENU_OPTION("Joystick Fire 2", (JST|INPUT_JOYSTICK_FIRE_2))
+  PL_MENU_OPTION("Joystick Fire 3", (JST|INPUT_JOYSTICK_FIRE_3))
+  PL_MENU_OPTION("Joystick Fire 4", (JST|INPUT_JOYSTICK_FIRE_4))
+  PL_MENU_OPTION("Joystick Fire 5", (JST|INPUT_JOYSTICK_FIRE_5))
+  PL_MENU_OPTION("Joystick Fire 6", (JST|INPUT_JOYSTICK_FIRE_6))
+  PL_MENU_OPTION("Joystick Fire 7", (JST|INPUT_JOYSTICK_FIRE_7))
+  PL_MENU_OPTION("Joystick Fire 8", (JST|INPUT_JOYSTICK_FIRE_8))
+  PL_MENU_OPTION("Joystick Fire 9", (JST|INPUT_JOYSTICK_FIRE_9))
+  PL_MENU_OPTION("Joystick Fire 10",(JST|INPUT_JOYSTICK_FIRE_10))
   /* Etc... */
   PL_MENU_OPTION("Space",     (KBD|INPUT_KEY_space))
   PL_MENU_OPTION("Enter",     (KBD|INPUT_KEY_Return))
@@ -365,16 +380,16 @@ PL_MENU_ITEMS_END
 static psp_ctrl_map_t default_map =
 {
   {
-    KBD|INPUT_KEY_p,       /* Analog Up    */
-    KBD|INPUT_KEY_l,       /* Analog Down  */
-    KBD|INPUT_KEY_z,       /* Analog Left  */
-    KBD|INPUT_KEY_x,       /* Analog Right */
-    KBD|INPUT_KEY_7,       /* D-pad Up     */
-    KBD|INPUT_KEY_6,       /* D-pad Down   */
-    KBD|INPUT_KEY_5,       /* D-pad Left   */
-    KBD|INPUT_KEY_8,       /* D-pad Right  */
-    KBD|INPUT_KEY_Return,  /* Square       */
-    0,                     /* Cross        */
+    JST|INPUT_JOYSTICK_UP,    /* Analog Up    */
+    JST|INPUT_JOYSTICK_DOWN,  /* Analog Down  */
+    JST|INPUT_JOYSTICK_LEFT,  /* Analog Left  */
+    JST|INPUT_JOYSTICK_RIGHT, /* Analog Right */
+    KBD|INPUT_KEY_Up,    /* D-pad Up     */
+    KBD|INPUT_KEY_Down,  /* D-pad Down   */
+    KBD|INPUT_KEY_Left,  /* D-pad Left   */
+    KBD|INPUT_KEY_Right, /* D-pad Right  */
+    KBD|INPUT_KEY_Return,      /* Square       */
+    JST|INPUT_JOYSTICK_FIRE_1, /* Cross        */
     KBD|INPUT_KEY_space,   /* Circle       */
     0,                     /* Triangle     */
     0,                     /* L Trigger    */
@@ -433,6 +448,11 @@ static void psp_exit_callback(void* arg)
 
 int ui_init(int *argc, char ***argv)
 {
+  /* Init joystick */
+  settings_current.joy_kempston = 1;
+  settings_current.joystick_keyboard_output = 1;
+  settings_current.joystick_1_output = JOYSTICK_TYPE_KEMPSTON;
+
   /* Initialize callbacks */
   pl_psp_register_callback(PSP_EXIT_CALLBACK,
                            psp_exit_callback,
@@ -648,6 +668,7 @@ int ui_event( void )
 #endif
   /* Parse input */
   psp_ctrl_mask_to_index_map_t *current_mapping = physical_to_emulated_button_map;
+  u8 cursor_pressed = 0;
   for (; current_mapping->mask; current_mapping++)
   {
     u32 code = current_map.button_map[current_mapping->index];
@@ -658,7 +679,16 @@ int ui_event( void )
     if (on) psp_pad_status.Buttons &= ~current_mapping->mask;
 
     if ((code & KBD) && !show_kybd_held)
+    {
+      /* Cursor fix hack */
+      uint spec_code = CODE_MASK(code);
+      if (spec_code >= INPUT_KEY_Up && spec_code <= INPUT_KEY_Right)
+      {
+        if (cursor_pressed) continue;
+        if (on) cursor_pressed++;
+      }
       psp_keyboard_toggle(CODE_MASK(code), on);
+    }
     else if (code & SPC)
     {
       switch (CODE_MASK(code))
