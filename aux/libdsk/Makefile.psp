@@ -1,0 +1,23 @@
+CC=psp-gcc
+AR=psp-ar
+RANLIB=psp-ranlib
+RM=rm -rf
+PSPSDK=$(shell psp-config --pspsdk-path)
+CFLAGS=-G0 -O2 -Wall -DPSP -DPATH_MAX=2048 -I$(PSPSDK)/include \
+       -Iinclude -I.
+
+all: lib/libdsk.a
+
+lib/libdsk.a: \
+  lib/dsktread.o lib/dskopen.o lib/dskdirty.o lib/dskread.o \
+  lib/compress.o lib/dskreprt.o lib/compsq.o lib/dskgeom.o \
+  lib/dskerror.o lib/dskstat.o lib/dsksecid.o lib/dskseek.o \
+  lib/dskwrite.o lib/dsklphys.o lib/dsksgeom.o lib/dskfmt.o \
+  lib/drvcpcem.o lib/drvcfi.o lib/drvtele.o lib/drvqm.o \
+  lib/drvadisk.o lib/drvnwasp.o lib/drvlogi.o lib/drvposix.o \
+  lib/drvrcpm.o lib/drvmyz80.o lib/dskcmt.o lib/crctable.o
+	$(AR) cru $@ $?
+	$(RANLIB) $@
+
+clean:
+	$(RM) lib/*.o lib/*.a

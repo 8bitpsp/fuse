@@ -4,6 +4,7 @@ PSPAPP=psp
 LSP=aux/libspectrum
 L765=aux/lib765
 LMZ=aux/libminizip
+LDSK=aux/libdsk
 PSPLIB=ui/psp/lib
 
 PSP_FW_VERSION=200
@@ -51,14 +52,14 @@ BASE_DEFS=-DPSP -DPSP_APP_VER=\"$(PSP_APP_VER)\" -DPSP_APP_NAME="\"$(PSP_APP_NAM
 CFLAGS=-O2 -G0 -Wall $(BASE_DEFS) $(DEFINES)
 CXXFLAGS=$(CFLAGS) -fno-exceptions -fno-rtti
 ASFLAGS=$(CFLAGS)
-INCDIR=. $(PSPLIB) $(LSP) $(MZLIB) $(L765)/include $(LMZ)
-LIBDIR=$(PSPLIB) $(LSP) $(L765)/lib $(LMZ)
-LIBS=-lminizip -l765 -lspectrum -lpsplib -lpng -lpspgu -lpsppower \
+INCDIR=. $(PSPLIB) $(LSP) $(MZLIB) $(L765)/include $(LMZ) $(LDSK)/include
+LIBDIR=$(PSPLIB) $(LSP) $(L765)/lib $(LMZ) $(LDSK)/lib
+LIBS=-lminizip -l765 -ldsk -lspectrum -lpsplib -lpng -lpspgu -lpsppower \
      -lz -lm -lc -lpspaudio -lpsprtc -lpspwlan -lpspnet_adhoc \
      -lpspnet_adhocctl -lpspnet_adhocmatching
 
-all: build_psplib build_spectrum build_765 build_mz
-clean: clean_psplib clean_spectrum clean_765 clean_mz
+all: build_psplib build_spectrum build_765 build_mz build_dsk
+clean: clean_psplib clean_spectrum clean_765 clean_mz clean_dsk
 
 include $(PSPSDK)/lib/build.mak
 
@@ -78,3 +79,7 @@ build_mz:
 	cd $(LMZ) ; $(MAKE) -f Makefile.psp
 clean_mz:
 	cd $(LMZ) ; $(MAKE) -f Makefile.psp clean
+build_dsk:
+	cd $(LDSK) ; $(MAKE) -f Makefile.psp
+clean_dsk:
+	cd $(LDSK) ; $(MAKE) -f Makefile.psp clean

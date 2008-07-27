@@ -450,7 +450,6 @@ int ui_init(int *argc, char ***argv)
 {
   /* Init joystick */
   settings_current.joy_kempston = 1;
-  settings_current.joystick_keyboard_output = 1;
   settings_current.joystick_1_output = JOYSTICK_TYPE_KEMPSTON;
 
   /* Initialize callbacks */

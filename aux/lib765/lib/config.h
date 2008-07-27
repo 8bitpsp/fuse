@@ -38,7 +38,7 @@
 #define HAVE_FCNTL_H 1
 
 /* Define if you have the <libdsk.h> header file.  */
-/* #undef HAVE_LIBDSK_H */
+#define HAVE_LIBDSK_H 1
 
 /* Define if you have the <sys/ioctl.h> header file.  */
 #define HAVE_SYS_IOCTL_H 1

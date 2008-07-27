@@ -32,7 +32,7 @@
 /* #undef HAVE_JSW_H */
 
 /* Define to 1 if you have the <libdsk.h> header file. */
-/* #undef HAVE_LIBDSK_H */
+#define HAVE_LIBDSK_H 1
 
 /* Define to 1 if you have the <libgen.h> header file. */
 #define HAVE_LIBGEN_H 1

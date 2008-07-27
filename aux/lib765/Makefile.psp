@@ -3,7 +3,8 @@ AR=psp-ar
 RANLIB=psp-ranlib
 RM=rm -rf
 PSPSDK=$(shell psp-config --pspsdk-path)
-CFLAGS=-G0 -O2 -Wall -DPATH_MAX=2048 -DPSP -I$(PSPSDK)/include -Iinclude
+CFLAGS=-G0 -O2 -Wall -DPATH_MAX=2048 -DPSP -I$(PSPSDK)/include \
+       -Iinclude -I../libdsk/include
 
 all: lib/lib765.a
 
