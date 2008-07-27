@@ -1,0 +1,17 @@
+CC=psp-gcc
+AR=psp-ar
+RANLIB=psp-ranlib
+RM=rm -rf
+PSPSDK=$(shell psp-config --pspsdk-path)
+CFLAGS=-G0 -O2 -Wall -DPATH_MAX=2048 -DPSP -I$(PSPSDK)/include -Iinclude
+
+all: lib/lib765.a
+
+lib/lib765.a: \
+  lib/765drive.o lib/765dsk.o lib/765fdc.o \
+  lib/765ldsk.o lib/error.o
+	$(AR) cru $@ $?
+	$(RANLIB) $@
+
+clean:
+	$(RM) lib/*.o lib/*.a
