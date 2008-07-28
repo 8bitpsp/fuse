@@ -1,10 +1,11 @@
 #include <config.h>
 
-#include <audio.h>
 #include <malloc.h>
 #include <pspkernel.h>
+#include <string.h>
 
 #include "pl_psp.h"
+#include "pl_snd.h"
 #include "fuse.h"
 #include "settings.h"
 #include "sound/sfifo.h"
@@ -18,17 +19,19 @@ static sfifo_t sound_fifo;
 void psp_sound_pause();
 void psp_sound_resume();
 
-void AudioCallback(void* buf, unsigned int *length, void *userdata)
+void AudioCallback(pl_snd_sample* buf, 
+                   unsigned int samples,
+                   void *userdata)
 {
-  int len = *length << 1;
-  if (sfifo_used(&sound_fifo) < len)
+  int length = samples << 1; /* 2 bits per sample */
+  if (sfifo_used(&sound_fifo) < length)
   {
     /* Render silence if not enough sound data */
-    memset(buf, 0, len);
+    memset(buf, 0, length);
     return;
   }
 
-  sfifo_read( &sound_fifo, buf, len);
+  sfifo_read( &sound_fifo, buf, length);
 }
 
 int
@@ -42,6 +45,7 @@ sound_lowlevel_init( const char *device, int *freqptr, int *stereoptr )
   if (sfifo_init(&sound_fifo, NUM_FRAMES * channels * sound_framesiz + 1))
     return 1;
 
+  pl_snd_set_callback(0, AudioCallback, 0);
   psp_sound_resume();
   return 0;
 }
@@ -78,12 +82,12 @@ void
 psp_sound_pause()
 {
   sound_thread_running = 0;
-  pspAudioSetChannelCallback(0, NULL, 0);
+  pl_snd_pause(0);
 }
 
 void
 psp_sound_resume()
 {
   sound_thread_running = 1;
-  pspAudioSetChannelCallback(0, AudioCallback, 0);
+  pl_snd_resume(0);
 }

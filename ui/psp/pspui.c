@@ -21,9 +21,9 @@
 #include "string.h"
 
 #include "ui/psp/lib/ui.h"
-#include "ui/psp/lib/audio.h"
 #include "ui/psp/lib/font.h"
 #include "ui/psp/lib/ctrl.h"
+#include "pl_snd.h"
 #include "pl_file.h"
 #include "pl_psp.h"
 #include "pl_ini.h"
@@ -1670,13 +1670,13 @@ int main(int argc, char *argv[])
   pl_psp_init(argv[0]);
   pspCtrlInit();
   pspVideoInit();
-  pspAudioInit(SOUND_BUFFER_SIZE, 0);
+  pl_snd_init(SOUND_BUFFER_SIZE, 0);
 
   /* Main emulation loop */
   fuse_main(argc, argv);
 
   /* Release PSP resources */
-  pspAudioShutdown();
+  pl_snd_shutdown();
   pspVideoShutdown();
   pl_psp_shutdown();
 
