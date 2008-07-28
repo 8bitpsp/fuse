@@ -179,7 +179,7 @@ void uidisplay_putpixel(int x, int y, int colour)
 {
   u8 *pixel = (u8*)plScreen.bitmap +
     (y * plScreen.pitch + x);
-  sceKernelDcacheWritebackInvalidateRange(pixel, 1);
+//  sceKernelDcacheWritebackInvalidateRange(pixel, 1);
   *pixel = colour;
 }
 
@@ -191,7 +191,7 @@ void uidisplay_plot8(int x, int y, libspectrum_byte data,
   x <<= 3;
   u8 *line_start = (u8*)plScreen.bitmap +
                     (y * plScreen.pitch + x);
-  sceKernelDcacheWritebackInvalidateRange(line_start, 8);
+//  sceKernelDcacheWritebackInvalidateRange(line_start, 8);
 
   *line_start++ = ( data & 0x80 ) ? ink : paper;
   *line_start++ = ( data & 0x40 ) ? ink : paper;
@@ -212,7 +212,7 @@ void uidisplay_plot16(int x, int y, libspectrum_word data,
   x <<= 4;
   u8 *line_start = (u8*)plScreen.bitmap +
                    (y * plScreen.pitch + x);
-  sceKernelDcacheWritebackInvalidateRange(line_start, 8);
+//  sceKernelDcacheWritebackInvalidateRange(line_start, 8);
 
   *line_start++ = ( data & 0x8000 ) ? ink : paper;
   *line_start++ = ( data & 0x2000 ) ? ink : paper;

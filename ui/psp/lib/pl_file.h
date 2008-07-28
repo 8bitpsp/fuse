@@ -50,8 +50,7 @@ const char*
      pl_file_get_filename(const char *path);
 const char*
      pl_file_get_extension(const char *path);
-int64_t
-     pl_file_get_file_size(const char *path);
+int  pl_file_get_file_size(const char *path);
 int  pl_file_exists(const char *path);
 int  pl_file_rm(const char *path);
 int  pl_file_open_directory(const char *path,

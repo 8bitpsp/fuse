@@ -85,14 +85,14 @@ int pl_file_rm(const char *path)
 }
 
 /* Returns size of file in bytes or <0 if error */
-int64_t pl_file_get_file_size(const char *path)
+int pl_file_get_file_size(const char *path)
 {
   SceIoStat stat;
   memset(&stat, 0, sizeof(stat));
   if (sceIoGetstat(path, &stat) < 0)
     return -1;
 
-  return stat.st_size;
+  return (int)stat.st_size;
 }
 
 int pl_file_is_root_directory(const char *path)

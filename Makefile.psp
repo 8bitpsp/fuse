@@ -46,7 +46,7 @@ BUILD_PORT=ui/psp/keysyms.o timer/psp.o ui/psp/paths.o ui/psp/osname.o \
 
 OBJS=$(BUILD_FUSE) $(BUILD_PORT)
 
-DEFINES=-DFUSEDATADIR="\"system\"" -DSOUND_BUFFER_SIZE=368 -DPSP_DEBUG \
+DEFINES=-DFUSEDATADIR="\"system\"" -DSOUND_BUFFER_SIZE=368 \
         -DPATH_MAX=2048
 BASE_DEFS=-DPSP -DPSP_APP_VER=\"$(PSP_APP_VER)\" -DPSP_APP_NAME="\"$(PSP_APP_NAME)\""
 CFLAGS=-O2 -G0 -Wall $(BASE_DEFS) $(DEFINES)
@@ -58,28 +58,20 @@ LIBS=-lminizip -l765 -ldsk -lspectrum -lpsplib -lpng -lpspgu -lpsppower \
      -lz -lm -lc -lpspaudio -lpsprtc -lpspwlan -lpspnet_adhoc \
      -lpspnet_adhocctl -lpspnet_adhocmatching
 
-all: build_psplib build_spectrum build_765 build_mz build_dsk
-clean: clean_psplib clean_spectrum clean_765 clean_mz clean_dsk
+all: build_libs
+clean: clean_libs
 
 include $(PSPSDK)/lib/build.mak
 
-build_psplib:
+build_libs:
 	cd $(PSPLIB) ; $(MAKE)
-clean_psplib:
-	cd $(PSPLIB) ; $(MAKE) clean
-build_spectrum:
 	cd $(LSP) ; $(MAKE) -f Makefile.psp
-clean_spectrum:
-	cd $(LSP) ; $(MAKE) -f Makefile.psp clean
-build_765:
 	cd $(L765) ; $(MAKE) -f Makefile.psp
-clean_765:
-	cd $(L765) ; $(MAKE) -f Makefile.psp clean
-build_mz:
 	cd $(LMZ) ; $(MAKE) -f Makefile.psp
-clean_mz:
-	cd $(LMZ) ; $(MAKE) -f Makefile.psp clean
-build_dsk:
 	cd $(LDSK) ; $(MAKE) -f Makefile.psp
-clean_dsk:
+clean_libs:
+	cd $(PSPLIB) ; $(MAKE) clean
+	cd $(LSP) ; $(MAKE) -f Makefile.psp clean
+	cd $(L765) ; $(MAKE) -f Makefile.psp clean
+	cd $(LMZ) ; $(MAKE) -f Makefile.psp clean
 	cd $(LDSK) ; $(MAKE) -f Makefile.psp clean

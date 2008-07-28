@@ -58,8 +58,6 @@ struct TexVertex
 static u8 FrameIndex;
 static void *DisplayBuffer;
 static void *DrawBuffer;
-static int   PixelFormat;
-static int   TexColor;
 static unsigned int  VBlankFreq;
 static void *VramOffset;
 static void *VramChunkOffset;
@@ -69,8 +67,6 @@ static inline int PutChar(const PspFont *font, int sx, int sy, unsigned char sym
 
 void pspVideoInit()
 {
-  PixelFormat = GU_PSM_5551;
-  TexColor = GU_COLOR_5551;
   VramOffset = 0;
   FrameIndex = 0;
   VramChunkOffset = (void*)0x44088000;
@@ -95,7 +91,7 @@ void pspVideoInit()
 
   sceGuInit();
   sceGuStart(GU_DIRECT, List);
-  sceGuDrawBuffer(PixelFormat, DrawBuffer, BUF_WIDTH);
+  sceGuDrawBuffer(GU_PSM_5551, DrawBuffer, BUF_WIDTH);
   sceGuDispBuffer(SCR_WIDTH, SCR_HEIGHT, DisplayBuffer, BUF_WIDTH);
   sceGuDepthBuffer(depth_buf, BUF_WIDTH);
   sceGuDisable(GU_TEXTURE_2D);
@@ -164,6 +160,7 @@ void pspVideoBeginList(void *list)
 
 void pspVideoBegin()
 {
+  sceKernelDcacheWritebackAll();
   sceGuStart(GU_DIRECT, List);
 }
 
@@ -237,7 +234,7 @@ void pl_video_put_image(const pl_image *image,
       = vertices[1].z = 0;
 
     sceGuDrawArray(GU_SPRITES,
-      GU_TEXTURE_16BIT|TexColor|GU_VERTEX_16BIT|GU_TRANSFORM_2D,2,0,vertices);
+      GU_TEXTURE_16BIT|GU_COLOR_5551|GU_VERTEX_16BIT|GU_TRANSFORM_2D,2,0,vertices);
   }
 
   sceGuDisable(GU_TEXTURE_2D);
