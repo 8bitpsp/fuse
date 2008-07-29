@@ -30,8 +30,8 @@ DEFINES=-DPSP -D_PSP_FW_VERSION=$(PSP_FW_VERSION)
 
 all: libpsplib.a
 
-libpsplib.a:adhoc.o font.o \
-            ctrl.o video.o pl_image.o ui.o \
+libpsplib.a:adhoc.o font.o image.o \
+            ctrl.o video.o ui.o \
             pl_ini.o pl_perf.o pl_vk.o pl_util.o \
             pl_psp.o pl_menu.o pl_file.o pl_snd.o
 	$(AR) cru $@ $?
@@ -71,7 +71,7 @@ pl_vk.o: pl_vk.c pl_vk.h video.o font.o \
          ctrl.o
 	$(CC) $(DEFINES) $(CFLAGS) -O2 -c -o $@ $<
 
-pl_util.o: pl_util.c pl_util.h pl_image.o \
+pl_util.o: pl_util.c pl_util.h image.o \
            pl_file.o video.o
 	$(CC) $(DEFINES) $(CFLAGS) -O2 -c -o $@ $<
 

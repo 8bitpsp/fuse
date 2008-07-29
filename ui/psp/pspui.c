@@ -131,10 +131,9 @@ static int  psp_save_controls(const char *filename, const psp_ctrl_map_t *config
 static inline void psp_keyboard_toggle(unsigned int code, int on);
 static void psp_exit_callback(void* arg);
 
-static pl_image* psp_load_state_icon(const char *path);
+static PspImage* psp_load_state_icon(const char *path);
 static int psp_load_state(const char *path);
-static pl_image* psp_save_state(const char *path,
-                                const pl_image *icon);
+static PspImage* psp_save_state(const char *path, PspImage *icon);
 
 PspUiSplash SplashScreen = 
 {
@@ -411,9 +410,10 @@ u8 show_kybd_held;
 
 static u8 psp_exit_menu;
 static int TabIndex;
-static pl_image NoSaveIcon;
+static PspImage *Background;
+static PspImage *NoSaveIcon;
 
-extern pl_image plScreen;
+extern PspImage *Screen;
 extern int clear_screen;
 extern int fuse_exiting;
 
@@ -474,16 +474,12 @@ int ui_init(int *argc, char ***argv)
   pl_menu_create(&SystemUiMenu.Menu, SystemMenuDef);
   pl_menu_create(&ControlUiMenu.Menu, ControlMenuDef);
 
-  /* Init NoSaveState icon image */
-  pl_image_create(&NoSaveIcon,
-                  256, 192,
-                  pl_image_5551, 0);
+  /* Load the background image */
+  Background = pspImageLoadPng("background.png");
 
-  pl_image_clear(&NoSaveIcon,
-                 0x66,
-                 0x66,
-                 0x66,
-                 0xff);
+  /* Init NoSaveState icon image */
+  NoSaveIcon = pspImageCreate(256, 192, PSP_IMAGE_16BPP);
+  pspImageClear(NoSaveIcon, RGB(0x66,0x66,0x66));
 
   /* Initialize state menu */
   int i;
@@ -497,12 +493,7 @@ int ui_init(int *argc, char ***argv)
   psp_load_options();
 
   /* Initialize UI components */
-  if (!pl_image_load(&UiMetric.background, "background.png"))
-  {
-    pl_vk_destroy(&vk_spectrum);
-    return 1;
-  }
-
+  UiMetric.Background = Background;
   UiMetric.Font = &PspStockFont;
   UiMetric.Left = 8;
   UiMetric.Top = 24;
@@ -558,18 +549,15 @@ static void psp_display_menu()
   psp_sound_pause();
 
   /* For purposes of the menu, the screen excludes the border */
-  plScreen.view.x = DISPLAY_BORDER_WIDTH / 2;
-  plScreen.view.y = DISPLAY_BORDER_HEIGHT;
-  plScreen.view.w = DISPLAY_WIDTH / 2;
-  plScreen.view.h = DISPLAY_HEIGHT;
+  Screen->Viewport.X = DISPLAY_BORDER_WIDTH / 2;
+  Screen->Viewport.Y = DISPLAY_BORDER_HEIGHT;
+  Screen->Viewport.Width = DISPLAY_WIDTH / 2;
+  Screen->Viewport.Height = DISPLAY_HEIGHT;
 
   /* Set normal clock frequency */
   pl_psp_set_clock_freq(222);
   /* Set buttons to autorepeat */
   pspCtrlSetPollingMode(PSP_CTRL_AUTOREPEAT);
-
-  sceKernelDcacheWritebackInvalidateRange(plScreen.bitmap,
-                                          plScreen.pitch * plScreen.height);
 
   /* Menu loop */
   while (!ExitPSP && !psp_exit_menu)
@@ -717,8 +705,8 @@ int ui_event( void )
 
 int ui_end( void )
 {
-  pl_image_destroy(&NoSaveIcon);
-  pl_image_destroy(&UiMetric.background);
+  if (Background) pspImageDestroy(Background);
+  if (NoSaveIcon) pspImageDestroy(NoSaveIcon);
 
   pl_menu_destroy(&OptionUiMenu.Menu);
   pl_menu_destroy(&SystemUiMenu.Menu);
@@ -813,7 +801,7 @@ static void psp_display_state_tab()
     {
       pl_menu_set_item_caption(item, ((int)item->id == psp_options.autoload_slot)
           ? "Autoload" : "Empty");
-      item->param = &NoSaveIcon;
+      item->param = NoSaveIcon;
       pl_menu_set_item_help_text(item, EmptySlotText);
     }
   }
@@ -829,34 +817,20 @@ static void psp_display_state_tab()
 
   /* Destroy any icons */
   for (item = SaveStateGallery.Menu.items; item; item = item->next)
-    if (item->param != NULL && item->param != &NoSaveIcon)
-    {
-      pl_image_destroy((pl_image*)item->param);
-      free((pl_image*)item->param);
-    }
+    if (item->param != NULL && item->param != NoSaveIcon)
+      pspImageDestroy((PspImage*)item->param);
 }
 
 /* Load state icon */
-static pl_image* psp_load_state_icon(const char *path)
+static PspImage* psp_load_state_icon(const char *path)
 {
   FILE *f = fopen(path, "r");
   if (!f) return NULL;
 
-  pl_image *image;
-  if (!(image = (pl_image*)malloc(sizeof(pl_image))))
-  {
-    fclose(f);
-    return NULL;
-  }
-
-  if (!pl_image_load_png_stream(image, f))
-  {
-    free(image); 
-    fclose(f);
-    return NULL;
-  }
-
+  /* Load image */
+  PspImage *image = pspImageLoadPngFd(f);
   fclose(f);
+
   return image;
 }
 
@@ -868,14 +842,8 @@ static int psp_load_state(const char *path)
   if (!f) return 0;
 
   /* Load image into temporary object */
-  pl_image image;
-  if (!pl_image_load_png_stream(&image, f))
-  {
-    fclose(f);
-    return 0;
-  }
-
-  pl_image_destroy(&image);
+  PspImage *image = pspImageLoadPngFd(f);
+  pspImageDestroy(image);
 
   /* Load the state data */
   int error = !snapshot_read_file(path, f);
@@ -885,8 +853,7 @@ static int psp_load_state(const char *path)
 }
 
 /* Save state */
-static pl_image* psp_save_state(const char *path, 
-                                const pl_image *icon)
+static PspImage* psp_save_state(const char *path, PspImage *icon)
 {
   /* Open file for writing */
   FILE *f;
@@ -894,31 +861,15 @@ static pl_image* psp_save_state(const char *path,
     return NULL;
 
   /* Create thumbnail */
-  pl_image *thumb;
-  if (!(thumb = (pl_image*)malloc(sizeof(pl_image))))
-  {
-    fclose(f);
-    return NULL;
-  }
-
-  int status;
-  if (icon->view.w <= 256)
-    status = pl_image_create_duplicate(icon, thumb);
-  else
-    status = pl_image_create_thumbnail(icon, thumb);
-
-  if (!status)
-  {
-    fclose(f);
-    free(thumb);
-    return NULL;
-  }
+  PspImage *thumb;
+  thumb = (icon->Viewport.Width <= 256)
+    ? pspImageCreateCopy(icon) : pspImageCreateThumbnail(icon);
+  if (!thumb) { fclose(f); return NULL; }
 
   /* Write the thumbnail */
-  if (!pl_image_save_png_stream(thumb, f))
+  if (!pspImageSavePngFd(f, thumb))
   {
-    pl_image_destroy(thumb);
-    free(thumb);
+    pspImageDestroy(thumb);
     fclose(f);
     return NULL;
   }
@@ -926,8 +877,7 @@ static pl_image* psp_save_state(const char *path,
   /* Write the state */
   if (snapshot_write_file(path, f))
   {
-    pl_image_destroy(thumb);
-    free(thumb);
+    pspImageDestroy(thumb);
     thumb = NULL;
   }
 
@@ -1292,7 +1242,7 @@ static int OnMenuOk(const void *uimenu, const void* sel_item)
       /* Save screenshot */
       if (!pl_util_save_image_seq(psp_screenshot_path, (GAME_LOADED)
                                   ? pl_file_get_filename(psp_current_game) : "BASIC",
-                                  &plScreen))
+                                  Screen))
         pspUiAlert("ERROR: Screenshot not saved");
       else
         pspUiAlert("Screenshot saved successfully");
@@ -1400,14 +1350,14 @@ static int OnMenuItemChanged(const struct PspUiMenu *uimenu,
 static void OnSystemRender(const void *uiobject, const void *item_obj)
 {
   int w, h, x, y;
-  w = plScreen.view.w >> 1;
-  h = plScreen.view.h >> 1;
+  w = Screen->Viewport.Width >> 1;
+  h = Screen->Viewport.Height >> 1;
   x = UiMetric.Right - w - UiMetric.ScrollbarWidth;
   y = SCR_HEIGHT - h - 56;
 
   /* Draw a small representation of the screen */
   pspVideoShadowRect(x, y, x + w - 1, y + h - 1, PSP_COLOR_BLACK, 3);
-  pl_video_put_image(&plScreen, x, y, w, h);
+  pspVideoPutImage(Screen, x, y, w, h);
   pspVideoDrawRect(x, y, x + w - 1, y + h - 1, PSP_COLOR_GRAY);
 
   OnGenericRender(uiobject, item_obj);
@@ -1508,8 +1458,8 @@ static int OnSaveStateButtonPress(const PspUiGallery *gallery,
 
         pspUiFlashMessage("Saving, please wait ...");
 
-        pl_image *icon;
-        if (!(icon = psp_save_state(path, &plScreen)))
+        PspImage *icon;
+        if (!(icon = psp_save_state(path, Screen)))
         {
           pspUiAlert("ERROR: State not saved");
           break;
@@ -1518,11 +1468,8 @@ static int OnSaveStateButtonPress(const PspUiGallery *gallery,
         SceIoStat stat;
 
         /* Trash the old icon (if any) */
-        if (item->param && item->param != &NoSaveIcon)
-        {
-          pl_image_destroy((pl_image*)item->param);
-          free((pl_image*)item->param);
-        }
+        if (item->param && item->param != NoSaveIcon)
+          pspImageDestroy((PspImage*)item->param);
 
         /* Update icon, help text */
         item->param = icon;
@@ -1553,14 +1500,11 @@ static int OnSaveStateButtonPress(const PspUiGallery *gallery,
         }
 
         /* Trash the old icon (if any) */
-        if (item->param && item->param != &NoSaveIcon)
-        {
-          pl_image_destroy((pl_image*)item->param);
-          free((pl_image*)item->param);
-        }
+        if (item->param && item->param != NoSaveIcon)
+          pspImageDestroy((PspImage*)item->param);
 
         /* Update icon, caption */
-        item->param = &NoSaveIcon;
+        item->param = NoSaveIcon;
         pl_menu_set_item_help_text(item, EmptySlotText);
         pl_menu_set_item_caption(item, ((int)item->id == psp_options.autoload_slot)
             ? "Autoload" : "Empty");

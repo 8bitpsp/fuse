@@ -35,15 +35,6 @@
 #include "ui.h"
 #include "font.h"
 
-#ifndef MATCHING_JOINED
-#define MATCHING_JOINED      PSP_ADHOC_MATCHING_EVENT_JOIN
-#define MATCHING_DISCONNECT  PSP_ADHOC_MATCHING_EVENT_LEFT
-#define MATCHING_CANCELED    PSP_ADHOC_MATCHING_EVENT_CANCEL
-#define MATCHING_SELECTED    PSP_ADHOC_MATCHING_EVENT_ACCEPT
-#define MATCHING_REJECTED    PSP_ADHOC_MATCHING_EVENT_REJECT
-#define MATCHING_ESTABLISHED PSP_ADHOC_MATCHING_EVENT_COMPLETE
-#endif
-
 #define MAX(a, b) (((a) > (b)) ? (a) : (b))
 #define MIN(a, b) (((a) < (b)) ? (a) : (b))
 
@@ -120,6 +111,15 @@ static void adhocMatchingCallback(int unk1,
 #define ADHOC_WAIT_EST    3
 #define ADHOC_ESTABLISHED 4
 #define ADHOC_EST_AS_CLI  5
+
+#ifndef MATCHING_JOINED
+#define MATCHING_JOINED      PSP_ADHOC_MATCHING_EVENT_JOIN
+#define MATCHING_DISCONNECT  PSP_ADHOC_MATCHING_EVENT_LEFT
+#define MATCHING_CANCELED    PSP_ADHOC_MATCHING_EVENT_CANCEL
+#define MATCHING_SELECTED    PSP_ADHOC_MATCHING_EVENT_ACCEPT
+#define MATCHING_REJECTED    PSP_ADHOC_MATCHING_EVENT_REJECT
+#define MATCHING_ESTABLISHED PSP_ADHOC_MATCHING_EVENT_COMPLETE
+#endif
 
 /* TODO: dynamically allocate ?? */
 static unsigned int __attribute__((aligned(16))) call_list[524288];//262144];
@@ -201,10 +201,7 @@ char pspUiGetButtonIcon(u32 button_mask)
 
 void pspUiAlert(const char *message)
 {
-  pl_image screen;
-  if (!pl_video_copy_vram(&screen))
-    return;
-
+  PspImage *screen = NULL;
   int sx, sy, dx, dy, th, fh, mw, cw, w, h;
   int i, n = UI_ANIM_FRAMES;
   char *instr = strdup(AlertDialogButtonTemplate);
@@ -225,15 +222,15 @@ void pspUiAlert(const char *message)
   /* Intro animation */
   if (UiMetric.Animate)
   {
+    /* Get copy of screen */
+    screen = pspVideoGetVramBufferCopy();
+
     for (i = 0; i < n; i++)
     {
   	  pspVideoBegin();
 
   	  /* Clear screen */
-      pl_video_put_image(&screen,
-                         0, 0,
-                         screen.view.w,
-                         screen.view.h);
+  	  pspVideoPutImage(screen, 0, 0, screen->Viewport.Width, screen->Height);
 
   	  /* Apply fog and draw frame */
   	  pspVideoFillRect(0, 0, SCR_WIDTH, SCR_HEIGHT, 
@@ -245,7 +242,6 @@ void pspUiAlert(const char *message)
   	      GREEN_32(UiMetric.MenuOptionBoxBg),
   	      BLUE_32(UiMetric.MenuOptionBoxBg),(0xff/n)*i));
 
-      sceKernelDcacheWritebackAll();
   	  pspVideoEnd();
 
       /* Swap buffers */
@@ -257,10 +253,7 @@ void pspUiAlert(const char *message)
   pspVideoBegin();
 
   if (UiMetric.Animate)
-    pl_video_put_image(&screen,
-                        0, 0,
-                        screen.view.w,
-                        screen.view.h);
+    pspVideoPutImage(screen, 0, 0, screen->Viewport.Width, screen->Height);
 
   pspVideoFillRect(0, 0, SCR_WIDTH, SCR_HEIGHT, 
     COLOR(0,0,0,UI_ANIM_FOG_STEP*n));
@@ -272,7 +265,6 @@ void pspUiAlert(const char *message)
   pspVideoGlowRect(sx, sy, dx - 1, dy - 1, 
     COLOR(0xff,0xff,0xff,UI_ANIM_FOG_STEP*n), 2);
 
-  sceKernelDcacheWritebackAll();
   pspVideoEnd();
 
   /* Swap buffers */
@@ -299,10 +291,7 @@ void pspUiAlert(const char *message)
 		  pspVideoBegin();
 
 		  /* Clear screen */
-      pl_video_put_image(&screen,
-                         0, 0,
-                         screen.view.w,
-                         screen.view.h);
+		  pspVideoPutImage(screen, 0, 0, screen->Viewport.Width, screen->Height);
 
 		  /* Apply fog and draw frame */
   	  pspVideoFillRect(0, 0, SCR_WIDTH, SCR_HEIGHT, 
@@ -314,7 +303,6 @@ void pspUiAlert(const char *message)
   	      GREEN_32(UiMetric.MenuOptionBoxBg),
   	      BLUE_32(UiMetric.MenuOptionBoxBg),(0xff/n)*i));
 
-      sceKernelDcacheWritebackAll();
 		  pspVideoEnd();
 
 	    /* Swap buffers */
@@ -323,16 +311,13 @@ void pspUiAlert(const char *message)
 		}
 	}
 
-  pl_image_destroy(&screen);
+  if (screen) pspImageDestroy(screen);
   free(instr);
 }
 
 int pspUiYesNoCancel(const char *message)
 {
-  pl_image screen;
-  if (!pl_video_copy_vram(&screen))
-    return PSP_UI_CANCEL;
-
+  PspImage *screen = NULL;
   int sx, sy, dx, dy, th, fh, mw, cw, w, h;
   int i, n = UI_ANIM_FRAMES;
   char *instr = strdup(YesNoCancelDialogButtonTemplate);
@@ -353,15 +338,15 @@ int pspUiYesNoCancel(const char *message)
   /* Intro animation */
   if (UiMetric.Animate)
   {
+    /* Get copy of screen */
+    screen = pspVideoGetVramBufferCopy();
+
     for (i = 0; i < n; i++)
     {
   	  pspVideoBegin();
 
   	  /* Clear screen */
-      pl_video_put_image(&screen,
-                          0, 0,
-                          screen.view.w,
-                          screen.view.h);
+  	  pspVideoPutImage(screen, 0, 0, screen->Viewport.Width, screen->Height);
 
   	  /* Apply fog and draw frame */
   	  pspVideoFillRect(0, 0, SCR_WIDTH, SCR_HEIGHT, 
@@ -373,7 +358,6 @@ int pspUiYesNoCancel(const char *message)
   	      GREEN_32(UiMetric.MenuOptionBoxBg),
   	      BLUE_32(UiMetric.MenuOptionBoxBg),(0xff/n)*i));
 
-      sceKernelDcacheWritebackAll();
   	  pspVideoEnd();
 
       /* Swap buffers */
@@ -385,10 +369,7 @@ int pspUiYesNoCancel(const char *message)
   pspVideoBegin();
 
   if (UiMetric.Animate)
-    pl_video_put_image(&screen,
-                        0, 0,
-                        screen.view.w,
-                        screen.view.h);
+    pspVideoPutImage(screen, 0, 0, screen->Viewport.Width, screen->Height);
   pspVideoFillRect(0, 0, SCR_WIDTH, SCR_HEIGHT, 
     COLOR(0,0,0,UI_ANIM_FOG_STEP*n));
   pspVideoFillRect(sx, sy, dx, dy, UiMetric.MenuOptionBoxBg);
@@ -399,7 +380,6 @@ int pspUiYesNoCancel(const char *message)
   pspVideoGlowRect(sx, sy, dx - 1, dy - 1, 
     COLOR(0xff,0xff,0xff,UI_ANIM_FOG_STEP*n), 2);
 
-  sceKernelDcacheWritebackAll();
   pspVideoEnd();
 
   /* Swap buffers */
@@ -426,10 +406,7 @@ int pspUiYesNoCancel(const char *message)
 		  pspVideoBegin();
 
 		  /* Clear screen */
-      pl_video_put_image(&screen,
-                          0, 0,
-                          screen.view.w,
-                          screen.view.h);
+		  pspVideoPutImage(screen, 0, 0, screen->Viewport.Width, screen->Height);
 
 		  /* Apply fog and draw frame */
   	  pspVideoFillRect(0, 0, SCR_WIDTH, SCR_HEIGHT, 
@@ -441,7 +418,6 @@ int pspUiYesNoCancel(const char *message)
   	      GREEN_32(UiMetric.MenuOptionBoxBg),
   	      BLUE_32(UiMetric.MenuOptionBoxBg),(0xff/n)*i));
 
-      sceKernelDcacheWritebackAll();
 		  pspVideoEnd();
 
 	    /* Swap buffers */
@@ -450,7 +426,7 @@ int pspUiYesNoCancel(const char *message)
 		}
 	}
 
-  pl_image_destroy(&screen);
+  if (screen) pspImageDestroy(screen);
   free(instr);
 
   if (pad.Buttons & UiMetric.CancelButton) return PSP_UI_CANCEL;
@@ -460,10 +436,7 @@ int pspUiYesNoCancel(const char *message)
 
 int pspUiConfirm(const char *message)
 {
-  pl_image screen;
-  if (!pl_video_copy_vram(&screen))
-    return 0;
-
+  PspImage *screen = NULL;
   int sx, sy, dx, dy, th, fh, mw, cw, w, h;
   int i, n = UI_ANIM_FRAMES;
   char *instr = strdup(ConfirmDialogButtonTemplate);
@@ -483,16 +456,16 @@ int pspUiConfirm(const char *message)
 
   if (UiMetric.Animate)
   {
+    /* Get copy of screen */
+    screen = pspVideoGetVramBufferCopy();
+
     /* Intro animation */
     for (i = 0; i < n; i++)
     {
   	  pspVideoBegin();
 
   	  /* Clear screen */
-      pl_video_put_image(&screen,
-                          0, 0,
-                          screen.view.w,
-                          screen.view.h);
+  	  pspVideoPutImage(screen, 0, 0, screen->Viewport.Width, screen->Height);
 
   	  /* Apply fog and draw frame */
   	  pspVideoFillRect(0, 0, SCR_WIDTH, SCR_HEIGHT, 
@@ -504,7 +477,6 @@ int pspUiConfirm(const char *message)
   	      GREEN_32(UiMetric.MenuOptionBoxBg),
   	      BLUE_32(UiMetric.MenuOptionBoxBg),(0xff/n)*i));
 
-      sceKernelDcacheWritebackAll();
   	  pspVideoEnd();
 
       /* Swap buffers */
@@ -516,10 +488,7 @@ int pspUiConfirm(const char *message)
   pspVideoBegin();
 
   if (UiMetric.Animate)
-    pl_video_put_image(&screen,
-                        0, 0,
-                        screen.view.w,
-                        screen.view.h);
+    pspVideoPutImage(screen, 0, 0, screen->Viewport.Width, screen->Height);
   pspVideoFillRect(0, 0, SCR_WIDTH, SCR_HEIGHT, 
     COLOR(0,0,0,UI_ANIM_FOG_STEP*n));
   pspVideoFillRect(sx, sy, dx, dy, UiMetric.MenuOptionBoxBg);
@@ -530,7 +499,6 @@ int pspUiConfirm(const char *message)
   pspVideoGlowRect(sx, sy, dx - 1, dy - 1, 
     COLOR(0xff,0xff,0xff,UI_ANIM_FOG_STEP*n), 2);
 
-  sceKernelDcacheWritebackAll();
   pspVideoEnd();
 
   /* Swap buffers */
@@ -557,10 +525,7 @@ int pspUiConfirm(const char *message)
 		  pspVideoBegin();
 
 		  /* Clear screen */
-      pl_video_put_image(&screen,
-                          0, 0,
-                          screen.view.w,
-                          screen.view.h);
+		  pspVideoPutImage(screen, 0, 0, screen->Viewport.Width, screen->Height);
 
 		  /* Apply fog and draw frame */
   	  pspVideoFillRect(0, 0, SCR_WIDTH, SCR_HEIGHT, 
@@ -572,7 +537,6 @@ int pspUiConfirm(const char *message)
   	      GREEN_32(UiMetric.MenuOptionBoxBg),
   	      BLUE_32(UiMetric.MenuOptionBoxBg),(0xff/n)*i));
 
-      sceKernelDcacheWritebackAll();
 		  pspVideoEnd();
 
 	    /* Swap buffers */
@@ -581,7 +545,7 @@ int pspUiConfirm(const char *message)
 		}
 	}
 
-  pl_image_destroy(&screen);
+  if (screen) pspImageDestroy(screen);
   free(instr);
 
   return pad.Buttons & UiMetric.OkButton;
@@ -589,10 +553,7 @@ int pspUiConfirm(const char *message)
 
 void pspUiFlashMessage(const char *message)
 {
-  pl_image screen;
-  if (!pl_video_copy_vram(&screen))
-    return;
-
+  PspImage *screen = NULL;
   int sx, sy, dx, dy, fh, mw, mh, w, h;
   int i, n = UI_ANIM_FRAMES;
 
@@ -609,16 +570,16 @@ void pspUiFlashMessage(const char *message)
 
   if (UiMetric.Animate)
   {
+    /* Get copy of screen */
+    screen = pspVideoGetVramBufferCopy();
+
     /* Intro animation */
     for (i = 0; i < n; i++)
     {
   	  pspVideoBegin();
 
   	  /* Clear screen */
-      pl_video_put_image(&screen,
-                          0, 0,
-                          screen.view.w,
-                          screen.view.h);
+  	  pspVideoPutImage(screen, 0, 0, screen->Viewport.Width, screen->Height);
 
   	  /* Apply fog and draw frame */
   	  pspVideoFillRect(0, 0, SCR_WIDTH, SCR_HEIGHT, 
@@ -630,7 +591,6 @@ void pspUiFlashMessage(const char *message)
   	      GREEN_32(UiMetric.MenuOptionBoxBg),
   	      BLUE_32(UiMetric.MenuOptionBoxBg),(0xff/n)*i));
 
-      sceKernelDcacheWritebackAll();
   	  pspVideoEnd();
 
       /* Swap buffers */
@@ -642,10 +602,7 @@ void pspUiFlashMessage(const char *message)
   pspVideoBegin();
 
   if (UiMetric.Animate)
-    pl_video_put_image(&screen,
-                        0, 0,
-                        screen.view.w,
-                        screen.view.h);
+    pspVideoPutImage(screen, 0, 0, screen->Viewport.Width, screen->Height);
   pspVideoFillRect(0, 0, SCR_WIDTH, SCR_HEIGHT, 
     COLOR(0,0,0,UI_ANIM_FOG_STEP*n));
   pspVideoFillRect(sx, sy, dx, dy, UiMetric.MenuOptionBoxBg);
@@ -654,14 +611,13 @@ void pspUiFlashMessage(const char *message)
   pspVideoGlowRect(sx, sy, dx - 1, dy - 1, 
     COLOR(0xff,0xff,0xff,UI_ANIM_FOG_STEP*n), 2);
 
-  sceKernelDcacheWritebackAll();
   pspVideoEnd();
 
   /* Swap buffers */
   pspVideoWaitVSync();
   pspVideoSwapBuffers();
 
-  pl_image_destroy(&screen);
+  if (screen) pspImageDestroy(screen);
 }
 
 void pspUiOpenBrowser(PspUiFileBrowser *browser, const char *start_path)
@@ -672,8 +628,6 @@ void pspUiOpenBrowser(PspUiFileBrowser *browser, const char *start_path)
   pl_menu_item *item;
   SceCtrlData pad;
   char *instructions[BROWSER_TEMPLATE_COUNT];
-
-  sceKernelDcacheWritebackInvalidateAll();
 
   /* Initialize instruction strings */
   int i;
@@ -949,7 +903,6 @@ void pspUiOpenBrowser(PspUiFileBrowser *browser, const char *start_path)
         browser->OnRender(browser, "not implemented");
 
       sceGuFinish();
-      sceKernelDcacheWritebackAll();
 
       if (sel != last_sel && !fast_scroll && sel && last_sel
         && UiMetric.Animate)
@@ -960,9 +913,10 @@ void pspUiOpenBrowser(PspUiFileBrowser *browser, const char *start_path)
         {
           pspVideoBegin();
 
-          pl_video_put_image(&UiMetric.background, 0, 0,
-                             UiMetric.background.view.w,
-                             UiMetric.background.view.h);
+          /* Clear screen */
+          if (!UiMetric.Background) pspVideoClearScreen();
+          else pspVideoPutImage(UiMetric.Background, 0, 0, 
+            UiMetric.Background->Viewport.Width, UiMetric.Background->Height);
 
           /* Selection box */
           int box_top = last_sel_top-((last_sel_top-sel_top)/n)*f;
@@ -971,7 +925,6 @@ void pspUiOpenBrowser(PspUiFileBrowser *browser, const char *start_path)
 
           sceGuCallList(call_list);
 
-          sceKernelDcacheWritebackAll();
           pspVideoEnd();
 
           pspVideoWaitVSync();
@@ -981,9 +934,11 @@ void pspUiOpenBrowser(PspUiFileBrowser *browser, const char *start_path)
 
       pspVideoBegin();
 
-      pl_video_put_image(&UiMetric.background, 0, 0,
-                          UiMetric.background.view.w,
-                          UiMetric.background.view.h);
+      /* Clear screen */
+      if (UiMetric.Background) 
+        pspVideoPutImage(UiMetric.Background, 0, 0, 
+          UiMetric.Background->Viewport.Width, UiMetric.Background->Height);
+      else pspVideoClearScreen();
 
       /* Render selection box */
       if (sel) pspVideoFillRect(sx, sel_top, sx+w, sel_top+fh,
@@ -991,7 +946,6 @@ void pspUiOpenBrowser(PspUiFileBrowser *browser, const char *start_path)
 
       sceGuCallList(call_list);
 
-      sceKernelDcacheWritebackAll();
       pspVideoEnd();
 
       /* Swap buffers */
@@ -1031,15 +985,13 @@ void pspUiOpenGallery(PspUiGallery *gallery, const char *title)
     icons;
   const pl_menu_item *last_sel = NULL;
 
-  sceKernelDcacheWritebackInvalidateAll();
-
   /* Find first icon and save its width/height */
   for (item = menu->items; item; item = item->next)
   {
     if (item->param)
     {
-      orig_w = ((pl_image*)item->param)->view.w;
-      orig_h = ((pl_image*)item->param)->view.h;
+      orig_w = ((PspImage*)item->param)->Viewport.Width;
+      orig_h = ((PspImage*)item->param)->Height;
       break;
     }
   }
@@ -1200,13 +1152,13 @@ void pspUiOpenGallery(PspUiGallery *gallery, const char *title)
 //      {
         pspVideoBegin();
 
-        pl_video_put_image(&UiMetric.background, 0, 0,
-                            UiMetric.background.view.w,
-                            UiMetric.background.view.h);
+        /* Clear screen */
+        if (!UiMetric.Background) pspVideoClearScreen();
+        else pspVideoPutImage(UiMetric.Background, 0, 0, 
+          UiMetric.Background->Viewport.Width, UiMetric.Background->Height);
 
         sceGuCallList(call_list); 
 
-        sceKernelDcacheWritebackAll();
         pspVideoEnd();
 
         /* Render the menu items */
@@ -1215,13 +1167,13 @@ void pspUiOpenGallery(PspUiGallery *gallery, const char *title)
             if (item->param && item != last_sel)
             {
               pspVideoBegin();
-              pl_video_put_image((pl_image*)item->param, j, i, icon_w, icon_h);
+              pspVideoPutImage((PspImage*)item->param, j, i, icon_w, icon_h);
               pspVideoEnd();
             }
 
         pspVideoBegin();
 
-        pl_video_put_image((pl_image*)last_sel->param, 
+        pspVideoPutImage((PspImage*)last_sel->param, 
           sel_left-(icon_w+((max_w-icon_w)/n)*f)/2, 
           sel_top-(icon_h+((max_h-icon_h)/n)*f)/2, 
           icon_w+((max_w-icon_w)/n)*f, 
@@ -1309,7 +1261,6 @@ void pspUiOpenGallery(PspUiGallery *gallery, const char *title)
       gallery->OnRender(gallery, sel);
 
     sceGuFinish();
-    sceKernelDcacheWritebackAll();
 
     if (last_sel != sel && last_sel && sel && sel->param && UiMetric.Animate)
     {
@@ -1319,13 +1270,13 @@ void pspUiOpenGallery(PspUiGallery *gallery, const char *title)
 //      {
         pspVideoBegin();
 
-        pl_video_put_image(&UiMetric.background, 0, 0,
-                            UiMetric.background.view.w,
-                            UiMetric.background.view.h);
+        /* Clear screen */
+        if (!UiMetric.Background) pspVideoClearScreen();
+        else pspVideoPutImage(UiMetric.Background, 0, 0, 
+          UiMetric.Background->Viewport.Width, UiMetric.Background->Height);
 
         sceGuCallList(call_list); 
 
-        sceKernelDcacheWritebackAll();
         pspVideoEnd();
 
         /* Render the menu items */
@@ -1334,13 +1285,13 @@ void pspUiOpenGallery(PspUiGallery *gallery, const char *title)
             if (item->param && item != sel)
             {
               pspVideoBegin();
-              pl_video_put_image((pl_image*)item->param, j, i, icon_w, icon_h);
+              pspVideoPutImage((PspImage*)item->param, j, i, icon_w, icon_h);
               pspVideoEnd();
             }
 
         pspVideoBegin();
 
-        pl_video_put_image((pl_image*)sel->param, 
+        pspVideoPutImage((PspImage*)sel->param, 
           sel_left-(icon_w+((max_w-icon_w)/n)*f)/2, 
           sel_top-(icon_h+((max_h-icon_h)/n)*f)/2, 
           icon_w+((max_w-icon_w)/n)*f, 
@@ -1356,12 +1307,12 @@ void pspUiOpenGallery(PspUiGallery *gallery, const char *title)
 
     pspVideoBegin();
 
-    pl_video_put_image(&UiMetric.background, 0, 0,
-                        UiMetric.background.view.w,
-                        UiMetric.background.view.h);
+    /* Clear screen */
+    if (!UiMetric.Background) pspVideoClearScreen();
+    else pspVideoPutImage(UiMetric.Background, 0, 0, 
+      UiMetric.Background->Viewport.Width, UiMetric.Background->Height);
 
     sceGuCallList(call_list); 
-    sceKernelDcacheWritebackAll();
 
     pspVideoEnd();
 
@@ -1371,7 +1322,7 @@ void pspUiOpenGallery(PspUiGallery *gallery, const char *title)
         if (item->param && item != sel)
         {
           pspVideoBegin();
-          pl_video_put_image((pl_image*)item->param, j, i, icon_w, icon_h);
+          pspVideoPutImage((PspImage*)item->param, j, i, icon_w, icon_h);
           pspVideoEnd();
         }
 
@@ -1379,7 +1330,7 @@ void pspUiOpenGallery(PspUiGallery *gallery, const char *title)
 
     if (sel && sel->param)
     {
-      pl_video_put_image((pl_image*)sel->param, sel_left-max_w/2, sel_top-max_h/2,
+      pspVideoPutImage((PspImage*)sel->param, sel_left-max_w/2, sel_top-max_h/2,
         max_w, max_h);
       pspVideoGlowRect(sel_left-max_w/2, sel_top-max_h/2,
         sel_left+max_w/2 - 1, sel_top+max_h/2 - 1,
@@ -1434,8 +1385,6 @@ void pspUiOpenMenu(PspUiMenu *uimenu, const char *title)
   dy = UiMetric.Bottom;
   w = dx - sx - UiMetric.ScrollbarWidth;
   h = dy - sy;
-
-  sceKernelDcacheWritebackInvalidateAll();
 
   memset(call_list, 0, sizeof(call_list));
 
@@ -1646,13 +1595,11 @@ void pspUiOpenMenu(PspUiMenu *uimenu, const char *title)
             for (i = UI_ANIM_FRAMES - 1; i >= 0; i--)
             {
           	  pspVideoBegin();
-
-              pl_video_put_image(&UiMetric.background, 0, 0,
-                                UiMetric.background.view.w,
-                                UiMetric.background.view.h);
-
-          	  sceGuCallList(call_list);
-              sceKernelDcacheWritebackAll();
+              if (!UiMetric.Background) pspVideoClearScreen();
+                else pspVideoPutImage(UiMetric.Background, 0, 0, 
+                  UiMetric.Background->Viewport.Width, UiMetric.Background->Height);
+                
+          	  pspVideoCallList(call_list);
 
               /* Perform any custom drawing */
               if (uimenu->OnRender)
@@ -1719,12 +1666,12 @@ void pspUiOpenMenu(PspUiMenu *uimenu, const char *title)
             {
           	  pspVideoBegin();
 
-              pl_video_put_image(&UiMetric.background, 0, 0,
-                                UiMetric.background.view.w,
-                                UiMetric.background.view.h);
+              if (!UiMetric.Background) pspVideoClearScreen();
+                else pspVideoPutImage(UiMetric.Background, 0, 0, 
+                  UiMetric.Background->Viewport.Width, 
+                  UiMetric.Background->Height);
 
-          	  sceGuCallList(call_list);
-              sceKernelDcacheWritebackAll();
+          	  pspVideoCallList(call_list);
 
               /* Perform any custom drawing */
               if (uimenu->OnRender)
@@ -1859,7 +1806,6 @@ void pspUiOpenMenu(PspUiMenu *uimenu, const char *title)
 
     /* End writing to call list */
     sceGuFinish();
-    sceKernelDcacheWritebackAll();
 
     if (!option_mode && !fast_scroll && sel && last_sel
       && UiMetric.Animate && last_sel != sel)
@@ -1870,16 +1816,16 @@ void pspUiOpenMenu(PspUiMenu *uimenu, const char *title)
       {
         pspVideoBegin();
 
-        pl_video_put_image(&UiMetric.background, 0, 0,
-                            UiMetric.background.view.w,
-                            UiMetric.background.view.h);
+        /* Clear screen */
+        if (!UiMetric.Background) pspVideoClearScreen();
+        else pspVideoPutImage(UiMetric.Background, 0, 0, 
+          UiMetric.Background->Viewport.Width, UiMetric.Background->Height);
 
         int box_top = last_sel_top-((last_sel_top-sel_top)/n)*f;
         pspVideoFillRect(sx, box_top, sx+w, box_top+fh, 
           UiMetric.SelectedBgColor);
 
         sceGuCallList(call_list);
-        sceKernelDcacheWritebackAll();
 
         /* Perform any custom drawing */
         if (uimenu->OnRender)
@@ -1896,17 +1842,17 @@ void pspUiOpenMenu(PspUiMenu *uimenu, const char *title)
     /* Begin direct rendering */
     pspVideoBegin();
 
-    pl_video_put_image(&UiMetric.background, 0, 0,
-                        UiMetric.background.view.w,
-                        UiMetric.background.view.h);
+    /* Clear screen */
+    if (!UiMetric.Background) pspVideoClearScreen();
+    else pspVideoPutImage(UiMetric.Background, 0, 0, 
+      UiMetric.Background->Viewport.Width, UiMetric.Background->Height);
 
     /* Draw the highlight for selected item */
     if (!option_mode)
       pspVideoFillRect(sx, sel_top, sx+w, sel_top+fh, 
         UiMetric.SelectedBgColor);
 
-    sceGuCallList(call_list);
-    sceKernelDcacheWritebackAll();
+    pspVideoCallList(call_list);
 
     /* Perform any custom drawing */
     if (uimenu->OnRender)
@@ -1970,8 +1916,6 @@ void pspUiSplashScreen(PspUiSplash *splash)
   SceCtrlData pad;
   int fh = pspFontGetLineHeight(UiMetric.Font);
 
-  sceKernelDcacheWritebackInvalidateAll();
-
   while (!ExitPSP)
   {
     if (!pspCtrlPollControls(&pad))
@@ -1991,9 +1935,12 @@ void pspUiSplashScreen(PspUiSplash *splash)
 
     pspVideoBegin();
 
-    pl_video_put_image(&UiMetric.background, 0, 0,
-                        UiMetric.background.view.w,
-                        UiMetric.background.view.h);
+    /* Clear screen */
+    if (UiMetric.Background) 
+      pspVideoPutImage(UiMetric.Background, 0, 0, 
+        UiMetric.Background->Viewport.Width, UiMetric.Background->Height);
+    else 
+      pspVideoClearScreen();
 
     /* Draw instructions */
     const char *dirs = (splash->OnGetStatusBarText)
@@ -2019,10 +1966,6 @@ void pspUiSplashScreen(PspUiSplash *splash)
 
 const pl_menu_item* pspUiSelect(const char *title, const pl_menu *menu)
 {
-  pl_image screen;
-  if (!pl_video_copy_vram(&screen))
-    return NULL;
-
   const pl_menu_item *sel, *item, *last_sel = NULL;
   struct UiPos pos;
   int lnmax, lnhalf;
@@ -2077,6 +2020,9 @@ const pl_menu_item* pspUiSelect(const char *title, const pl_menu *menu)
   sceRtcGetCurrentTick(&last_tick);
   ticks_per_upd = ticks_per_sec / UiMetric.MenuFps;
 
+  /* Get copy of screen */
+  PspImage *screen = pspVideoGetVramBufferCopy();
+
   if (UiMetric.Animate)
   {
     /* Intro animation */
@@ -2085,10 +2031,7 @@ const pl_menu_item* pspUiSelect(const char *title, const pl_menu *menu)
   	  pspVideoBegin();
 
   	  /* Clear screen */
-      pl_video_put_image(&screen,
-                          0, 0,
-                          screen.view.w,
-                          screen.view.h);
+  	  pspVideoPutImage(screen, 0, 0, screen->Viewport.Width, screen->Height);
 
   	  /* Apply fog and draw right frame */
   	  pspVideoFillRect(0, 0, SCR_WIDTH, SCR_HEIGHT, 
@@ -2199,7 +2142,6 @@ const pl_menu_item* pspUiSelect(const char *title, const pl_menu *menu)
       help_text, UiMetric.StatusBarColor);
 
     sceGuFinish();
-    sceKernelDcacheWritebackAll();
 
     if (sel != last_sel && !fast_scroll && sel && last_sel 
       && UiMetric.Animate)
@@ -2211,10 +2153,7 @@ const pl_menu_item* pspUiSelect(const char *title, const pl_menu *menu)
         pspVideoBegin();
 
         /* Clear screen */
-        pl_video_put_image(&screen,
-                            0, 0,
-                            screen.view.w,
-                            screen.view.h);
+        pspVideoPutImage(screen, 0, 0, screen->Viewport.Width, screen->Height);
         pspVideoFillRect(sx, 0, dx, SCR_HEIGHT, UiMetric.MenuOptionBoxBg);
 
         /* Selection box */
@@ -2223,7 +2162,6 @@ const pl_menu_item* pspUiSelect(const char *title, const pl_menu *menu)
           UiMetric.SelectedBgColor);
 
         sceGuCallList(call_list);
-        sceKernelDcacheWritebackAll();
 
         pspVideoEnd();
 
@@ -2235,17 +2173,13 @@ const pl_menu_item* pspUiSelect(const char *title, const pl_menu *menu)
     pspVideoBegin();
 
     /* Clear screen */
-    pl_video_put_image(&screen,
-                        0, 0,
-                        screen.view.w,
-                        screen.view.h);
+    pspVideoPutImage(screen, 0, 0, screen->Viewport.Width, screen->Height);
     pspVideoFillRect(sx, 0, dx, SCR_HEIGHT, UiMetric.MenuOptionBoxBg);
 
     if (sel) pspVideoFillRect(sx, sel_top, sx + w, sel_top + fh, 
       UiMetric.SelectedBgColor);
 
     sceGuCallList(call_list);
-    sceKernelDcacheWritebackAll();
 
     pspVideoEnd();
 
@@ -2270,10 +2204,7 @@ const pl_menu_item* pspUiSelect(const char *title, const pl_menu *menu)
   	  pspVideoBegin();
 
   	  /* Clear screen */
-      pl_video_put_image(&screen,
-                          0, 0,
-                          screen.view.w,
-                          screen.view.h);
+  	  pspVideoPutImage(screen, 0, 0, screen->Viewport.Width, screen->Height);
 
   	  /* Apply fog and draw right frame */
   	  pspVideoFillRect(0, 0, SCR_WIDTH, SCR_HEIGHT, 
@@ -2290,7 +2221,7 @@ const pl_menu_item* pspUiSelect(const char *title, const pl_menu *menu)
   }
 
   free(help_text);
-  pl_image_destroy(&screen);
+  pspImageDestroy(screen);
 
   return sel;
 }
@@ -2415,11 +2346,10 @@ int pspUiAdhocJoin(PspMAC mac)
     return 0;
   }
 
-  pl_image screen;
-  if (!pl_video_copy_vram(&screen))
-    return 0;
-
   char *title = "Select host";
+
+  /* Get copy of screen */
+  PspImage *screen = pspVideoGetVramBufferCopy();
 
   pspUiFlashMessage(ADHOC_INITIALIZING);
   _adhoc_match_event.NewEvent = 0;
@@ -2428,7 +2358,7 @@ int pspUiAdhocJoin(PspMAC mac)
   if (!pspAdhocInit("ULUS99999", adhocMatchingCallback))
   {
     pspUiAlert("Ad-hoc networking initialization failed"); 
-    pl_image_destroy(&screen);
+    pspImageDestroy(screen);
     return 0;
   }
 
@@ -2500,10 +2430,7 @@ int pspUiAdhocJoin(PspMAC mac)
       pspVideoBegin();
 
       /* Clear screen */
-      pl_video_put_image(&screen,
-                          0, 0,
-                          screen.view.w,
-                          screen.view.h);
+      pspVideoPutImage(screen, 0, 0, screen->Viewport.Width, screen->Height);
 
       /* Apply fog and draw right frame */
       pspVideoFillRect(0, 0, SCR_WIDTH, SCR_HEIGHT, 
@@ -2696,7 +2623,6 @@ int pspUiAdhocJoin(PspMAC mac)
       help_text, UiMetric.StatusBarColor);
 
     sceGuFinish();
-    sceKernelDcacheWritebackAll();
 
     if (sel != last_sel && !fast_scroll && sel && last_sel 
       && UiMetric.Animate)
@@ -2708,10 +2634,7 @@ int pspUiAdhocJoin(PspMAC mac)
         pspVideoBegin();
 
         /* Clear screen */
-        pl_video_put_image(&screen,
-                            0, 0,
-                            screen.view.w,
-                            screen.view.h);
+        pspVideoPutImage(screen, 0, 0, screen->Viewport.Width, screen->Height);
         pspVideoFillRect(sx, 0, dx, SCR_HEIGHT, UiMetric.MenuOptionBoxBg);
 
         /* Selection box */
@@ -2720,7 +2643,6 @@ int pspUiAdhocJoin(PspMAC mac)
           UiMetric.SelectedBgColor);
 
         sceGuCallList(call_list);
-        sceKernelDcacheWritebackAll();
 
         pspVideoEnd();
 
@@ -2732,17 +2654,13 @@ int pspUiAdhocJoin(PspMAC mac)
     pspVideoBegin();
 
     /* Clear screen */
-    pl_video_put_image(&screen,
-                        0, 0,
-                        screen.view.w,
-                        screen.view.h);
+    pspVideoPutImage(screen, 0, 0, screen->Viewport.Width, screen->Height);
     pspVideoFillRect(sx, 0, dx, SCR_HEIGHT, UiMetric.MenuOptionBoxBg);
 
     if (sel) pspVideoFillRect(sx, sel_top, sx + w, sel_top + fh, 
       UiMetric.SelectedBgColor);
 
     sceGuCallList(call_list);
-    sceKernelDcacheWritebackAll();
 
     pspVideoEnd();
 
@@ -2767,10 +2685,7 @@ int pspUiAdhocJoin(PspMAC mac)
       pspVideoBegin();
 
       /* Clear screen */
-      pl_video_put_image(&screen,
-                          0, 0,
-                          screen.view.w,
-                          screen.view.h);
+      pspVideoPutImage(screen, 0, 0, screen->Viewport.Width, screen->Height);
 
       /* Apply fog and draw right frame */
       pspVideoFillRect(0, 0, SCR_WIDTH, SCR_HEIGHT, 
@@ -2787,7 +2702,7 @@ int pspUiAdhocJoin(PspMAC mac)
   }
 
   free(help_text);
-  pl_image_destroy(&screen);
+  pspImageDestroy(screen);
 
   /* Free memory used for MACs; menu resources */
   for (item = menu.items; item; item=item->next)
@@ -2812,9 +2727,7 @@ int pspUiAdhocJoin(PspMAC mac)
 void pspUiFadeout()
 {
   /* Get copy of screen */
-  pl_image screen;
-  if (!pl_video_copy_vram(&screen))
-    return;
+  PspImage *screen = pspVideoGetVramBufferCopy();
 
   /* Exit animation */
   int i, alpha;
@@ -2823,10 +2736,7 @@ void pspUiFadeout()
 	  pspVideoBegin();
 
 	  /* Clear screen */
-    pl_video_put_image(&screen,
-                        0, 0,
-                        screen.view.w,
-                        screen.view.h);
+	  pspVideoPutImage(screen, 0, 0, screen->Viewport.Width, screen->Height);
 
 	  /* Apply fog */
 	  alpha = (0x100/UI_ANIM_FRAMES)*i-1;
@@ -2840,7 +2750,7 @@ void pspUiFadeout()
     pspVideoSwapBuffers();
 	}
 
-  pl_image_destroy(&screen);
+  pspImageDestroy(screen);
 }
 
 void enter_directory(pl_file_path current_dir, 

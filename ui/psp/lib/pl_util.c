@@ -37,8 +37,8 @@ static uint32_t compute_buffer_crc(uint32_t inCrc32,
                                    size_t bufLen);
 
 int pl_util_save_image_seq(const char *path,
-                           const char *prefix,
-                           const pl_image *image)
+                           const char *filename,
+                           const PspImage *image)
 {
   /* Loop until first free screenshot slot is found */
   int i = 0;
@@ -48,24 +48,23 @@ int pl_util_save_image_seq(const char *path,
     snprintf(full_path, 
              sizeof(full_path) - 1,
              "%s%s-%02i.png",
-             path, prefix, i);
+             path, filename, i);
   } while (pl_file_exists(full_path) && ++i < 100);
 
   /* Save the screenshot */
-  return pl_image_save(image, full_path);
+  return pspImageSavePng(full_path, image);
 }
 
 int pl_util_save_vram_seq(const char *path, 
-                          const char *prefix)
+                          const char *filename)
 {
-  pl_image vram;
-  if (!pl_video_copy_vram(&vram))
-    return 0;
+  PspImage* vram = pspVideoGetVramBufferCopy();
+  if (!vram) return 0;
 
   int exit_code = pl_util_save_image_seq(path, 
-                                         prefix, 
-                                         &vram);
-  pl_image_destroy(&vram);
+                                         filename, 
+                                         vram);
+  pspImageDestroy(vram);
 
   return exit_code;
 }

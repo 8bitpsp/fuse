@@ -23,6 +23,7 @@
 #define _PL_VK_H
 
 #include "ctrl.h"
+#include "image.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -41,7 +42,7 @@ typedef struct pl_vk_layout_t
   uint16_t offset_y;
   uint16_t selected;
   uint16_t held_down;
-  pl_image keyb_image;
+  PspImage *keyb_image;
   unsigned int __attribute__((aligned(16))) call_list[262144];
   int(*read_callback)(unsigned int code);
   void(*write_callback)(unsigned int code, int status);
