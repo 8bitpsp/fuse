@@ -31,6 +31,8 @@ int uidisplay_init( int width, int height )
                                     PSP_IMAGE_INDEXED)))
       return 1;
 
+  Screen->PalSize = 16;
+
   psp_uidisplay_reinit();
 
   return 0;
@@ -60,7 +62,7 @@ void psp_uidisplay_reinit()
   };
 
   int i;
-  for (i = 0; i < 16; i++) 
+  for (i = 0; i < Screen->PalSize; i++) 
   {
     unsigned char red, green, blue, grey;
 
@@ -71,25 +73,27 @@ void psp_uidisplay_reinit()
     /* Addition of 0.5 is to avoid rounding errors */
     grey = ( 0.299 * red + 0.587 * green + 0.114 * blue ) + 0.5;
 
-    Screen->Palette[i] = (psp_options.enable_bw)
-                         ? RGB(red, green, blue)
-                         : RGB(grey, grey, grey);
-  }
-  Screen->PalSize = 16;
+    if (!psp_menu_active)
+    {
+      if (psp_options.show_border)
+      {
+        Screen->Viewport.X = 0;
+        Screen->Viewport.Y = 0;
+        Screen->Viewport.Width = DISPLAY_SCREEN_WIDTH / 2;
+        Screen->Viewport.Height = DISPLAY_SCREEN_HEIGHT;
+      }
+      else
+      {
+        Screen->Viewport.X = DISPLAY_BORDER_WIDTH / 2;
+        Screen->Viewport.Y = DISPLAY_BORDER_HEIGHT;
+        Screen->Viewport.Width = DISPLAY_WIDTH / 2;
+        Screen->Viewport.Height = DISPLAY_HEIGHT;
+      }
+    }
 
-  if (psp_options.show_border)
-  {
-    Screen->Viewport.X = 0;
-    Screen->Viewport.Y = 0;
-    Screen->Viewport.Width = DISPLAY_SCREEN_WIDTH / 2;
-    Screen->Viewport.Height = DISPLAY_SCREEN_HEIGHT;
-  }
-  else
-  {
-    Screen->Viewport.X = DISPLAY_BORDER_WIDTH / 2;
-    Screen->Viewport.Y = DISPLAY_BORDER_HEIGHT;
-    Screen->Viewport.Width = DISPLAY_WIDTH / 2;
-    Screen->Viewport.Height = DISPLAY_HEIGHT;
+    Screen->Palette[i] = (!psp_options.enable_bw)
+                           ? RGB(red, green, blue)
+                           : RGB(grey, grey, grey);
   }
 
   /* Set up viewing ratios */

@@ -11,7 +11,7 @@ PSP_FW_VERSION=200
 export PSP_FW_VERSION
 
 PSP_APP_NAME=Fuse PSP
-PSP_APP_VER=0.9.0.2
+PSP_APP_VER=0.9.0.25
 
 TARGET=fusepsp
 EXTRA_TARGETS=EBOOT.PBP
@@ -36,8 +36,7 @@ BUILD_FUSE=debugger/breakpoint.o debugger/command.o debugger/commandl.o \
            psg.o scld.o screenshot.o settings.o simpleide.o slt.o \
            snapshot.o sound.o ui.o uidisplay.o ula.o utils.o zxatasp.o \
            zxcf.o timer/timer.o event.o rzx.o spectrum.o tape.o \
-           fuse.o \
-           compat/dirname.o \
+           fuse.o compat/dirname.o \
            ui/scaler/scaler.o ui/scaler/scalers16.o ui/scaler/scalers32.o \
            sound/sfifo.o
 BUILD_PORT=ui/psp/keysyms.o timer/psp.o ui/psp/paths.o ui/psp/osname.o \

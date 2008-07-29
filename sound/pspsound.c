@@ -24,7 +24,7 @@ void AudioCallback(pl_snd_sample* buf,
                    void *userdata)
 {
   int length = samples << 1; /* 2 bits per sample */
-  if (sfifo_used(&sound_fifo) < length)
+  if (sfifo_used(&sound_fifo) <= 0)
   {
     /* Render silence if not enough sound data */
     memset(buf, 0, length);

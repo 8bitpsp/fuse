@@ -53,11 +53,11 @@ PSP_MAIN_THREAD_ATTR(PSP_THREAD_ATTR_USER);
 #define OPTION_CONTROL_MODE  0x06
 #define OPTION_ANIMATE       0x07
 #define OPTION_AUTOLOAD      0x08
-#define OPTION_MONITOR_TYPE  0x09
 
 #define SYSTEM_SCRNSHOT    0x11
 #define SYSTEM_RESET       0x12
 #define SYSTEM_TYPE        0x13
+#define SYSTEM_MONITOR     0x09
 
 #define SPC_MENU  1
 #define SPC_KYBD  2
@@ -328,6 +328,8 @@ PL_MENU_OPTIONS_BEGIN(ControlModeOptions)
 PL_MENU_OPTIONS_END
 
 PL_MENU_ITEMS_BEGIN(SystemMenuDef)
+  PL_MENU_HEADER("Video")
+  PL_MENU_ITEM("Monitor type",SYSTEM_MONITOR,MonitorTypes,"\026\250\020 Select type of monitor (color/grayscale)")
   PL_MENU_HEADER("System")
   PL_MENU_ITEM("Machine type",SYSTEM_TYPE,MachineTypes,"\026\250\020 Select emulated system")
   PL_MENU_HEADER("Options")
@@ -338,7 +340,6 @@ PL_MENU_ITEMS_BEGIN(OptionMenuDef)
   PL_MENU_HEADER("Video")
   PL_MENU_ITEM("Screen size",OPTION_DISPLAY_MODE,ScreenSizeOptions,"\026\250\020 Change screen size")
   PL_MENU_ITEM("Screen border",OPTION_SHOW_BORDER,ToggleOptions,"\026\250\020 Show/hide border surrounding the main display")
-  PL_MENU_ITEM("Monitor type",OPTION_MONITOR_TYPE,MonitorTypes,"\026\250\020 Select type of monitor (color/grayscale)")
   PL_MENU_HEADER("Enhancements")
   PL_MENU_ITEM("Autoload slot",OPTION_AUTOLOAD,AutoloadSlots,"\026"PSP_CHAR_RIGHT"\020 Select save state to be loaded automatically")
   PL_MENU_HEADER("Performance")
@@ -588,8 +589,6 @@ static void psp_display_menu()
       pl_menu_select_option_by_value(item, (void*)(int)psp_options.animate_menu);
       item = pl_menu_find_item_by_id(&OptionUiMenu.Menu, OPTION_AUTOLOAD);
       pl_menu_select_option_by_value(item, (void*)(int)psp_options.autoload_slot);
-      item = pl_menu_find_item_by_id(&OptionUiMenu.Menu, OPTION_MONITOR_TYPE);
-      pl_menu_select_option_by_value(item, (void*)(int)psp_options.enable_bw);
       if ((item = pl_menu_find_item_by_id(&OptionUiMenu.Menu, OPTION_FRAME_LIMITER)))
         pl_menu_select_option_by_value(item, (void*)(int)psp_options.limit_frames);
 
@@ -599,6 +598,8 @@ static void psp_display_menu()
       psp_display_state_tab();
       break;
     case TAB_SYSTEM:
+      item = pl_menu_find_item_by_id(&SystemUiMenu.Menu, SYSTEM_MONITOR);
+      pl_menu_select_option_by_value(item, (void*)(int)psp_options.enable_bw);
       item = pl_menu_find_item_by_id(&SystemUiMenu.Menu, SYSTEM_TYPE);
       pl_menu_select_option_by_value(item, (void*)(machine_current->machine));
 
@@ -1331,7 +1332,7 @@ static int OnMenuItemChanged(const struct PspUiMenu *uimenu,
     case OPTION_AUTOLOAD:
       psp_options.autoload_slot = (int)option->value;
       break;
-    case OPTION_MONITOR_TYPE:
+    case SYSTEM_MONITOR:
       psp_options.enable_bw = (int)option->value;
       psp_uidisplay_reinit();
       break;

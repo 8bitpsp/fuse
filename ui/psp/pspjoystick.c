@@ -40,6 +40,9 @@ ui_joystick_poll( void )
   /* Check the input */
   pspCtrlPollControls(&psp_pad_status);
 
+  if (show_kybd_held)
+    return; /* Don't parse input if the VK button is held */
+
   /* Parse input */
   psp_ctrl_mask_to_index_map_t *current_mapping = physical_to_emulated_button_map;
   for (; current_mapping->mask; current_mapping++)
