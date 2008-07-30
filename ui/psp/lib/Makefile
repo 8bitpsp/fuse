@@ -30,10 +30,11 @@ DEFINES=-DPSP -D_PSP_FW_VERSION=$(PSP_FW_VERSION)
 
 all: libpsplib.a
 
-libpsplib.a:adhoc.o font.o image.o \
-            ctrl.o video.o ui.o \
-            pl_ini.o pl_perf.o pl_vk.o pl_util.o \
-            pl_psp.o pl_menu.o pl_file.o pl_snd.o
+libpsplib.a: \
+  adhoc.o font.o image.o ctrl.o video.o ui.o \
+  pl_ini.o pl_perf.o pl_vk.o pl_util.o pl_image.o \
+  pl_psp.o pl_menu.o pl_file.o pl_snd.o pl_gfx.o
+
 	$(AR) cru $@ $?
 	$(RANLIB) $@
 	@echo Compiled for firmware $(PSP_FW_VERSION)
@@ -84,7 +85,10 @@ pl_menu.o: pl_menu.c pl_menu.h
 pl_file.o: pl_file.c pl_file.h
 	$(CC) $(DEFINES) $(CFLAGS) -O2 -c -o $@ $<
 
-pl_image.o: pl_image.c pl_image.h video.o
+pl_image.o: pl_image.c pl_image.h
+	$(CC) $(DEFINES) $(CFLAGS) -O2 -c -o $@ $<
+
+pl_gfx.o: pl_gfx.c pl_gfx.h
 	$(CC) $(DEFINES) $(CFLAGS) -O2 -c -o $@ $<
 
 stockfont.h: stockfont.fd genfont

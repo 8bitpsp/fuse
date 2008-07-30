@@ -23,6 +23,7 @@
 #define _PL_IMAGE_H
 
 #include <stdio.h>
+#include <psptypes.h>
 
 #ifdef __cplusplus
 extern "C" {

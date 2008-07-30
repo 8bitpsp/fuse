@@ -23,9 +23,12 @@
 #include <string.h>
 #include <png.h>
 
-#include "video.h" /* TODO: */
 #include "pl_image.h"
 #include "pl_file.h"
+
+#ifdef PSP
+#include "pl_gfx.h"
+#endif
 
 static uint get_next_power_of_two(uint n);
 static uint get_bitmap_size(const pl_image *image);
@@ -52,9 +55,11 @@ int pl_image_create(pl_image *image,
   uint buf_len = pitch * height;
   void *buffer = NULL;
 
+#ifdef PSP
   if (flags & PL_IMAGE_USE_VRAM) /* use VRAM */
-    buffer = pspVideoAllocateVramChunk(buf_len);
+    buffer = pl_gfx_vram_alloc(buf_len);
   else   /* use heap */
+#endif
     buffer = memalign(16, buf_len);
 
   if (!buffer) return 0;
