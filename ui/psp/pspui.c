@@ -73,8 +73,6 @@ static const char
   ControlHelpText[] = "\026\250\020 Change mapping\t\026\001\020 Save to \271\t"
                       "\026\244\020 Set as default\t\026\243\020 Load defaults";
 
-SceCtrlData psp_pad_status;
-
 static const char *QuickloadFilter[] =
       { "ZIP", "DCK", "ROM", "MDR", "TAP", "SPC", "STA", "LTP", "TZX",
 #ifdef HAVE_LIBDSK_H
@@ -129,6 +127,8 @@ static int  psp_load_controls(const char *filename, psp_ctrl_map_t *config);
 static int  psp_save_controls(const char *filename, const psp_ctrl_map_t *config);
 
 static inline void psp_keyboard_toggle(unsigned int code, int on);
+static inline void psp_joystick_toggle(unsigned int code, int on);
+
 static void psp_exit_callback(void* arg);
 
 static PspImage* psp_load_state_icon(const char *path);
@@ -646,57 +646,75 @@ int ui_event( void )
     return 0;
   }
 
-  if (show_kybd_held)
-    pl_vk_navigate(&vk_spectrum, &psp_pad_status);
-
 #ifdef PSP_DEBUG
   if ((psp_pad_status.Buttons & (PSP_CTRL_SELECT | PSP_CTRL_START))
     == (PSP_CTRL_SELECT | PSP_CTRL_START))
       pl_util_save_vram_seq(psp_screenshot_path, "game");
 #endif
+
+  keyboard_release_all();
+
   /* Parse input */
-  psp_ctrl_mask_to_index_map_t *current_mapping = physical_to_emulated_button_map;
-  u8 cursor_pressed = 0;
-  for (; current_mapping->mask; current_mapping++)
+  static SceCtrlData pad;
+  if (pspCtrlPollControls(&pad))
   {
-    u32 code = current_map.button_map[current_mapping->index];
-    u8  on = (psp_pad_status.Buttons & current_mapping->mask) == current_mapping->mask;
+    if (show_kybd_held)
+      pl_vk_navigate(&vk_spectrum, &pad);
 
-    /* Check to see if a button set is pressed. If so, unset it, so it */
-    /* doesn't trigger any other combination presses. */
-    if (on) psp_pad_status.Buttons &= ~current_mapping->mask;
+    u8 cursor_pressed = 0;
+    psp_ctrl_mask_to_index_map_t *current_mapping = physical_to_emulated_button_map;
 
-    if ((code & KBD) && !show_kybd_held)
+    for (; current_mapping->mask; current_mapping++)
     {
-      /* Cursor fix hack */
-      uint spec_code = CODE_MASK(code);
-      if (spec_code >= INPUT_KEY_Up && spec_code <= INPUT_KEY_Right)
+      u32 code = current_map.button_map[current_mapping->index];
+      u8  on = (pad.Buttons & current_mapping->mask) == current_mapping->mask;
+
+      /* Check to see if a button set is pressed. If so, unset it, so it */
+      /* doesn't trigger any other combination presses. */
+      if (on) pad.Buttons &= ~current_mapping->mask;
+
+      if (!show_kybd_held)
       {
-        if (cursor_pressed) continue;
-        if (on) cursor_pressed++;
-      }
-      psp_keyboard_toggle(CODE_MASK(code), on);
-    }
-    else if (code & SPC)
-    {
-      switch (CODE_MASK(code))
-      {
-      case SPC_MENU:
-        if (on) psp_display_menu();
-        break;
-      case SPC_KYBD:
-        if (show_kybd_held != on)
+        if (code & KBD)
         {
-          if (on) pl_vk_reinit(&vk_spectrum);
-          else
+          /* Cursor fix hack */
+          uint spec_code = CODE_MASK(code);
+          if (spec_code >= INPUT_KEY_Up && spec_code <= INPUT_KEY_Right)
           {
-            clear_screen = 1;
-            keyboard_release_all();
+            if (cursor_pressed) continue;
+            if (on) cursor_pressed++;
           }
+          if (on) psp_keyboard_toggle(CODE_MASK(code), on);
+          continue;
         }
+        else if (code & JST)
+        {
+          psp_joystick_toggle(CODE_MASK(code), on);
+          continue;
+        }
+      }
 
-        show_kybd_held = on;
-        break;
+      if (code & SPC)
+      {
+        switch (CODE_MASK(code))
+        {
+        case SPC_MENU:
+          if (on) psp_display_menu();
+          break;
+        case SPC_KYBD:
+          if (show_kybd_held != on)
+          {
+            if (on) pl_vk_reinit(&vk_spectrum);
+            else
+            {
+              clear_screen = 1;
+              keyboard_release_all();
+            }
+          }
+
+          show_kybd_held = on;
+          break;
+        }
       }
     }
   }
@@ -720,6 +738,18 @@ int ui_end( void )
   psp_save_options();
 
   return 0;
+}
+
+static inline void psp_joystick_toggle(unsigned int code, int on)
+{
+  input_event_t fuse_event;
+
+  fuse_event.type = (on)
+    ? INPUT_EVENT_JOYSTICK_PRESS : INPUT_EVENT_JOYSTICK_RELEASE;
+  fuse_event.types.joystick.which = 0;
+  fuse_event.types.joystick.button = code;
+
+  input_event(&fuse_event);
 }
 
 static inline void psp_keyboard_toggle(unsigned int code, int on)

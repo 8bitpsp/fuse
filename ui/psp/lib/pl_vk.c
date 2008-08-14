@@ -309,8 +309,8 @@ void pl_vk_reinit(pl_vk_layout *layout)
 
   pl_vk_sticky *sticky;
   for (i = 0, sticky = layout->stickies; i < layout->sticky_count; i++, sticky++)
-    if (layout->read_callback)
-      sticky->status = layout->read_callback(sticky->code);
+    sticky->status = (layout->read_callback) 
+                     ? layout->read_callback(sticky->code) : 0;
 }
 
 void pl_vk_navigate(pl_vk_layout *layout,
