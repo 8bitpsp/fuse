@@ -652,7 +652,9 @@ int ui_event( void )
       pl_util_save_vram_seq(psp_screenshot_path, "game");
 #endif
 
-  keyboard_release_all();
+  if (!show_kybd_held)
+    keyboard_release_all();
+  joystick_release_all(0);
 
   /* Parse input */
   static SceCtrlData pad;
@@ -661,9 +663,7 @@ int ui_event( void )
     if (show_kybd_held)
       pl_vk_navigate(&vk_spectrum, &pad);
 
-    u8 cursor_pressed = 0;
     psp_ctrl_mask_to_index_map_t *current_mapping = physical_to_emulated_button_map;
-
     for (; current_mapping->mask; current_mapping++)
     {
       u32 code = current_map.button_map[current_mapping->index];
@@ -677,19 +677,12 @@ int ui_event( void )
       {
         if (code & KBD)
         {
-          /* Cursor fix hack */
-          uint spec_code = CODE_MASK(code);
-          if (spec_code >= INPUT_KEY_Up && spec_code <= INPUT_KEY_Right)
-          {
-            if (cursor_pressed) continue;
-            if (on) cursor_pressed++;
-          }
           if (on) psp_keyboard_toggle(CODE_MASK(code), on);
           continue;
         }
         else if (code & JST)
         {
-          psp_joystick_toggle(CODE_MASK(code), on);
+          if (on) psp_joystick_toggle(CODE_MASK(code), on);
           continue;
         }
       }

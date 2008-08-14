@@ -69,6 +69,8 @@ typedef enum joystick_button {
 /* Called whenever the (Spectrum) joystick is moved or the fire button
    pressed */
 int joystick_press( int which, joystick_button button, int press );
+/* Resets joystick state */
+int joystick_release_all( int which );
 
 /* Interface-specific read functions */
 libspectrum_byte joystick_kempston_read ( libspectrum_word port,

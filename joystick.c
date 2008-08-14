@@ -107,6 +107,39 @@ fuse_joystick_end (void)
 }
 
 int
+joystick_release_all( int which )
+{
+  joystick_type_t type;
+
+  switch( which ) {
+  case 0: type = settings_current.joystick_1_output; break;
+  case 1: type = settings_current.joystick_2_output; break;
+
+  case JOYSTICK_KEYBOARD:
+    type = settings_current.joystick_keyboard_output; break;
+
+  default:
+    return 0;
+  }
+
+  switch( type ) {
+  case JOYSTICK_TYPE_KEMPSTON:
+    kempston_value = 0x00;
+    return 1;
+
+  case JOYSTICK_TYPE_TIMEX_1:
+    timex1_value = 0x00;
+    return 1;
+
+  case JOYSTICK_TYPE_TIMEX_2:
+    timex2_value = 0x00;
+    return 1;
+
+  case JOYSTICK_TYPE_NONE: return 0;
+  }
+}
+
+int
 joystick_press( int which, joystick_button button, int press )
 {
   joystick_type_t type;
