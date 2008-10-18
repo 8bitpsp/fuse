@@ -22,6 +22,7 @@ typedef struct psp_options_t
   uint8_t  animate_menu;
   uint8_t  enable_bw;
   uint8_t  show_border;
+  uint8_t  toggle_vk;
    int8_t  autoload_slot;
   uint16_t clock_freq;
   uint16_t machine;

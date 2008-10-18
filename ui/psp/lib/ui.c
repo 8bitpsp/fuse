@@ -628,6 +628,10 @@ void pspUiOpenBrowser(PspUiFileBrowser *browser, const char *start_path)
   pl_menu_item *item;
   SceCtrlData pad;
   char *instructions[BROWSER_TEMPLATE_COUNT];
+  int delay;
+  PspImage *screenshot = NULL;
+  int screenshot_width = 0;
+  int screenshot_height = 0;
 
   /* Initialize instruction strings */
   int i;
@@ -674,6 +678,7 @@ void pspUiOpenBrowser(PspUiFileBrowser *browser, const char *start_path)
   /* Begin browsing (outer) loop */
   while (!ExitPSP)
   {
+    delay = UiMetric.BrowserScreenshotDelay;
     sel = last_sel = NULL;
     pos.Top = NULL;
     pl_menu_clear_items(&menu);
@@ -755,6 +760,18 @@ void pspUiOpenBrowser(PspUiFileBrowser *browser, const char *start_path)
         continue;
 
       fast_scroll = 0;
+      if (delay >= 0) delay--;
+      if ((delay == 0)
+        && sel
+        && !screenshot
+        && !((unsigned int)sel->param & PL_FILE_DIRECTORY)
+        && UiMetric.BrowserScreenshotPath)
+      {
+        pl_file_path screenshot_path;
+        sprintf(screenshot_path, "%s%s-00.png",
+          UiMetric.BrowserScreenshotPath, sel->caption);
+        screenshot = pspImageLoadPng(screenshot_path);
+      }
 
       /* Check the directional buttons */
       if (sel)
@@ -868,7 +885,7 @@ void pspUiOpenBrowser(PspUiFileBrowser *browser, const char *start_path)
       else
         instruction = instructions[(is_dir)
           ? BrowserTemplateEnterTop : BrowserTemplateOpenTop];
-      
+
       pspVideoPrintCenter(UiMetric.Font,
         sx, SCR_HEIGHT - fh, dx, instruction, UiMetric.StatusBarColor);
 
@@ -904,6 +921,12 @@ void pspUiOpenBrowser(PspUiFileBrowser *browser, const char *start_path)
 
       sceGuFinish();
 
+      if (screenshot)
+      {
+        screenshot_width = screenshot->Viewport.Width;
+        screenshot_height = screenshot->Viewport.Height;
+      }
+
       if (sel != last_sel && !fast_scroll && sel && last_sel
         && UiMetric.Animate)
       {
@@ -917,6 +940,15 @@ void pspUiOpenBrowser(PspUiFileBrowser *browser, const char *start_path)
           if (!UiMetric.Background) pspVideoClearScreen();
           else pspVideoPutImage(UiMetric.Background, 0, 0, 
             UiMetric.Background->Viewport.Width, UiMetric.Background->Height);
+
+          /* Render screenshot */
+          if (screenshot)
+            pspVideoPutImage(screenshot,
+                            UiMetric.Right - screenshot_width - UiMetric.ScrollbarWidth,
+                            ((UiMetric.Bottom - UiMetric.Top) / 2 - 
+                            screenshot_height / 2) + UiMetric.Top,
+                            screenshot_width,
+                            screenshot_height);
 
           /* Selection box */
           int box_top = last_sel_top-((last_sel_top-sel_top)/n)*f;
@@ -940,6 +972,15 @@ void pspUiOpenBrowser(PspUiFileBrowser *browser, const char *start_path)
           UiMetric.Background->Viewport.Width, UiMetric.Background->Height);
       else pspVideoClearScreen();
 
+      /* Render screenshot */
+      if (screenshot)
+        pspVideoPutImage(screenshot,
+                         UiMetric.Right - screenshot_width - UiMetric.ScrollbarWidth,
+                         ((UiMetric.Bottom - UiMetric.Top) / 2 - 
+                         screenshot_height / 2) + UiMetric.Top,
+                         screenshot_width,
+                         screenshot_height);
+
       /* Render selection box */
       if (sel) pspVideoFillRect(sx, sel_top, sx+w, sel_top+fh,
         UiMetric.SelectedBgColor);
@@ -952,12 +993,26 @@ void pspUiOpenBrowser(PspUiFileBrowser *browser, const char *start_path)
       pspVideoWaitVSync();
       pspVideoSwapBuffers();
 
+      if (last_sel != sel)
+      {
+        if (screenshot != NULL)
+        {
+          pspImageDestroy(screenshot);
+          screenshot = NULL;
+        }
+
+        delay = UiMetric.BrowserScreenshotDelay;
+      }
+
       last_sel = sel;
       last_sel_top = sel_top;
     }
   }
 
 exit_browser:
+
+  if (screenshot != NULL)
+    pspImageDestroy(screenshot);
 
   /* Free instruction strings */
   for (i = 0; i < BROWSER_TEMPLATE_COUNT; i++)
