@@ -1,7 +1,7 @@
 /* ui.c: User interface routines, but those which are independent of any UI
    Copyright (c) 2002 Philip Kendall
 
-   $Id: ui.c 3400 2007-12-04 18:24:31Z zubzero $
+   $Id: ui.c 3584 2008-03-25 10:27:30Z fredm $
 
    This program is free software; you can redistribute it and/or modify
    it under the terms of the GNU General Public License as published by
@@ -318,11 +318,21 @@ static const struct menu_item_entries menu_item_lookup[] = {
 
   { UI_MENU_ITEM_MEDIA_DISK_PLUS3_A_EJECT,
     "/Media/Disk/+3/Drive A:/Eject",
-    "/Media/Disk/+3/Drive A:/Eject and write...", 0 },
+    "/Media/Disk/+3/Drive A:/Eject and write...", 0,
+    "/Media/Disk/+3/Drive A:/Write protect", 0 },
+
+  { UI_MENU_ITEM_MEDIA_DISK_PLUS3_A_WP_SET,
+    "/Media/Disk/+3/Drive A:/Write protect/Enable",
+    "/Media/Disk/+3/Drive A:/Write protect/Disable", 1 },
 
   { UI_MENU_ITEM_MEDIA_DISK_PLUS3_B_EJECT,
     "/Media/Disk/+3/Drive B:/Eject",
-    "/Media/Disk/+3/Drive B:/Eject and write...", 0 },
+    "/Media/Disk/+3/Drive B:/Eject and write...", 0,
+    "/Media/Disk/+3/Drive B:/Write protect", 0 },
+
+  { UI_MENU_ITEM_MEDIA_DISK_PLUS3_B_WP_SET,
+    "/Media/Disk/+3/Drive B:/Write protect/Enable",
+    "/Media/Disk/+3/Drive B:/Write protect/Disable", 1 },
 
   { UI_MENU_ITEM_MEDIA_DISK_BETA, "/Media/Disk/Beta" },
 
@@ -530,7 +540,6 @@ ui_tape_write( void )
   return 0;
 }
 
-#ifdef HAVE_765_H
 int
 ui_plus3_disk_write( specplus3_drive_number which )
 {
@@ -557,7 +566,6 @@ ui_plus3_disk_write( specplus3_drive_number which )
 
   return 0;
 }
-#endif				/* #ifdef HAVE_765_H */  
 
 int
 ui_beta_disk_write( beta_drive_number which )

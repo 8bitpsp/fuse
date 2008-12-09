@@ -1,7 +1,7 @@
 /* z80.h: z80 emulation core
    Copyright (c) 1999-2003 Philip Kendall
 
-   $Id: z80.h 2995 2007-06-17 14:31:36Z pak21 $
+   $Id: z80.h 3681 2008-06-16 09:40:29Z pak21 $
 
    This program is free software; you can redistribute it and/or modify
    it under the terms of the GNU General Public License as published by
@@ -55,11 +55,10 @@ typedef struct {
 
 } processor;
 
-void z80_init(void);
+int z80_init( void );
 void z80_reset( int hard_reset );
 
 int z80_interrupt( void );
-void z80_nmi( void );
 
 void z80_do_opcodes(void);
 
@@ -73,5 +72,7 @@ extern const libspectrum_byte overflow_sub_table[];
 extern libspectrum_byte sz53_table[];
 extern libspectrum_byte sz53p_table[];
 extern libspectrum_byte parity_table[];
+
+extern int z80_interrupt_event, z80_nmi_event;
 
 #endif			/* #ifndef FUSE_Z80_H */

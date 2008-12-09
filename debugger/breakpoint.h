@@ -1,7 +1,7 @@
 /* breakpoint.h: a debugger breakpoint
-   Copyright (c) 2002-2004 Philip Kendall
+   Copyright (c) 2002-2008 Philip Kendall
 
-   $Id: breakpoint.h 2889 2007-05-26 17:45:08Z zubzero $
+   $Id: breakpoint.h 3662 2008-06-09 11:19:29Z pak21 $
 
    This program is free software; you can redistribute it and/or modify
    it under the terms of the GNU General Public License as published by
@@ -34,6 +34,7 @@ typedef enum debugger_breakpoint_type {
   DEBUGGER_BREAKPOINT_TYPE_PORT_READ,
   DEBUGGER_BREAKPOINT_TYPE_PORT_WRITE,
   DEBUGGER_BREAKPOINT_TYPE_TIME,
+  DEBUGGER_BREAKPOINT_TYPE_EVENT,
 } debugger_breakpoint_type;
 
 extern const char *debugger_breakpoint_type_text[];
@@ -71,11 +72,22 @@ typedef struct debugger_breakpoint_port {
 
 } debugger_breakpoint_port;
 
+typedef struct debugger_breakpoint_time {
+  libspectrum_dword tstates;
+  int triggered;
+} debugger_breakpoint_time;
+
+typedef struct debugger_event_t {
+  char *type;
+  char *detail;
+} debugger_event_t;
+
 typedef union debugger_breakpoint_value {
 
   debugger_breakpoint_address address;
   debugger_breakpoint_port port;
-  libspectrum_dword tstates;
+  debugger_breakpoint_time time;
+  debugger_event_t event;
 
 } debugger_breakpoint_value;
 
@@ -92,6 +104,9 @@ typedef struct debugger_breakpoint {
   debugger_breakpoint_life life;
   debugger_expression *condition; /* Conditional expression to activate this
 				     breakpoint */
+
+  char *commands;
+
 } debugger_breakpoint;
 
 /* The current breakpoints */
@@ -115,6 +130,12 @@ debugger_breakpoint_add_port(
 int
 debugger_breakpoint_add_time(
   debugger_breakpoint_type type, libspectrum_dword tstates,
+  size_t ignore, debugger_breakpoint_life life, debugger_expression *condition
+);
+
+int
+debugger_breakpoint_add_event(
+  debugger_breakpoint_type type, const char *type_string, const char *detail,
   size_t ignore, debugger_breakpoint_life life, debugger_expression *condition
 );
 

@@ -1,7 +1,7 @@
 /* machine.c: Routines for handling the various machine types
-   Copyright (c) 1999-2005 Philip Kendall
+   Copyright (c) 1999-2008 Philip Kendall
 
-   $Id: machine.c 3301 2007-11-17 00:51:42Z fredm $
+   $Id: machine.c 3681 2008-06-16 09:40:29Z pak21 $
 
    This program is free software; you can redistribute it and/or modify
    it under the terms of the GNU General Public License as published by
@@ -43,6 +43,7 @@
 #include "snapshot.h"
 #include "sound.h"
 #include "tape.h"
+#include "timer/timer.h"
 #include "ui/ui.h"
 #include "ui/uidisplay.h"
 #include "ula.h"
@@ -57,6 +58,8 @@ static int machine_location;	/* Where is the current machine in
 
 static int machine_add_machine( int (*init_function)(fuse_machine_info *machine) );
 static int machine_select_machine( fuse_machine_info *machine );
+static void machine_set_const_timings( fuse_machine_info *machine );
+static void machine_set_variable_timings( fuse_machine_info *machine );
 
 int machine_init_machines( void )
 {
@@ -73,17 +76,11 @@ int machine_init_machines( void )
   error = machine_add_machine( specplus2a_init );
   if( error ) return error;
 
-#ifdef HAVE_765_H
-  /* Add the +3 only if we have FDC support; otherwise the +2A and +3
-     emulations are identical */
   error = machine_add_machine( specplus3_init );
   if (error ) return error;
 
-  /* FIXME: what should we do about the +3e if we don't have lib765? */
   error = machine_add_machine( specplus3e_init );
   if( error ) return error;
-
-#endif				/* #ifdef HAVE_765_H */
 
   error = machine_add_machine( tc2048_init );
   if (error ) return error;
@@ -129,7 +126,7 @@ static int machine_add_machine( int (*init_function)( fuse_machine_info *machine
 
   error = init_function( machine ); if( error ) return error;
 
-  error = machine_set_timings( machine ); if( error ) return error;
+  machine_set_const_timings( machine );
 
   machine->capabilities = libspectrum_machine_capabilities( machine->machine );
 
@@ -212,8 +209,8 @@ machine_select_machine( fuse_machine_info *machine )
 
   /* Reset the event stack */
   event_reset();
-  if( event_add( 0, EVENT_TYPE_TIMER ) ) return 1;
-  if( event_add( machine->timings.tstates_per_frame, EVENT_TYPE_FRAME ) )
+  if( event_add( 0, timer_event ) ) return 1;
+  if( event_add( machine->timings.tstates_per_frame, spectrum_frame_event ) )
     return 1;
 
   sound_end();
@@ -255,14 +252,46 @@ machine_select_machine( fuse_machine_info *machine )
   return 0;
 }
 
+int
+machine_load_rom_bank_from_buffer( memory_page* bank_map, size_t which,
+                                   int page_num, unsigned char *buffer,
+                                   size_t length, int custom )
+{
+  size_t i, offset;
+  
+  bank_map[ which ].offset = 0;
+  bank_map[ which ].page_num = page_num;
+  bank_map[ which ].page = memory_pool_allocate( length );
+  if( !bank_map[ which ].page ) {
+    ui_error( UI_ERROR_ERROR, "Out of memory at %s:%d", __FILE__,
+              __LINE__ );
+    return 1;
+  }
+
+  memcpy( bank_map[ which ].page, buffer, length );
+  bank_map[ which ].source = custom ? MEMORY_SOURCE_CUSTOMROM :
+                                      MEMORY_SOURCE_SYSTEM;
+
+  for( i = 1, offset = MEMORY_PAGE_SIZE;
+       offset < length;
+       i++, offset += MEMORY_PAGE_SIZE   ) {
+    bank_map[ which + i ].offset = offset;
+    bank_map[ which + i ].page_num = page_num;
+    bank_map[ which + i ].page = bank_map[ which ].page + offset;
+    bank_map[ which + i ].source = custom ? MEMORY_SOURCE_CUSTOMROM :
+                                            MEMORY_SOURCE_SYSTEM;
+  }
+
+  return 0;
+}
+
 static int
-machine_load_rom_bank_internal( memory_page* bank_map, size_t which, int page_num,
-                                const char *filename, size_t expected_length,
-                                int custom )
+machine_load_rom_bank_from_file( memory_page* bank_map, size_t which,
+                                 int page_num, const char *filename,
+                                 size_t expected_length, int custom )
 {
   int fd, error;
   utils_file rom;
-  size_t i, offset;
 
   fd = utils_find_auxiliary_file( filename, UTILS_AUXILIARY_ROM );
   if( fd == -1 ) {
@@ -282,31 +311,12 @@ machine_load_rom_bank_internal( memory_page* bank_map, size_t which, int page_nu
     return 1;
   }
 
-  bank_map[ which ].offset = 0;
-  bank_map[ which ].page_num = page_num;
-  bank_map[ which ].page = memory_pool_allocate( rom.length );
-  if( !bank_map[ which ].page ) {
-    utils_close_file( &rom );
-    return 1;
-  }
+  error = machine_load_rom_bank_from_buffer( bank_map, which, page_num,
+                                             rom.buffer, rom.length, custom );
 
-  memcpy( bank_map[ which ].page, rom.buffer, rom.length );
-  bank_map[ which ].source = custom ? MEMORY_SOURCE_CUSTOMROM :
-                                      MEMORY_SOURCE_SYSTEM;
+  error |= utils_close_file( &rom );
 
-  for( i = 1, offset = MEMORY_PAGE_SIZE;
-       offset < expected_length;
-       i++, offset += MEMORY_PAGE_SIZE   ) {
-    bank_map[ which + i ].offset = offset;
-    bank_map[ which + i ].page_num = page_num;
-    bank_map[ which + i ].page = bank_map[ which ].page + offset;
-    bank_map[ which + i ].source = custom ? MEMORY_SOURCE_CUSTOMROM :
-                                            MEMORY_SOURCE_SYSTEM;
-  }
-
-  if( utils_close_file( &rom ) ) return 1;
-
-  return 0;
+  return error;
 }
 
 int
@@ -319,11 +329,11 @@ machine_load_rom_bank( memory_page* bank_map, size_t which, int page_num,
 
   if( fallback ) custom = strcmp( filename, fallback );
 
-  retval = machine_load_rom_bank_internal( bank_map, which, page_num,
-                                           filename, expected_length, custom );
+  retval = machine_load_rom_bank_from_file( bank_map, which, page_num,
+                                            filename, expected_length, custom );
   if( retval && fallback )
-    retval = machine_load_rom_bank_internal( bank_map, which, page_num,
-                                             fallback, expected_length, 0 );
+    retval = machine_load_rom_bank_from_file( bank_map, which, page_num,
+                                              fallback, expected_length, 0 );
   return retval;
 }
 
@@ -348,6 +358,8 @@ machine_reset( int hard_reset )
   memory_pool_free();
 
   machine_current->ram.romcs = 0;
+
+  machine_set_variable_timings( machine_current );
 
   /* Do the machine-specific bits, including loading the ROMs */
   error = machine_current->reset(); if( error ) return error;
@@ -375,11 +387,9 @@ machine_reset( int hard_reset )
   return 0;
 }
 
-int
-machine_set_timings( fuse_machine_info *machine )
+static void
+machine_set_const_timings( fuse_machine_info *machine )
 {
-  size_t y;
-
   /* Pull timings we use repeatedly out of libspectrum and store them
      for ourself */
   machine->timings.processor_speed =
@@ -396,6 +406,12 @@ machine_set_timings( fuse_machine_info *machine )
     libspectrum_timings_interrupt_length( machine->machine );
   machine->timings.tstates_per_frame =
     libspectrum_timings_tstates_per_frame( machine->machine );
+}
+
+static void
+machine_set_variable_timings( fuse_machine_info *machine )
+{
+  size_t y;
 
   /* Magic number alert
 
@@ -416,12 +432,12 @@ machine_set_timings( fuse_machine_info *machine )
     DISPLAY_BORDER_HEIGHT * machine->timings.tstates_per_line -
     4 * DISPLAY_BORDER_WIDTH_COLS; /* Left border at 4 tstates per column */
 
+  if( settings_current.late_timings ) machine->line_times[0]++;
+
   for( y=1; y<DISPLAY_SCREEN_HEIGHT+1; y++ ) {
     machine->line_times[y] = machine->line_times[y-1] + 
                              machine->timings.tstates_per_line;
   }
-
-  return 0;
 }
 
 int machine_end( void )

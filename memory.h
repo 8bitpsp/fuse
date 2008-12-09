@@ -1,7 +1,7 @@
 /* memory.h: memory access routines
    Copyright (c) 2003-2004 Philip Kendall
 
-   $Id: memory.h 3121 2007-08-21 05:34:31Z fredm $
+   $Id: memory.h 3603 2008-04-15 13:33:24Z fredm $
 
    This program is free software; you can redistribute it and/or modify
    it under the terms of the GNU General Public License as published by
@@ -96,6 +96,9 @@ const char *memory_bank_name( memory_page *page );
 
 /* Map in alternate bank if ROMCS is set */
 void memory_romcs_map( void );
+
+/* Have we loaded any custom ROMs? */
+int memory_custom_rom( void );
 
 libspectrum_byte readbyte( libspectrum_word address );
 

@@ -2,7 +2,7 @@
    Copyright (c) 2002 Darren Salt
    Based on tap.c, copyright (c) 2001 Philip Kendall
 
-   $Id: z80em.c 2909 2007-05-29 14:33:22Z fredm $
+   $Id: z80em.c 3708 2008-07-01 08:07:01Z pak21 $
 
    This program is free software; you can redistribute it and/or modify
    it under the terms of the GNU General Public License as published by
@@ -36,7 +36,6 @@ libspectrum_z80em_read( libspectrum_tape *tape,
 {
   libspectrum_tape_block *block;
   libspectrum_tape_rle_pulse_block *z80em_block;
-  libspectrum_error error;
 
   static const char id[] = "\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0Raw tape sample";
 
@@ -54,16 +53,8 @@ libspectrum_z80em_read( libspectrum_tape *tape,
     return LIBSPECTRUM_ERROR_SIGNATURE;
   }
 
-  /* Claim memory for the block */
-  block = malloc( sizeof( *block ) );
-  if( !block ) {
-    libspectrum_print_error( LIBSPECTRUM_ERROR_MEMORY,
-			     "libspectrum_z80em_read: out of memory" );
-    return LIBSPECTRUM_ERROR_MEMORY;
-  }
+  block = libspectrum_tape_block_alloc( LIBSPECTRUM_TAPE_BLOCK_RLE_PULSE );
 
-  /* Set the block type */
-  block->type = LIBSPECTRUM_TAPE_BLOCK_RLE_PULSE;
   z80em_block = &block->types.rle_pulse;
   z80em_block->scale = 7; /* 1 time unit == 7 clock ticks */
 
@@ -72,24 +63,12 @@ libspectrum_z80em_read( libspectrum_tape *tape,
 
   /* Claim memory for the data (it's one big lump) */
   z80em_block->length = length;
-  z80em_block->data = malloc( length );
-  if( !z80em_block->data ) {
-    free( block );
-    libspectrum_print_error( LIBSPECTRUM_ERROR_MEMORY,
-			     "libspectrum_z80em_read: out of memory" );
-    return LIBSPECTRUM_ERROR_MEMORY;
-  }
+  z80em_block->data = libspectrum_malloc( length );
 
   /* Copy the data across */
   memcpy( z80em_block->data, buffer, length );
 
-  /* Put the block into the block list */
-  error = libspectrum_tape_append_block( tape, block );
-  if( error ) {
-    free( z80em_block->data );
-    libspectrum_tape_block_free( block );
-    return error;
-  }
+  libspectrum_tape_append_block( tape, block );
 
   return LIBSPECTRUM_ERROR_NONE;
 }

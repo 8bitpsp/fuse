@@ -1,7 +1,7 @@
 /* spec128.c: Spectrum 128K specific routines
    Copyright (c) 1999-2007 Philip Kendall
 
-   $Id: spec128.c 3400 2007-12-04 18:24:31Z zubzero $
+   $Id: spec128.c 3566 2008-03-18 12:59:16Z pak21 $
 
    This program is free software; you can redistribute it and/or modify
    it under the terms of the GNU General Public License as published by
@@ -55,56 +55,6 @@ const periph_t spec128_peripherals[] = {
 const size_t spec128_peripherals_count =
   sizeof( spec128_peripherals ) / sizeof( periph_t );
 
-libspectrum_byte
-spec128_unattached_port( void )
-{
-  return spectrum_unattached_port();
-}
-
-libspectrum_byte
-spec128_contend_delay( libspectrum_dword time )
-{
-  libspectrum_word tstates_through_line;
-  
-  /* No contention in the upper border */
-  if( time < machine_current->line_times[ DISPLAY_BORDER_HEIGHT ] )
-    return 0;
-
-  /* Or the lower border */
-  if( time >= machine_current->line_times[ DISPLAY_BORDER_HEIGHT + 
-					   DISPLAY_HEIGHT          ] )
-    return 0;
-
-  /* Work out where we are in this line */
-  tstates_through_line =
-    ( time + machine_current->timings.left_border ) %
-    machine_current->timings.tstates_per_line;
-
-  /* No contention if we're in the left border */
-  if( tstates_through_line < machine_current->timings.left_border - 3 ) 
-    return 0;
-
-  /* Or the right border or retrace */
-  if( tstates_through_line >= machine_current->timings.left_border +
-                              machine_current->timings.horizontal_screen - 3 )
-    return 0;
-
-  /* We now know the ULA is reading the screen, so put in the appropriate
-     delay */
-  switch( tstates_through_line % 8 ) {
-    case 5: return 6; break;
-    case 6: return 5; break;
-    case 7: return 4; break;
-    case 0: return 3; break;
-    case 1: return 2; break;
-    case 2: return 1; break;
-    case 3: return 0; break;
-    case 4: return 0; break;
-  }
-
-  return 0;	/* Shut gcc up */
-}
-
 int spec128_init( fuse_machine_info *machine )
 {
   machine->machine = LIBSPECTRUM_MACHINE_128;
@@ -114,10 +64,10 @@ int spec128_init( fuse_machine_info *machine )
 
   machine->timex = 0;
   machine->ram.port_from_ula	     = spec48_port_from_ula;
-  machine->ram.contend_delay	     = spec128_contend_delay;
-  machine->ram.contend_delay_no_mreq = spec128_contend_delay;
+  machine->ram.contend_delay	     = spectrum_contend_delay_65432100;
+  machine->ram.contend_delay_no_mreq = spectrum_contend_delay_65432100;
 
-  machine->unattached_port = spec128_unattached_port;
+  machine->unattached_port = spectrum_unattached_port;
 
   machine->shutdown = NULL;
 

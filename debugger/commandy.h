@@ -49,25 +49,32 @@
      BREAK = 265,
      TBREAK = 266,
      CLEAR = 267,
-     CONDITION = 268,
-     CONTINUE = 269,
-     DEBUGGER_DELETE = 270,
-     DISASSEMBLE = 271,
-     FINISH = 272,
-     IF = 273,
-     DEBUGGER_IGNORE = 274,
-     NEXT = 275,
-     DEBUGGER_OUT = 276,
-     PORT = 277,
-     READ = 278,
-     SET = 279,
-     STEP = 280,
-     TIME = 281,
-     WRITE = 282,
-     PAGE = 283,
-     DEBUGGER_REGISTER = 284,
-     NUMBER = 285,
-     DEBUGGER_ERROR = 286
+     COMMANDS = 268,
+     CONDITION = 269,
+     CONTINUE = 270,
+     DEBUGGER_DELETE = 271,
+     DISASSEMBLE = 272,
+     DEBUGGER_END = 273,
+     EVENT = 274,
+     EXIT = 275,
+     FINISH = 276,
+     IF = 277,
+     DEBUGGER_IGNORE = 278,
+     NEXT = 279,
+     DEBUGGER_OUT = 280,
+     PORT = 281,
+     DEBUGGER_PRINT = 282,
+     READ = 283,
+     SET = 284,
+     STEP = 285,
+     TIME = 286,
+     WRITE = 287,
+     PAGE = 288,
+     DEBUGGER_REGISTER = 289,
+     NUMBER = 290,
+     STRING = 291,
+     VARIABLE = 292,
+     DEBUGGER_ERROR = 293
    };
 #endif
 /* Tokens.  */
@@ -81,38 +88,47 @@
 #define BREAK 265
 #define TBREAK 266
 #define CLEAR 267
-#define CONDITION 268
-#define CONTINUE 269
-#define DEBUGGER_DELETE 270
-#define DISASSEMBLE 271
-#define FINISH 272
-#define IF 273
-#define DEBUGGER_IGNORE 274
-#define NEXT 275
-#define DEBUGGER_OUT 276
-#define PORT 277
-#define READ 278
-#define SET 279
-#define STEP 280
-#define TIME 281
-#define WRITE 282
-#define PAGE 283
-#define DEBUGGER_REGISTER 284
-#define NUMBER 285
-#define DEBUGGER_ERROR 286
+#define COMMANDS 268
+#define CONDITION 269
+#define CONTINUE 270
+#define DEBUGGER_DELETE 271
+#define DISASSEMBLE 272
+#define DEBUGGER_END 273
+#define EVENT 274
+#define EXIT 275
+#define FINISH 276
+#define IF 277
+#define DEBUGGER_IGNORE 278
+#define NEXT 279
+#define DEBUGGER_OUT 280
+#define PORT 281
+#define DEBUGGER_PRINT 282
+#define READ 283
+#define SET 284
+#define STEP 285
+#define TIME 286
+#define WRITE 287
+#define PAGE 288
+#define DEBUGGER_REGISTER 289
+#define NUMBER 290
+#define STRING 291
+#define VARIABLE 292
+#define DEBUGGER_ERROR 293
 
 
 
 
 #if ! defined YYSTYPE && ! defined YYSTYPE_IS_DECLARED
 typedef union YYSTYPE
-#line 45 "commandy.y"
+#line 46 "commandy.y"
 {
 
   int token;
   int reg;
 
   libspectrum_dword integer;
+  char *string;
+
   debugger_breakpoint_type bptype;
   debugger_breakpoint_life bplife;
   struct { int value1; libspectrum_word value2; } pair;
@@ -121,7 +137,7 @@ typedef union YYSTYPE
 
 }
 /* Line 1489 of yacc.c.  */
-#line 125 "commandy.h"
+#line 141 "commandy.h"
 	YYSTYPE;
 # define yystype YYSTYPE /* obsolescent; will be withdrawn */
 # define YYSTYPE_IS_DECLARED 1

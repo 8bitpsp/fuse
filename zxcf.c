@@ -1,8 +1,7 @@
 /* zxcf.c: ZXCF interface routines
-   Copyright (c) 2003-2005 Garry Lancaster,
-		 2004-2005 Philip Kendall
+   Copyright (c) 2003-2008 Garry Lancaster and Philip Kendall
 		 
-   $Id: zxcf.c 3389 2007-12-03 12:54:17Z fredm $
+   $Id: zxcf.c 3703 2008-06-30 20:36:11Z pak21 $
 
    This program is free software; you can redistribute it and/or modify
    it under the terms of the GNU General Public License as published by
@@ -30,6 +29,7 @@
 
 #include <libspectrum.h>
 
+#include "debugger/debugger.h"
 #include "ide.h"
 #include "machine.h"
 #include "memory.h"
@@ -89,6 +89,10 @@ static module_info_t zxcf_module_info = {
 
 };
 
+/* Debugger events */
+static const char *event_type_string = "zxcf";
+static int page_event, unpage_event;
+
 /* Housekeeping functions */
 
 int
@@ -98,8 +102,7 @@ zxcf_init( void )
 
   last_memctl = 0x00;
                                 
-  error = libspectrum_ide_alloc( &zxcf_idechn, LIBSPECTRUM_IDE_DATA16 );
-  if( error ) return error;
+  zxcf_idechn = libspectrum_ide_alloc( LIBSPECTRUM_IDE_DATA16 );
 
   ui_menu_activate( UI_MENU_ITEM_MEDIA_IDE_ZXCF_EJECT, 0 );
 
@@ -111,6 +114,10 @@ zxcf_init( void )
   }
 
   module_register( &zxcf_module_info );
+
+  if( periph_register_paging_events( event_type_string, &page_event,
+				     &unpage_event ) )
+    return 1;
 
   return 0;
 }
@@ -208,6 +215,8 @@ zxcf_memctl_read( libspectrum_word port GCC_UNUSED, int *attached )
 static void
 zxcf_memctl_write( libspectrum_word port GCC_UNUSED, libspectrum_byte data )
 {
+  int was_paged = machine_current->ram.romcs;
+
   if( !settings_current.zxcf_active ) return;
 
   last_memctl = data;
@@ -222,6 +231,9 @@ zxcf_memctl_write( libspectrum_word port GCC_UNUSED, libspectrum_byte data )
   set_zxcf_bank( data & 0x3f );
 
   machine_current->memory_map();
+
+  if( machine_current->ram.romcs != was_paged )
+    debugger_event( machine_current->ram.romcs ? page_event : unpage_event );
 }
 
 libspectrum_byte

@@ -1,7 +1,7 @@
 /* machine.h: Routines for handling the various machine types
-   Copyright (c) 1999-2004 Philip Kendall
+   Copyright (c) 1999-2008 Philip Kendall
 
-   $Id: machine.h 2995 2007-06-17 14:31:36Z pak21 $
+   $Id: machine.h 3573 2008-03-21 16:05:20Z pak21 $
 
    This program is free software; you can redistribute it and/or modify
    it under the terms of the GNU General Public License as published by
@@ -96,8 +96,9 @@ int machine_select( libspectrum_machine type );
 int machine_select_id( const char *id );
 const char* machine_get_id( libspectrum_machine type );
 
-int machine_set_timings( fuse_machine_info *machine );
-
+int machine_load_rom_bank_from_buffer( memory_page* bank_map, size_t which,
+                                       int page_num, unsigned char *buffer,
+                                       size_t length, int custom );
 int machine_load_rom_bank( memory_page* bank_map, size_t which, int page_num,
                            const char *filename, const char *fallback,
                            size_t expected_length );

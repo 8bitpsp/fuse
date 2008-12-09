@@ -1,8 +1,8 @@
 /* internals.h: functions which need to be called inter-file by libspectrum
                 routines, but not by user code
-   Copyright (c) 2001-2007 Philip Kendall, Darren Salt
+   Copyright (c) 2001-2008 Philip Kendall, Darren Salt
 
-   $Id: internals.h 3370 2007-11-30 07:48:32Z zubzero $
+   $Id: internals.h 3775 2008-09-28 03:28:22Z fredm $
 
    This program is free software; you can redistribute it and/or modify
    it under the terms of the GNU General Public License as published by
@@ -63,8 +63,8 @@ libspectrum_print_error( libspectrum_error error, const char *format, ... )
      GCC_PRINTF( 2, 3 );
 
 /* Acquire more memory for a buffer */
-int libspectrum_make_room( libspectrum_byte **dest, size_t requested,
-			   libspectrum_byte **ptr, size_t *allocated );
+void libspectrum_make_room( libspectrum_byte **dest, size_t requested,
+			    libspectrum_byte **ptr, size_t *allocated );
 
 /* Read and write (d)words */
 libspectrum_word libspectrum_read_word( const libspectrum_byte **buffer );
@@ -111,10 +111,11 @@ int libspectrum_split_to_48k_pages( libspectrum_snap *snap,
 #define SNAPSHOT_ZXCF_PAGES 64
 #define SNAPSHOT_DOCK_EXROM_PAGES 8
 #define SNAPSHOT_JOYSTICKS 7
+#define SNAPSHOT_DIVIDE_PAGES 4
 
 /* Get memory for a snap */
 
-libspectrum_error libspectrum_snap_alloc_internal( libspectrum_snap **snap );
+libspectrum_snap* libspectrum_snap_alloc_internal( void );
 
 /* Format specific snapshot routines */
 
@@ -150,6 +151,15 @@ libspectrum_error
 libspectrum_zxs_read( libspectrum_snap *snap,
 		      const libspectrum_byte *buffer, size_t buffer_length );
 
+/*** Tape constants ***/
+
+/* The timings for the standard ROM loader */
+extern const libspectrum_dword LIBSPECTRUM_TAPE_TIMING_PILOT;
+extern const libspectrum_dword LIBSPECTRUM_TAPE_TIMING_SYNC1;
+extern const libspectrum_dword LIBSPECTRUM_TAPE_TIMING_SYNC2;
+extern const libspectrum_dword LIBSPECTRUM_TAPE_TIMING_DATA0;
+extern const libspectrum_dword LIBSPECTRUM_TAPE_TIMING_DATA1;
+
 /* Tape routines */
 
 void libspectrum_tape_block_zero( libspectrum_tape_block *block );
@@ -161,6 +171,8 @@ libspectrum_error
 libspectrum_tape_block_read_symbol_table(
   libspectrum_tape_generalised_data_symbol_table *table,
   const libspectrum_byte **ptr, size_t length );
+
+void libspectrum_init_bits_set( void );
 
 /* Format specific tape routines */
   
@@ -199,13 +211,6 @@ libspectrum_csw_write( libspectrum_byte **buffer, size_t *length,
 libspectrum_error
 libspectrum_wav_read( libspectrum_tape *tape, const char *filename );
 
-/* Crypto functions */
-
-libspectrum_error
-libspectrum_sign_data( libspectrum_byte **signature, size_t *signature_length,
-		       libspectrum_byte *data, size_t data_length,
-		       libspectrum_rzx_dsa_key *key );
-
 libspectrum_tape_block*
 libspectrum_tape_block_internal_init(
                                 libspectrum_tape_block_state *iterator,
@@ -215,5 +220,12 @@ libspectrum_error
 libspectrum_tape_get_next_edge_internal( libspectrum_dword *tstates, int *flags,
                                          libspectrum_tape *tape,
                                          libspectrum_tape_block_state *it );
+
+/* Crypto functions */
+
+libspectrum_error
+libspectrum_sign_data( libspectrum_byte **signature, size_t *signature_length,
+		       libspectrum_byte *data, size_t data_length,
+		       libspectrum_rzx_dsa_key *key );
 
 #endif				/* #ifndef LIBSPECTRUM_INTERNALS_H */

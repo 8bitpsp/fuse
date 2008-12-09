@@ -1,7 +1,7 @@
 /* screenshot.c: Routines for handling .png and .scr screenshots
    Copyright (c) 2002-2003 Philip Kendall, Fredrick Meunier
 
-   $Id: screenshot.c 3043 2007-07-04 14:28:49Z zubzero $
+   $Id: screenshot.c 3621 2008-05-17 14:33:46Z fredm $
 
    This program is free software; you can redistribute it and/or modify
    it under the terms of the GNU General Public License as published by
@@ -271,7 +271,7 @@ screenshot_available_scalers( scaler_type scaler )
     switch( scaler ) {
 
     case SCALER_HALF: case SCALER_HALFSKIP: case SCALER_NORMAL:
-    case SCALER_TIMEXTV:
+    case SCALER_TIMEXTV: case SCALER_PALTV:
       return 1;
     default:
       return 0;
@@ -285,7 +285,8 @@ screenshot_available_scalers( scaler_type scaler )
     case SCALER_NORMAL: case SCALER_DOUBLESIZE: case SCALER_TRIPLESIZE:
     case SCALER_2XSAI: case SCALER_SUPER2XSAI: case SCALER_SUPEREAGLE:
     case SCALER_ADVMAME2X: case SCALER_ADVMAME3X: case SCALER_TV2X:
-    case SCALER_DOTMATRIX:
+    case SCALER_DOTMATRIX: case SCALER_PALTV2X: case SCALER_PALTV3X:
+    case SCALER_HQ2X: case SCALER_HQ3X:
       return 1;
     default:
       return 0;

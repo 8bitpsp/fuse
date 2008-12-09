@@ -1,8 +1,9 @@
 /* simpleide.c: Simple 8-bit IDE interface routines
    Copyright (c) 2003-2004 Garry Lancaster,
-		 2004 Philip Kendall
+		 2004 Philip Kendall,
+		 2008 Fredrick Meunier
 
-   $Id: simpleide.c 3389 2007-12-03 12:54:17Z fredm $
+   $Id: simpleide.c 3703 2008-06-30 20:36:11Z pak21 $
 
    This program is free software; you can redistribute it and/or modify
    it under the terms of the GNU General Public License as published by
@@ -51,13 +52,16 @@ const size_t simpleide_peripherals_count =
 
 static libspectrum_ide_channel *simpleide_idechn;
 
+static void simpleide_from_snapshot( libspectrum_snap *snap );
+static void simpleide_to_snapshot( libspectrum_snap *snap );
+
 static module_info_t simpleide_module_info = {
 
   simpleide_reset,
   NULL,
   NULL,
-  NULL,
-  NULL,
+  simpleide_from_snapshot,
+  simpleide_to_snapshot,
 
 };
 
@@ -68,8 +72,7 @@ simpleide_init( void )
 {
   int error;
 
-  error = libspectrum_ide_alloc( &simpleide_idechn, LIBSPECTRUM_IDE_DATA8 );
-  if( error ) return error;
+  simpleide_idechn = libspectrum_ide_alloc( LIBSPECTRUM_IDE_DATA8 );
 
   ui_menu_activate( UI_MENU_ITEM_MEDIA_IDE_SIMPLE8BIT_MASTER_EJECT, 0 );
   ui_menu_activate( UI_MENU_ITEM_MEDIA_IDE_SIMPLE8BIT_SLAVE_EJECT, 0 );
@@ -189,4 +192,19 @@ simpleide_write( libspectrum_word port, libspectrum_byte data )
   idereg = ( ( port >> 8 ) & 0x01 ) | ( ( port >> 11 ) & 0x06 );
   
   libspectrum_ide_write( simpleide_idechn, idereg, data ); 
+}
+
+static void
+simpleide_from_snapshot( libspectrum_snap *snap )
+{
+  settings_current.simpleide_active =
+    libspectrum_snap_simpleide_active( snap );
+}
+
+static void
+simpleide_to_snapshot( libspectrum_snap *snap )
+{
+  if( !settings_current.simpleide_active ) return;
+
+  libspectrum_snap_set_simpleide_active( snap, 1 );
 }

@@ -1,7 +1,7 @@
 /* snapshot.c: snapshot handling routines
    Copyright (c) 1999-2004 Philip Kendall
 
-   $Id: snapshot.c 3389 2007-12-03 12:54:17Z fredm $
+   $Id: snapshot.c 3703 2008-06-30 20:36:11Z pak21 $
 
    This program is free software; you can redistribute it and/or modify
    it under the terms of the GNU General Public License as published by
@@ -54,10 +54,8 @@ int snapshot_read( const char *filename )
 #endif
 {
   utils_file file;
-  libspectrum_snap *snap;
+  libspectrum_snap *snap = libspectrum_snap_alloc();
   int error;
-
-  error = libspectrum_snap_alloc( &snap ); if( error ) return error;
 
 #ifdef PSP
   {
@@ -101,9 +99,8 @@ int
 snapshot_read_buffer( const unsigned char *buffer, size_t length,
 		      libspectrum_id_t type )
 {
-  libspectrum_snap *snap; int error;
-
-  error = libspectrum_snap_alloc( &snap ); if( error ) return error;
+  libspectrum_snap *snap = libspectrum_snap_alloc();
+  int error;
 
   error = libspectrum_snap_read( snap, buffer, length, type, NULL );
   if( error ) { libspectrum_snap_free( snap ); return error; }
@@ -200,7 +197,7 @@ int snapshot_write( const char *filename )
   if( class != LIBSPECTRUM_CLASS_SNAPSHOT || type == LIBSPECTRUM_ID_UNKNOWN )
     type = LIBSPECTRUM_ID_SNAPSHOT_SZX;
 
-  error = libspectrum_snap_alloc( &snap ); if( error ) return error;
+  snap = libspectrum_snap_alloc();
 
   error = snapshot_copy_to( snap );
   if( error ) { libspectrum_snap_free( snap ); return error; }

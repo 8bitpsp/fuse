@@ -1,7 +1,7 @@
 /* z80_ops.c: Process the next opcode
    Copyright (c) 1999-2005 Philip Kendall, Witold Filipczyk
 
-   $Id: z80_ops.c 3299 2007-11-15 03:29:48Z zubzero $
+   $Id: z80_ops.c 3681 2008-06-16 09:40:29Z pak21 $
 
    This program is free software; you can redistribute it and/or modify
    it under the terms of the GNU General Public License as published by
@@ -123,7 +123,7 @@ z80_do_opcodes( void )
   if( next != check ) { cgoto[ next ] = &&label; } \
   next = check;
 
-  void *cgoto[ numchecks - 1 ]; size_t next = 0; size_t check = 0;
+  void *cgoto[ numchecks ]; size_t next = 0; size_t check = 0;
 
 #include "z80_checks.h"
 
@@ -142,7 +142,7 @@ z80_do_opcodes( void )
     CHECK( rzx, rzx_playback )
 
     if( R + rzx_instructions_offset >= rzx_instruction_count ) {
-      event_add( tstates, EVENT_TYPE_FRAME );
+      event_add( tstates, spectrum_frame_event );
       break;		/* And break out of the execution loop to let
 			   the interrupt happen */
     }

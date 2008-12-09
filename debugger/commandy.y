@@ -1,7 +1,7 @@
 /* commandy.y: Parse a debugger command
-   Copyright (c) 2002-2004 Philip Kendall
+   Copyright (c) 2002-2008 Philip Kendall
 
-   $Id: commandy.y 3115 2007-08-19 02:49:14Z fredm $
+   $Id: commandy.y 3657 2008-06-08 15:04:37Z pak21 $
 
    This program is free software; you can redistribute it and/or modify
    it under the terms of the GNU General Public License as published by
@@ -33,6 +33,7 @@
 
 #include "debugger.h"
 #include "debugger_internals.h"
+#include "mempool.h"
 #include "ui/ui.h"
 #include "z80/z80.h"
 #include "z80/z80_macros.h"
@@ -48,6 +49,8 @@
   int reg;
 
   libspectrum_dword integer;
+  char *string;
+
   debugger_breakpoint_type bptype;
   debugger_breakpoint_life bplife;
   struct { int value1; libspectrum_word value2; } pair;
@@ -55,6 +58,8 @@
   debugger_expression* exp;
 
 }
+
+%debug
 
 /* Tokens as returned from the Flex scanner (commandl.l) */
 
@@ -71,16 +76,21 @@
 %token		 BREAK
 %token		 TBREAK
 %token		 CLEAR
+%token           COMMANDS
 %token		 CONDITION
 %token		 CONTINUE
 %token		 DEBUGGER_DELETE
 %token		 DISASSEMBLE
+%token           DEBUGGER_END
+%token		 EVENT
+%token		 EXIT
 %token		 FINISH
 %token		 IF
 %token		 DEBUGGER_IGNORE
 %token		 NEXT
 %token		 DEBUGGER_OUT
 %token		 PORT
+%token		 DEBUGGER_PRINT
 %token		 READ
 %token		 SET
 %token		 STEP
@@ -91,6 +101,9 @@
 %token <reg>	 DEBUGGER_REGISTER
 
 %token <integer> NUMBER
+
+%token <string>	 STRING
+%token <string>	 VARIABLE
 
 %token		 DEBUGGER_ERROR
 
@@ -108,6 +121,9 @@
 
 %type  <exp>     expressionornull
 %type  <exp>     expression;
+
+%type  <string>  debuggercommand
+%type  <string>  debuggercommands
 
 /* Operator precedences */
 
@@ -131,6 +147,7 @@
 input:	 /* empty */
        | command
        | error
+       | input '\n' command
 ;
 
 command:   BASE number { debugger_output_base = $2; }
@@ -148,7 +165,12 @@ command:   BASE number { debugger_output_base = $2; }
 	     debugger_breakpoint_add_time( DEBUGGER_BREAKPOINT_TYPE_TIME,
 					   $3, 0, $1, $4 );
 	   }
+	 | breakpointlife EVENT STRING ':' STRING optionalcondition {
+	     debugger_breakpoint_add_event( DEBUGGER_BREAKPOINT_TYPE_EVENT,
+					    $3, $5, 0, $1, $6 );
+	   }
 	 | CLEAR numberorpc { debugger_breakpoint_clear( $2 ); }
+	 | COMMANDS number '\n' debuggercommands DEBUGGER_END { debugger_breakpoint_set_commands( $2, $4 ); }
 	 | CONDITION NUMBER expressionornull {
 	     debugger_breakpoint_set_condition( $2, $3 );
            }
@@ -156,14 +178,17 @@ command:   BASE number { debugger_output_base = $2; }
 	 | DEBUGGER_DELETE { debugger_breakpoint_remove_all(); }
 	 | DEBUGGER_DELETE number { debugger_breakpoint_remove( $2 ); }
 	 | DISASSEMBLE number { ui_debugger_disassemble( $2 ); }
+	 | EXIT     { debugger_exit_emulator(); }
 	 | FINISH   { debugger_breakpoint_exit(); }
 	 | DEBUGGER_IGNORE NUMBER number {
 	     debugger_breakpoint_ignore( $2, $3 );
 	   }
 	 | NEXT	    { debugger_next(); }
 	 | DEBUGGER_OUT number NUMBER { debugger_port_write( $2, $3 ); }
+	 | DEBUGGER_PRINT number { printf( "0x%x\n", $2 ); }
 	 | SET NUMBER number { debugger_poke( $2, $3 ); }
 	 | SET DEBUGGER_REGISTER number { debugger_register_set( $2, $3 ); }
+	 | SET VARIABLE number { debugger_variable_set( $2, $3 ); }
 	 | STEP	    { debugger_step(); }
 ;
 
@@ -202,66 +227,77 @@ expressionornull:   /* empty */ { $$ = NULL; }
 number:   expression { $$ = debugger_expression_evaluate( $1 ); }
 ;
 
-expression:   NUMBER { $$ = debugger_expression_new_number( $1 );
+expression:   NUMBER { $$ = debugger_expression_new_number( $1, debugger_memory_pool );
 		       if( !$$ ) YYABORT;
 		     }
-	    | DEBUGGER_REGISTER { $$ = debugger_expression_new_register( $1 );
+	    | DEBUGGER_REGISTER { $$ = debugger_expression_new_register( $1, debugger_memory_pool );
+			 if( !$$ ) YYABORT;
+		       }
+	    | VARIABLE { $$ = debugger_expression_new_variable( $1, debugger_memory_pool );
 			 if( !$$ ) YYABORT;
 		       }
 	    | '(' expression ')' { $$ = $2; }
 	    | '+' expression %prec NEGATE { $$ = $2; }
 	    | '-' expression %prec NEGATE {
-	        $$ = debugger_expression_new_unaryop( '-', $2 );
+	        $$ = debugger_expression_new_unaryop( '-', $2, debugger_memory_pool );
 		if( !$$ ) YYABORT;
 	      }
 	    | NEGATE expression {
-	        $$ = debugger_expression_new_unaryop( $1, $2 );
+	        $$ = debugger_expression_new_unaryop( $1, $2, debugger_memory_pool );
 		if( !$$ ) YYABORT;
 	      }
 	    | expression '+' expression {
-	        $$ = debugger_expression_new_binaryop( '+', $1, $3 );
+	        $$ = debugger_expression_new_binaryop( '+', $1, $3, debugger_memory_pool );
 		if( !$$ ) YYABORT;
 	      }
 	    | expression '-' expression {
-	        $$ = debugger_expression_new_binaryop( '-', $1, $3 );
+	        $$ = debugger_expression_new_binaryop( '-', $1, $3, debugger_memory_pool );
 		if( !$$ ) YYABORT;
 	      }
 	    | expression TIMES_DIVIDE expression {
-	        $$ = debugger_expression_new_binaryop( $2, $1, $3 );
+	        $$ = debugger_expression_new_binaryop( $2, $1, $3, debugger_memory_pool );
 		if( !$$ ) YYABORT;
 	      }
 	    | expression EQUALITY expression {
-	        $$ = debugger_expression_new_binaryop( $2, $1, $3 );
+	        $$ = debugger_expression_new_binaryop( $2, $1, $3, debugger_memory_pool );
 		if( !$$ ) YYABORT;
 	      }
 	    | expression COMPARISON expression {
-	        $$ = debugger_expression_new_binaryop( $2, $1, $3 );
+	        $$ = debugger_expression_new_binaryop( $2, $1, $3, debugger_memory_pool );
 		if( !$$ ) YYABORT;
 	      }
 	    | expression '&' expression {
-	        $$ = debugger_expression_new_binaryop( '&', $1, $3 );
+	        $$ = debugger_expression_new_binaryop( '&', $1, $3, debugger_memory_pool );
 		if( !$$ ) YYABORT;
 	      }
 	    | expression '^' expression {
-	        $$ = debugger_expression_new_binaryop( '^', $1, $3 );
+	        $$ = debugger_expression_new_binaryop( '^', $1, $3, debugger_memory_pool );
 		if( !$$ ) YYABORT;
 	      }
 	    | expression '|' expression {
-	        $$ = debugger_expression_new_binaryop( '|', $1, $3 );
+	        $$ = debugger_expression_new_binaryop( '|', $1, $3, debugger_memory_pool );
 		if( !$$ ) YYABORT;
 	      }
 	    | expression LOGICAL_AND expression {
 	        $$ = debugger_expression_new_binaryop(
-                  DEBUGGER_TOKEN_LOGICAL_AND, $1, $3
+		  DEBUGGER_TOKEN_LOGICAL_AND, $1, $3, debugger_memory_pool
                 );
 		if( !$$ ) YYABORT;
 	      }
 	    | expression LOGICAL_OR expression {
 	        $$ = debugger_expression_new_binaryop(
-		  DEBUGGER_TOKEN_LOGICAL_OR, $1, $3
+		  DEBUGGER_TOKEN_LOGICAL_OR, $1, $3, debugger_memory_pool
 		);
 		if( !$$ ) YYABORT;
 	      }
 ;
+
+debuggercommands:   debuggercommand { $$ = $1; }
+                  | debuggercommands debuggercommand {
+                      $$ = mempool_alloc( debugger_memory_pool, strlen( $1 ) + strlen( $2 ) + 2 );
+                      sprintf( $$, "%s\n%s", $1, $2 );
+                    }
+
+debuggercommand: STRING '\n'
 
 %%

@@ -1,7 +1,7 @@
 /* creator.c: simple type for storing creator information
    Copyright (c) 2003-2005 Philip Kendall
 
-   $Id: creator.c 2890 2007-05-26 19:31:43Z zubzero $
+   $Id: creator.c 3701 2008-06-30 20:32:56Z pak21 $
 
    This program is free software; you can redistribute it and/or modify
    it under the terms of the GNU General Public License as published by
@@ -42,27 +42,20 @@ struct libspectrum_creator {
 
 };
 
-libspectrum_error
-libspectrum_creator_alloc( libspectrum_creator **creator )
+libspectrum_creator*
+libspectrum_creator_alloc( void )
 {
-  *creator = malloc( sizeof( libspectrum_creator ) );
-  if( !(*creator) ) {
-    libspectrum_print_error( LIBSPECTRUM_ERROR_MEMORY,
-			     "out of memory in libspectrum_creator_alloc" );
-    return LIBSPECTRUM_ERROR_MEMORY;
-  }
-
-  (*creator)->custom = NULL;
-  (*creator)->custom_length = 0;
-
-  return LIBSPECTRUM_ERROR_NONE;
+  libspectrum_creator *creator = libspectrum_malloc( sizeof( *creator ) );
+  creator->custom = NULL;
+  creator->custom_length = 0;
+  return creator;
 }
 
 libspectrum_error
 libspectrum_creator_free( libspectrum_creator *creator )
 {
-  if( creator->custom ) free( creator->custom );
-  free( creator );
+  if( creator->custom ) libspectrum_free( creator->custom );
+  libspectrum_free( creator );
 
   return LIBSPECTRUM_ERROR_NONE;
 }

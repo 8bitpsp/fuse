@@ -1,7 +1,7 @@
 /* microdrive.c: Routines for handling microdrive images
    Copyright (c) 2004-2005 Philip Kendall
 
-   $Id: microdrive.c 3024 2007-06-28 19:04:16Z zubzero $
+   $Id: microdrive.c 3701 2008-06-30 20:32:56Z pak21 $
 
    This program is free software; you can redistribute it and/or modify
    it under the terms of the GNU General Public License as published by
@@ -63,27 +63,17 @@ static const size_t MDR_LENGTH = LIBSPECTRUM_MICRODRIVE_CARTRIDGE_LENGTH + 1;
 /* Constructor/destructor */
 
 /* Allocate a microdrive image */
-libspectrum_error
-libspectrum_microdrive_alloc( libspectrum_microdrive **microdrive )
+libspectrum_microdrive*
+libspectrum_microdrive_alloc( void )
 {
-  *microdrive = malloc( sizeof( **microdrive ) );
-  if( !*microdrive ) {
-    libspectrum_print_error(
-      LIBSPECTRUM_ERROR_MEMORY,
-      "libspectrum_microdrive_alloc: out of memory at %s:%d", __FILE__,
-      __LINE__
-    );
-    return LIBSPECTRUM_ERROR_MEMORY;
-  }
-
-  return LIBSPECTRUM_ERROR_NONE;
+  return libspectrum_malloc( sizeof( libspectrum_microdrive ) );
 }
 
 /* Free a microdrive image */
 libspectrum_error
 libspectrum_microdrive_free( libspectrum_microdrive *microdrive )
 {
-  free( microdrive );
+  libspectrum_free( microdrive );
 
   return LIBSPECTRUM_ERROR_NONE;
 }
@@ -267,13 +257,11 @@ libspectrum_error
 libspectrum_microdrive_mdr_read( libspectrum_microdrive *microdrive,
 				 libspectrum_byte *buffer, size_t length )
 {
-  libspectrum_microdrive_block b;
-  libspectrum_byte label[10];
-  libspectrum_byte n;
-  int e, nolabel;
-  
+  size_t data_length;
+
   if( length < LIBSPECTRUM_MICRODRIVE_BLOCK_LEN * 10 ||
-     ( length % LIBSPECTRUM_MICRODRIVE_BLOCK_LEN ) > 1 ) {
+     ( length % LIBSPECTRUM_MICRODRIVE_BLOCK_LEN ) > 1 ||
+       length > MDR_LENGTH ) {
     libspectrum_print_error(
       LIBSPECTRUM_ERROR_CORRUPT,
       "libspectrum_microdrive_mdr_read: not enough data in buffer"
@@ -281,9 +269,9 @@ libspectrum_microdrive_mdr_read( libspectrum_microdrive *microdrive,
     return LIBSPECTRUM_ERROR_CORRUPT;
   }
 
-  length = length > MDR_LENGTH ? MDR_LENGTH : length;
-  
-  memcpy( microdrive->data, buffer, length ); buffer += length;
+  data_length = length - ( length % LIBSPECTRUM_MICRODRIVE_BLOCK_LEN );
+
+  memcpy( microdrive->data, buffer, data_length ); buffer += data_length;
 
   if( ( length % LIBSPECTRUM_MICRODRIVE_BLOCK_LEN ) == 1 )
     libspectrum_microdrive_set_write_protect( microdrive, *buffer );
@@ -291,62 +279,21 @@ libspectrum_microdrive_mdr_read( libspectrum_microdrive *microdrive,
     libspectrum_microdrive_set_write_protect( microdrive, 0 );
 
   libspectrum_microdrive_set_cartridge_len( microdrive,
-				length / LIBSPECTRUM_MICRODRIVE_BLOCK_LEN );
+			      data_length / LIBSPECTRUM_MICRODRIVE_BLOCK_LEN );
  
-  n = libspectrum_microdrive_cartridge_len( microdrive );
-  nolabel = 1;	/* No real label ! */
-  
-  while( n > 0 ) {
-    n--;
-    if( ( e = libspectrum_microdrive_checksum( microdrive, n ) ) > 0 ) {
-      libspectrum_print_error(
-        LIBSPECTRUM_ERROR_CORRUPT,
-        "libspectrum_microdrive_mdr_read: %s checksum error in #%d record",
-	e == 1 ? "record header" : e == 2 ? "data header" : "data",
-	n
-      );
-      return LIBSPECTRUM_ERROR_CORRUPT;
-    }
-
-    libspectrum_microdrive_get_block( microdrive, 0, &b );
-
-    if( !nolabel && memcmp( label, b.hdbnam, 10 ) ) {
-      libspectrum_print_error(
-        LIBSPECTRUM_ERROR_CORRUPT,
-        "libspectrum_microdrive_mdr_read: inconsistent labels in #%d record",
-	n
-      );
-      return LIBSPECTRUM_ERROR_CORRUPT;
-    }
-
-    if( e == 0 && nolabel ) {
-      memcpy( label, b.hdbnam, 10 );
-      nolabel = 0;
-    }
-  }
-  
   return LIBSPECTRUM_ERROR_NONE;
 }
 
-libspectrum_error
+void
 libspectrum_microdrive_mdr_write( const libspectrum_microdrive *microdrive,
 				  libspectrum_byte **buffer, size_t *length )
 {
-  *buffer = malloc( *length = microdrive->cartridge_len * 
-				    LIBSPECTRUM_MICRODRIVE_BLOCK_LEN + 1 );
-  if( !*buffer ) {
-    libspectrum_print_error(
-      LIBSPECTRUM_ERROR_MEMORY,
-      "libspectrum_microdrive_mdr_write: out of memory at %s:%d", __FILE__,
-      __LINE__
-    );
-    return LIBSPECTRUM_ERROR_MEMORY;
-  }
+  *length = microdrive->cartridge_len * LIBSPECTRUM_MICRODRIVE_BLOCK_LEN;
+  *buffer = libspectrum_malloc( ( *length + 1 ) * sizeof( **buffer ) );
 
   memcpy( *buffer, microdrive->data, *length );
 
-  
   (*buffer)[ *length ] = microdrive->write_protect;
 
-  return LIBSPECTRUM_ERROR_NONE;
+  (*length)++;
 }

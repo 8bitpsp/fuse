@@ -33,6 +33,7 @@
 
 typedef struct settings_info {
 
+   int accelerate_loader;
    int aspect_hint;
    int auto_load;
    int autosave_settings;
@@ -43,6 +44,7 @@ typedef struct settings_info {
    int competition_mode;
    int confirm_actions;
   char *dck_file;
+  char *debugger_command;
    int detect_loader;
    int divide_enabled;
   char *divide_master_file;
@@ -84,8 +86,14 @@ typedef struct settings_info {
    int joystick_2_fire_8;
    int joystick_2_fire_9;
    int joystick_2_output;
+   int joystick_keyboard_down;
+   int joystick_keyboard_fire;
+   int joystick_keyboard_left;
    int joystick_keyboard_output;
+   int joystick_keyboard_right;
+   int joystick_keyboard_up;
    int kempston_mouse;
+   int late_timings;
   char *mdr_file;
   char *mdr_file2;
   char *mdr_file3;
@@ -123,7 +131,6 @@ typedef struct settings_info {
   char *rom_pentagon_0;
   char *rom_pentagon_1;
   char *rom_pentagon_2;
-  char *rom_pentagon_3;
   char *rom_plus2_0;
   char *rom_plus2_1;
   char *rom_plus2a_0;
@@ -153,6 +160,7 @@ typedef struct settings_info {
    int rs232_handshake;
   char *rs232_rx;
   char *rs232_tx;
+   int rzx_autosaves;
    int rzx_compression;
    int simpleide_active;
   char *simpleide_master_file;
@@ -175,6 +183,7 @@ typedef struct settings_info {
    int svga_mode;
   char *tape_file;
    int tape_traps;
+   int unittests;
    int writable_roms;
    int zxatasp_active;
   char *zxatasp_master_file;

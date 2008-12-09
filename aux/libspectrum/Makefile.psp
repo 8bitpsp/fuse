@@ -9,7 +9,7 @@ all: libspectrum.a
 
 libspectrum.a: \
          creator.o crypto.o csw.o \
-         bzip2.o dck.o ide.o \
+         bzip2.o dck.o ide.o memory.o \
          libspectrum.o microdrive.o plusd.o \
          rzx.o sna.o snap_accessors.o \
          snapshot.o snp.o sp.o \
@@ -18,7 +18,7 @@ libspectrum.a: \
          tape_set.o timings.o tzx_read.o \
          tzx_write.o warajevo_read.o wav.o \
          z80.o z80em.o zlib.o zxs.o \
-         myglib/ghash.o myglib/gslist.o
+         myglib/garray.o myglib/ghash.o myglib/gslist.o
 	$(AR) cru $@ $?
 	$(RANLIB) $@
 

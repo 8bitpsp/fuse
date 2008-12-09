@@ -1,7 +1,7 @@
 /* specplus2a.c: Spectrum +2A specific routines
    Copyright (c) 1999-2004 Philip Kendall
 
-   $Id: specplus2a.c 3404 2007-12-05 00:52:47Z fredm $
+   $Id: specplus2a.c 3823 2008-11-16 17:32:18Z pak21 $
 
    This program is free software; you can redistribute it and/or modify
    it under the terms of the GNU General Public License as published by
@@ -44,7 +44,7 @@ static const periph_t peripherals[] = {
   { 0x0001, 0x0000, ula_read, ula_write },
   { 0x00e0, 0x0000, joystick_kempston_read, NULL },
   { 0xc002, 0xc000, ay_registerport_read, ay_registerport_write },
-  { 0xc002, 0x8000, NULL, ay_dataport_write },
+  { 0xc002, 0x8000, ay_registerport_read, ay_dataport_write },
   { 0xc002, 0x4000, NULL, spec128_memoryport_write },
   { 0xf002, 0x1000, NULL, specplus3_memoryport2_write },
   { 0xf002, 0x0000, printer_parallel_read, printer_parallel_write },
@@ -63,10 +63,10 @@ specplus2a_init( fuse_machine_info *machine )
 
   machine->timex = 0;
   machine->ram.port_from_ula	     = specplus3_port_from_ula;
-  machine->ram.contend_delay	     = specplus3_contend_delay;
-  machine->ram.contend_delay_no_mreq = specplus3_contend_delay_no_mreq;
+  machine->ram.contend_delay	     = spectrum_contend_delay_76543210;
+  machine->ram.contend_delay_no_mreq = spectrum_contend_delay_none;
 
-  machine->unattached_port = specplus3_unattached_port;
+  machine->unattached_port = spectrum_unattached_port_none;
 
   machine->shutdown = NULL;
 

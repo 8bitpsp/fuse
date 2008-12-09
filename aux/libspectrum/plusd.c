@@ -2,7 +2,7 @@
    Copyright (c) 1998,2003 Philip Kendall
    Copyright (c) 2007 Stuart Brady
 
-   $Id: plusd.c 3440 2007-12-19 03:29:38Z zubzero $
+   $Id: plusd.c 3698 2008-06-30 15:12:02Z pak21 $
 
    This program is free software; you can redistribute it and/or modify
    it under the terms of the GNU General Public License as published by
@@ -42,7 +42,7 @@ libspectrum_plusd_read_data( const libspectrum_byte *buffer,
 			     libspectrum_snap *snap );
 static libspectrum_byte
 readbyte( libspectrum_snap *snap, libspectrum_word address );
-static libspectrum_error
+static void
 libspectrum_plusd_read_128_data( libspectrum_snap *snap,
 				 const libspectrum_byte *buffer );
 
@@ -147,9 +147,7 @@ libspectrum_plusd_read_data( const libspectrum_byte *buffer,
 
     libspectrum_snap_set_out_128_memoryport( snap, buffer[0] );
     buffer++;
-
-    error = libspectrum_plusd_read_128_data( snap, buffer );
-    if( error != LIBSPECTRUM_ERROR_NONE ) return error;
+    libspectrum_plusd_read_128_data( snap, buffer );
 
     break;
 
@@ -203,32 +201,21 @@ readbyte( libspectrum_snap *snap, libspectrum_word address )
   return libspectrum_snap_pages( snap, page )[ address & 0x3fff ];
 }
 
-static libspectrum_error
+static void
 libspectrum_plusd_read_128_data( libspectrum_snap *snap,
 				 const libspectrum_byte *buffer )
 {
-  int i, j;
+  int i;
 
   for( i=0; i<8; i++ ) {
 
     libspectrum_byte *ram;
 
-    ram = malloc( 0x4000 * sizeof( libspectrum_byte ) );
-    if( ram == NULL ) {
-      for( j = 0; j < i; j++ ) {
-	free( libspectrum_snap_pages( snap, i ) );
-	libspectrum_snap_set_pages( snap, i, NULL );
-      }
-      libspectrum_print_error( LIBSPECTRUM_ERROR_MEMORY,
-	"libspectrum_plusd_read_128_data: out of memory" );
-      return LIBSPECTRUM_ERROR_MEMORY;
-    }
+    ram = libspectrum_malloc( 0x4000 * sizeof( *ram ) );
     libspectrum_snap_set_pages( snap, i, ram );
 
     memcpy( ram, buffer, 0x4000 );
     buffer += 0x4000;
 
   }
-
-  return LIBSPECTRUM_ERROR_NONE;
 }

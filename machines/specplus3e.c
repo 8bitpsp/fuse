@@ -1,7 +1,7 @@
 /* specplus3e.c: Spectrum +3e specific routines
    Copyright (c) 1999-2004 Philip Kendall, Darren Salt
 
-   $Id: specplus3e.c 3281 2007-11-05 18:51:51Z pak21 $
+   $Id: specplus3e.c 3601 2008-04-09 13:32:12Z fredm $
 
    This program is free software; you can redistribute it and/or modify
    it under the terms of the GNU General Public License as published by
@@ -25,6 +25,7 @@
 
 #include <config.h>
 
+#include "disk/upd_fdc.h"
 #include "machines.h"
 #include "periph.h"
 #include "settings.h"
@@ -32,6 +33,7 @@
 #include "ui/ui.h"
 
 static int specplus3e_reset( void );
+extern upd_fdc *specplus3_fdc;
 
 int
 specplus3e_init( fuse_machine_info *machine )
@@ -43,12 +45,10 @@ specplus3e_init( fuse_machine_info *machine )
 
   machine->timex = 0;
   machine->ram.port_from_ula	     = specplus3_port_from_ula;
-  machine->ram.contend_delay	     = specplus3_contend_delay;
-  machine->ram.contend_delay_no_mreq = specplus3_contend_delay_no_mreq;
+  machine->ram.contend_delay	     = spectrum_contend_delay_76543210;
+  machine->ram.contend_delay_no_mreq = spectrum_contend_delay_none;
 
-  machine->unattached_port = specplus3_unattached_port;
-
-  specplus3_765_init();
+  machine->unattached_port = spectrum_unattached_port_none;
 
   machine->shutdown = specplus3_shutdown;
 
@@ -84,10 +84,8 @@ specplus3e_reset( void )
   periph_setup_interface1( PERIPH_PRESENT_OPTIONAL );
   periph_update();
 
-#ifdef HAVE_765_H
-  specplus3_fdc_reset();
+  upd_fdc_master_reset( specplus3_fdc );
   specplus3_menu_items();
-#endif				/* #ifdef HAVE_765_H */
 
   return 0;
 }

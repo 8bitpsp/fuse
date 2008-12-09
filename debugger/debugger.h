@@ -1,7 +1,7 @@
 /* debugger.h: Fuse's monitor/debugger
-   Copyright (c) 2002-2004 Philip Kendall
+   Copyright (c) 2002-2008 Philip Kendall
 
-   $Id: debugger.h 2889 2007-05-26 17:45:08Z zubzero $
+   $Id: debugger.h 3632 2008-05-26 19:51:17Z pak21 $
 
    This program is free software; you can redistribute it and/or modify
    it under the terms of the GNU General Public License as published by
@@ -71,5 +71,11 @@ int debugger_command_evaluate( const char *command );
 /* Get a deparsed expression */
 int debugger_expression_deparse( char *buffer, size_t length,
 				 const debugger_expression *exp );
+
+/* Register an event type with the debugger */
+int debugger_event_register( const char *type, const char *detail );
+
+/* Fire off a debugger event */
+void debugger_event( int event_code );
 
 #endif				/* #ifndef FUSE_DEBUGGER_H */

@@ -1,7 +1,7 @@
 /* dck.c: dock snapshot (Warajevo .DCK) handling routines
    Copyright (c) 2003-2004 Darren Salt, Fredrick Meunier, Philip Kendall
 
-   $Id: dck.c 2995 2007-06-17 14:31:36Z pak21 $
+   $Id: dck.c 3703 2008-06-30 20:36:11Z pak21 $
 
    This program is free software; you can redistribute it and/or modify
    it under the terms of the GNU General Public License as published by
@@ -42,9 +42,6 @@
 #include "ui/ui.h"
 #include "utils.h"
 #include "debugger/debugger.h"
-#ifdef USE_WIDGET
-#include "widget/widget.h"
-#endif
 
 /* Dock cart inserted? */
 int dck_active = 0;
@@ -102,7 +99,7 @@ dck_reset( void )
     return 0;
   }
 
-  error = libspectrum_dck_alloc( &dck ); if( error ) return error;
+  dck = libspectrum_dck_alloc();
 
   error = utils_read_file( settings_current.dck_file, &file );
   if( error ) { libspectrum_dck_free( dck, 0 ); return error; }

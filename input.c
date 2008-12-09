@@ -1,7 +1,7 @@
 /* input.c: generalised input events layer for Fuse
    Copyright (c) 2004 Philip Kendall
 
-   $Id: input.c 3394 2007-12-03 17:03:19Z zubzero $
+   $Id: input.c 3751 2008-08-19 15:46:09Z specu $
 
    This program is free software; you can redistribute it and/or modify
    it under the terms of the GNU General Public License as published by
@@ -36,7 +36,7 @@
 #include "ui/ui.h"
 #include "utils.h"
 #ifdef USE_WIDGET
-#include "widget/widget.h"
+#include "ui/widget/widget.h"
 #endif				/* #ifdef USE_WIDGET */
 
 static int keypress( const input_event_key_t *event );
@@ -85,27 +85,21 @@ keypress( const input_event_key_t *event )
   }
 
   swallow = 0;
-  /* Joystick emulation via QAOP<space> */
-  switch( event->spectrum_key ) {
-
-  case INPUT_KEY_q:
+  /* Joystick emulation via keyboard keys */
+  if ( event->spectrum_key == settings_current.joystick_keyboard_up ) {
     swallow = joystick_press( JOYSTICK_KEYBOARD, JOYSTICK_BUTTON_UP   , 1 );
-    break;
-  case INPUT_KEY_a:
+  }
+  else if( event->spectrum_key == settings_current.joystick_keyboard_down ) {
     swallow = joystick_press( JOYSTICK_KEYBOARD, JOYSTICK_BUTTON_DOWN , 1 );
-    break;
-  case INPUT_KEY_o:
+  }
+  else if( event->spectrum_key == settings_current.joystick_keyboard_left ) {
     swallow = joystick_press( JOYSTICK_KEYBOARD, JOYSTICK_BUTTON_LEFT , 1 );
-    break;
-  case INPUT_KEY_p:
+  }
+  else if( event->spectrum_key == settings_current.joystick_keyboard_right ) {
     swallow = joystick_press( JOYSTICK_KEYBOARD, JOYSTICK_BUTTON_RIGHT, 1 );
-    break;
-  case INPUT_KEY_space:
+  }
+  else if( event->spectrum_key == settings_current.joystick_keyboard_fire ) {
     swallow = joystick_press( JOYSTICK_KEYBOARD, JOYSTICK_BUTTON_FIRE , 1 );
-    break;
-
-  default: break;		/* Remove warning */
-
   }
 
   if( swallow ) return 0;
@@ -188,28 +182,28 @@ keyrelease( const input_event_key_t *event )
     keyboard_release( ptr->key2 );
   }
 
-  /* Joystick emulation via QAOP<space> */
-  switch( event->spectrum_key ) {
-
-  case INPUT_KEY_q:
-    joystick_press( JOYSTICK_KEYBOARD, JOYSTICK_BUTTON_UP   , 0 ); break;
-  case INPUT_KEY_a:
-    joystick_press( JOYSTICK_KEYBOARD, JOYSTICK_BUTTON_DOWN , 0 ); break;
-  case INPUT_KEY_o:
-    joystick_press( JOYSTICK_KEYBOARD, JOYSTICK_BUTTON_LEFT , 0 ); break;
-  case INPUT_KEY_p:
-    joystick_press( JOYSTICK_KEYBOARD, JOYSTICK_BUTTON_RIGHT, 0 ); break;
-  case INPUT_KEY_space:
-    joystick_press( JOYSTICK_KEYBOARD, JOYSTICK_BUTTON_FIRE , 0 ); break;
-
-  default: break;		/* Remove warning */
+  /* Joystick emulation via keyboard keys */
+  if( event->spectrum_key == settings_current.joystick_keyboard_up ) {
+    joystick_press( JOYSTICK_KEYBOARD, JOYSTICK_BUTTON_UP   , 0 );
+  }
+  else if( event->spectrum_key == settings_current.joystick_keyboard_down ) {
+    joystick_press( JOYSTICK_KEYBOARD, JOYSTICK_BUTTON_DOWN , 0 );
+  }
+  else if( event->spectrum_key == settings_current.joystick_keyboard_left ) {
+    joystick_press( JOYSTICK_KEYBOARD, JOYSTICK_BUTTON_LEFT , 0 );
+  }
+  else if( event->spectrum_key == settings_current.joystick_keyboard_right ) {
+    joystick_press( JOYSTICK_KEYBOARD, JOYSTICK_BUTTON_RIGHT, 0 );
+  }
+  else if( event->spectrum_key == settings_current.joystick_keyboard_fire ) {
+    joystick_press( JOYSTICK_KEYBOARD, JOYSTICK_BUTTON_FIRE , 0 );
   }
 
   return 0;
 }
 
 static keyboard_key_name
-get_fire_button_key( int which, input_joystick_button button )
+get_fire_button_key( int which, input_key button )
 {
   switch( which ) {
 
@@ -256,6 +250,24 @@ static int
 do_joystick( const input_event_joystick_t *joystick_event, int press )
 {
   int which;
+
+#ifdef USE_WIDGET
+  if( widget_level >= 0 ) {
+    if( press ) widget_keyhandler( joystick_event->button );
+    return 0;
+  }
+
+  switch( joystick_event->button ) {
+  case INPUT_JOYSTICK_FIRE_2:
+    fuse_emulation_pause();
+    widget_do( WIDGET_TYPE_MENU, &widget_menu );
+    fuse_emulation_unpause();
+    break;
+
+  default: break;		/* Remove gcc warning */
+
+  }
+#endif				/* #ifdef USE_WIDGET */
 
   which = joystick_event->which;
 

@@ -2,7 +2,7 @@
    Copyright (c) 1999-2006 Philip Kendall, Thomas Harte, Witold Filipczyk
                            and Fredrick Meunier
 
-   $Id: display.c 3455 2007-12-21 16:48:51Z pak21 $
+   $Id: display.c 3482 2008-01-07 12:32:26Z pak21 $
 
    This program is free software; you can redistribute it and/or modify
    it under the terms of the GNU General Public License as published by

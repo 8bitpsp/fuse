@@ -1,7 +1,7 @@
 /* uijoystick.c: Joystick emulation (using libjsw)
    Copyright (c) 2003-2004 Darren Salt, Philip Kendall
 
-   $Id: uijoystick.c 3115 2007-08-19 02:49:14Z fredm $
+   $Id: uijoystick.c 3749 2008-08-15 12:47:44Z fredm $
 
    This program is free software; you can redistribute it and/or modify
    it under the terms of the GNU General Public License as published by
@@ -62,9 +62,8 @@
 static js_data_struct jsd[2];
 
 static void poll_joystick( int which );
-static void do_axis( int which, double position,
-		     input_joystick_button negative,
-		     input_joystick_button positive );
+static void do_axis( int which, double position, input_key negative,
+		     input_key positive );
 
 static int
 init_stick( int which, const char *const device,
@@ -224,8 +223,7 @@ poll_joystick( int which )
 }
 
 static void
-do_axis( int which, double position, input_joystick_button negative,
-	 input_joystick_button positive )
+do_axis( int which, double position, input_key negative, input_key positive )
 {
   input_event_t event1, event2;
 

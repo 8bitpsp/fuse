@@ -1,8 +1,7 @@
 /* szx.c: Routines for .szx snapshots
-   Copyright (c) 1998,2003 Philip Kendall
-   Copyright (c) 2004 Fredrick Meunier
+   Copyright (c) 1998-2008 Philip Kendall, Fredrick Meunier, Stuart Brady
 
-   $Id: szx.c 3438 2007-12-19 03:25:18Z zubzero $
+   $Id: szx.c 3698 2008-06-30 15:12:02Z pak21 $
 
    This program is free software; you can redistribute it and/or modify
    it under the terms of the GNU General Public License as published by
@@ -98,8 +97,18 @@ typedef enum szx_joystick_type {
 } szx_joystick_type;
 
 #define ZXSTBID_IF2ROM "IF2R"
+
 #define ZXSTBID_MOUSE "AMXM"
+typedef enum szx_mouse_type {
+
+  ZXSTM_NONE = 0,
+  ZXSTM_AMX,
+  ZXSTM_KEMPSTON,
+
+} szx_mouse_type;
+
 #define ZXSTBID_ROM "ROM\0"
+
 #define ZXSTBID_ZXPRINTER "ZXPR"
 
 #define ZXSTBID_IF1 "IF1\0"
@@ -114,8 +123,10 @@ static const libspectrum_word ZXSTIF1F_PAGED = 4;
 
 #define ZXSTBID_BETA128 "B128"
 static const libspectrum_dword ZXSTBETAF_CONNECTED = 1;
+static const libspectrum_dword ZXSTBETAF_CUSTOMROM = 2;
 static const libspectrum_dword ZXSTBETAF_PAGED = 4;
 static const libspectrum_dword ZXSTBETAF_SEEKLOWER = 16;
+static const libspectrum_dword ZXSTBETAF_COMPRESSED = 32;
 
 #define ZXSTBID_BETADISK "BDSK"
 #define ZXSTBID_GS "GS\0\0"
@@ -147,6 +158,16 @@ static const libspectrum_byte ZXSTPDRT_CUSTOM = 2;
 
 #define ZXSTBID_PLUSDDISK "PDSK"
 
+#define ZXSTBID_SIMPLEIDE "SIDE"
+static const libspectrum_word ZXSTSIDE_ENABLED = 1;
+
+#define ZXSTBID_DIVIDE "DIDE"
+static const libspectrum_word ZXSTDIVIDE_EPROM_WRITEPROTECT = 1;
+static const libspectrum_word ZXSTDIVIDE_PAGED = 2;
+static const libspectrum_word ZXSTDIVIDE_COMPRESSED = 4;
+
+#define ZXSTBID_DIVIDERAMPAGE "DIRP"
+
 static libspectrum_error
 read_chunk( libspectrum_snap *snap, libspectrum_word version,
 	    const libspectrum_byte **buffer, const libspectrum_byte *end );
@@ -171,6 +192,9 @@ static libspectrum_error
 write_spcr_chunk( libspectrum_byte **buffer, libspectrum_byte **ptr,
 		  size_t *length, libspectrum_snap *snap );
 static libspectrum_error
+write_amxm_chunk( libspectrum_byte **buffer, libspectrum_byte **ptr,
+		  size_t *length, libspectrum_snap *snap );
+static libspectrum_error
 write_joy_chunk( libspectrum_byte **buffer, libspectrum_byte **ptr,
 		  size_t *length, int *out_flags, libspectrum_snap *snap );
 static libspectrum_error
@@ -188,6 +212,10 @@ write_ram_page( libspectrum_byte **buffer, libspectrum_byte **ptr,
 		size_t *length, const char *id, const libspectrum_byte *data,
 		size_t data_length, int page, int compress, int extra_flags );
 static libspectrum_error
+write_rom_chunk( libspectrum_byte **buffer, libspectrum_byte **ptr,
+		 size_t *length, int *out_flags, libspectrum_snap *snap,
+                 int compress );
+static libspectrum_error
 write_ay_chunk( libspectrum_byte **buffer, libspectrum_byte **ptr,
 		size_t *length, libspectrum_snap *snap );
 static libspectrum_error
@@ -195,7 +223,7 @@ write_scld_chunk( libspectrum_byte **buffer, libspectrum_byte **ptr,
                   size_t *length, libspectrum_snap *snap );
 static libspectrum_error
 write_b128_chunk( libspectrum_byte **buffer, libspectrum_byte **ptr,
-		  size_t *length, libspectrum_snap *snap );
+		  size_t *length, libspectrum_snap *snap, int compress );
 static libspectrum_error
 write_plsd_chunk( libspectrum_byte **buffer, libspectrum_byte **ptr,
 		  size_t *length, libspectrum_snap *snap, int compress  );
@@ -216,6 +244,9 @@ static libspectrum_error
 write_cfrp_chunk( libspectrum_byte **buffer, libspectrum_byte **ptr,
 		  size_t *length, libspectrum_snap *snap, int page,
 		  int compress );
+static libspectrum_error
+write_side_chunk( libspectrum_byte **buffer, libspectrum_byte **ptr,
+		  size_t *length, libspectrum_snap *snap );
 
 #ifdef HAVE_ZLIB_H
 
@@ -230,8 +261,15 @@ write_dock_chunk( libspectrum_byte **buffer, libspectrum_byte **ptr,
 		  size_t *length, libspectrum_snap *snap, int exrom_dock,
                   const libspectrum_byte *data, int page, int writeable,
                   int compress );
-
 static libspectrum_error
+write_dide_chunk( libspectrum_byte **buffer, libspectrum_byte **ptr,
+		  size_t *length, libspectrum_snap *snap, int compress );
+static libspectrum_error
+write_dirp_chunk( libspectrum_byte **buffer, libspectrum_byte **ptr,
+		  size_t *length, libspectrum_snap *snap, int page,
+		  int compress );
+
+static void
 write_chunk_header( libspectrum_byte **buffer, libspectrum_byte **ptr,
 		    size_t *length, const char *id,
 		    libspectrum_dword block_length );
@@ -288,14 +326,7 @@ read_ram_page( libspectrum_byte **data, size_t *page,
       return LIBSPECTRUM_ERROR_UNKNOWN;
     }
 
-    *data = malloc( uncompressed_length * sizeof( libspectrum_byte ) );
-    if( !( *data ) ) {
-      libspectrum_print_error( LIBSPECTRUM_ERROR_MEMORY,
-			       "%s:read_ram_page: out of memory at %d",
-			       __FILE__, __LINE__ );
-      return LIBSPECTRUM_ERROR_MEMORY;
-    }
-
+    *data = libspectrum_malloc( uncompressed_length * sizeof( **data ) );
     memcpy( *data, *buffer, uncompressed_length );
     *buffer += uncompressed_length;
 
@@ -321,7 +352,7 @@ read_atrp_chunk( libspectrum_snap *snap, libspectrum_word version GCC_UNUSED,
     libspectrum_print_error( LIBSPECTRUM_ERROR_CORRUPT,
 			     "%s:read_atrp_chunk: unknown page number %lu",
 			     __FILE__, (unsigned long)page );
-    free( data );
+    libspectrum_free( data );
     return LIBSPECTRUM_ERROR_CORRUPT;
   }
 
@@ -360,7 +391,10 @@ read_b128_chunk( libspectrum_snap *snap, libspectrum_word version GCC_UNUSED,
 		 const libspectrum_byte **buffer,
 		 const libspectrum_byte *end GCC_UNUSED, size_t data_length )
 {
+  libspectrum_error error;
+  libspectrum_byte *rom_data = NULL;
   libspectrum_dword flags;
+  const size_t expected_length = 0x4000;
 
   if( data_length < 10 ) {
     libspectrum_print_error( LIBSPECTRUM_ERROR_UNKNOWN,
@@ -375,12 +409,69 @@ read_b128_chunk( libspectrum_snap *snap, libspectrum_word version GCC_UNUSED,
   libspectrum_snap_set_beta_direction( snap,
 				       !( flags & ZXSTBETAF_SEEKLOWER ) );
 
+  libspectrum_snap_set_beta_custom_rom( snap,
+                                        !!( flags & ZXSTBETAF_CUSTOMROM ) );
+
   (*buffer)++;		/* Skip the number of drives */
   libspectrum_snap_set_beta_system( snap, **buffer ); (*buffer)++;
   libspectrum_snap_set_beta_track ( snap, **buffer ); (*buffer)++;
   libspectrum_snap_set_beta_sector( snap, **buffer ); (*buffer)++;
   libspectrum_snap_set_beta_data  ( snap, **buffer ); (*buffer)++;
   libspectrum_snap_set_beta_status( snap, **buffer ); (*buffer)++;
+
+  if( libspectrum_snap_beta_custom_rom( snap ) ) {
+
+    if( flags & ZXSTBETAF_COMPRESSED ) {
+
+#ifdef HAVE_ZLIB_H
+
+      size_t uncompressed_length = 0;
+
+      error = libspectrum_zlib_inflate( *buffer, data_length - 10, &rom_data,
+					&uncompressed_length );
+      if( error ) return error;
+
+      if( uncompressed_length != expected_length ) {
+	libspectrum_print_error( LIBSPECTRUM_ERROR_UNKNOWN,
+				 "%s:read_b128_chunk: invalid ROM length "
+				 "in compressed file, should be %lu, file "
+				 "has %lu",
+				 __FILE__,
+				 (unsigned long)expected_length,
+				 (unsigned long)uncompressed_length );
+	return LIBSPECTRUM_ERROR_UNKNOWN;
+      }
+
+#else
+
+      libspectrum_print_error(
+	LIBSPECTRUM_ERROR_UNKNOWN,
+	"%s:read_b128_chunk: zlib needed for decompression\n",
+	__FILE__
+      );
+      return LIBSPECTRUM_ERROR_UNKNOWN;
+
+#endif
+
+    } else {
+
+      if( data_length < 10 + expected_length ) {
+        libspectrum_print_error( LIBSPECTRUM_ERROR_UNKNOWN,
+				 "%s:read_b128_chunk: length %lu too short, "
+				 "expected %lu",
+				 __FILE__, (unsigned long)data_length,
+				 (unsigned long)10 + expected_length );
+	return LIBSPECTRUM_ERROR_UNKNOWN;
+      }
+
+      rom_data = libspectrum_malloc( expected_length );
+      memcpy( rom_data, *buffer, expected_length );
+
+    }
+
+  }
+
+  libspectrum_snap_set_beta_rom( snap, 0, rom_data );
 
   /* Skip any extra data (most likely a custom ROM) */
   *buffer += data_length - 10;
@@ -549,26 +640,12 @@ read_plsd_chunk( libspectrum_snap *snap, libspectrum_word version GCC_UNUSED,
       return LIBSPECTRUM_ERROR_UNKNOWN;
     }
 
-    ram_data = malloc( expected_length );
-    if( !ram_data ) {
-      libspectrum_print_error( LIBSPECTRUM_ERROR_MEMORY,
-			       "%s:read_plsd_chunk: out of memory at %d",
-			       __FILE__, __LINE__ );
-      return LIBSPECTRUM_ERROR_MEMORY;
-    }
-
+    ram_data = libspectrum_malloc( expected_length );
     memcpy( ram_data, *buffer, expected_length );
     *buffer += expected_length;
 
     if( libspectrum_snap_plusd_custom_rom( snap ) ) {
-      rom_data = malloc( expected_length );
-      if( !rom_data ) {
-        libspectrum_print_error( LIBSPECTRUM_ERROR_MEMORY,
-                                 "%s:read_plsd_chunk: out of memory at %d",
-                                 __FILE__, __LINE__ );
-        return LIBSPECTRUM_ERROR_MEMORY;
-      }
-
+      rom_data = libspectrum_malloc( expected_length );
       memcpy( rom_data, *buffer, expected_length );
       *buffer += expected_length;
     }
@@ -598,11 +675,28 @@ read_cfrp_chunk( libspectrum_snap *snap, libspectrum_word version GCC_UNUSED,
     libspectrum_print_error( LIBSPECTRUM_ERROR_CORRUPT,
 			     "%s:read_cfrp_chunk: unknown page number %lu",
 			     __FILE__, (unsigned long)page );
-    free( data );
+    libspectrum_free( data );
     return LIBSPECTRUM_ERROR_CORRUPT;
   }
 
   libspectrum_snap_set_zxcf_ram( snap, page, data );
+
+  return LIBSPECTRUM_ERROR_NONE;
+}
+
+static libspectrum_error
+read_side_chunk( libspectrum_snap *snap, libspectrum_word version GCC_UNUSED,
+		 const libspectrum_byte **buffer,
+		 const libspectrum_byte *end GCC_UNUSED, size_t data_length )
+{
+  if( data_length ) {
+    libspectrum_print_error( LIBSPECTRUM_ERROR_UNKNOWN,
+			     "%s:read_side_chunk: unknown length %lu",
+			     __FILE__, (unsigned long)data_length );
+    return LIBSPECTRUM_ERROR_UNKNOWN;
+  }
+
+  libspectrum_snap_set_simpleide_active( snap, 1 );
 
   return LIBSPECTRUM_ERROR_NONE;
 }
@@ -777,6 +871,39 @@ read_keyb_chunk( libspectrum_snap *snap, libspectrum_word version,
 }
 
 static libspectrum_error
+read_amxm_chunk( libspectrum_snap *snap, libspectrum_word version,
+		 const libspectrum_byte **buffer,
+		 const libspectrum_byte *end GCC_UNUSED, size_t data_length )
+{
+  if( data_length != 7 ) {
+    libspectrum_print_error( LIBSPECTRUM_ERROR_UNKNOWN,
+			     "read_amxm_chunk: unknown length %lu",
+			     (unsigned long)data_length );
+    return LIBSPECTRUM_ERROR_UNKNOWN;
+  }
+
+  switch( **buffer ) {
+  case ZXSTM_AMX:
+    break;
+  case ZXSTM_KEMPSTON:
+    libspectrum_snap_set_kempston_mouse_active( snap, 1 );
+    break;
+  case ZXSTM_NONE:
+  default:
+    break;
+  }
+  (*buffer)++;
+
+  /* Z80 PIO CTRLA registers for AMX mouse */
+  (*buffer)++; (*buffer)++; (*buffer)++;
+
+  /* Z80 PIO CTRLB registers for AMX mouse */
+  (*buffer)++; (*buffer)++; (*buffer)++;
+
+  return LIBSPECTRUM_ERROR_NONE;
+}
+
+static libspectrum_error
 read_ramp_chunk( libspectrum_snap *snap, libspectrum_word version GCC_UNUSED,
 		 const libspectrum_byte **buffer,
 		 const libspectrum_byte *end GCC_UNUSED, size_t data_length )
@@ -794,7 +921,7 @@ read_ramp_chunk( libspectrum_snap *snap, libspectrum_word version GCC_UNUSED,
     libspectrum_print_error( LIBSPECTRUM_ERROR_CORRUPT,
 			     "%s:read_ramp_chunk: unknown page number %lu",
 			     __FILE__, (unsigned long)page );
-    free( data );
+    libspectrum_free( data );
     return LIBSPECTRUM_ERROR_CORRUPT;
   }
 
@@ -982,7 +1109,7 @@ read_if1_chunk( libspectrum_snap *snap, libspectrum_word version GCC_UNUSED,
   if( data_length < 40 ) {
     libspectrum_print_error(
       LIBSPECTRUM_ERROR_UNKNOWN,
-      "szx_read_if1_chunk: length %lu too short", (unsigned long)data_length
+      "read_if1_chunk: length %lu too short", (unsigned long)data_length
     );
     return LIBSPECTRUM_ERROR_UNKNOWN;
   }
@@ -1013,6 +1140,7 @@ read_if1_chunk( libspectrum_snap *snap, libspectrum_word version GCC_UNUSED,
     if( flags & ZXSTIF1F_COMPRESSED ) {
 
 #ifdef HAVE_ZLIB_H
+
       size_t uncompressed_length = 0;
 
       libspectrum_error error =
@@ -1059,14 +1187,7 @@ read_if1_chunk( libspectrum_snap *snap, libspectrum_word version GCC_UNUSED,
         return LIBSPECTRUM_ERROR_UNKNOWN;
       }
 
-      rom_data = malloc( expected_length );
-      if( !rom_data ) {
-        libspectrum_print_error( LIBSPECTRUM_ERROR_MEMORY,
-                                 "%s:read_if1_chunk: out of memory at %d",
-                                 __FILE__, __LINE__ );
-        return LIBSPECTRUM_ERROR_MEMORY;
-      }
-
+      rom_data = libspectrum_malloc( expected_length );
       memcpy( rom_data, *buffer, expected_length );
 
       libspectrum_snap_set_interface1_rom_length( snap, 0, expected_length );
@@ -1077,6 +1198,170 @@ read_if1_chunk( libspectrum_snap *snap, libspectrum_word version GCC_UNUSED,
   }
 
   return LIBSPECTRUM_ERROR_NONE;
+}
+
+static void
+szx_set_custom_rom( libspectrum_snap *snap, int page_no,
+                    libspectrum_byte *rom_data, libspectrum_word length )
+{
+  if( length ) {
+    libspectrum_byte *page = libspectrum_malloc( length );
+    memcpy( page, rom_data, length );
+
+    libspectrum_snap_set_roms( snap, page_no, page );
+    libspectrum_snap_set_rom_length( snap, page_no, length );
+  }
+}
+
+static libspectrum_error
+szx_extract_roms( libspectrum_snap *snap, libspectrum_byte *rom_data,
+                  libspectrum_dword length, libspectrum_dword expected_length )
+{
+  int i;
+  const size_t standard_rom_length = 0x4000;
+  size_t num_16k_roms, additional_rom_length;
+
+  if( length != expected_length ) {
+    libspectrum_print_error( LIBSPECTRUM_ERROR_UNKNOWN,
+                             "%s:szx_extract_roms: invalid ROM length %u, "
+                             "expected %u",
+                             __FILE__, length, expected_length );
+    return LIBSPECTRUM_ERROR_UNKNOWN;
+  }
+
+  num_16k_roms = length / standard_rom_length;
+  additional_rom_length = length % standard_rom_length;
+
+  for( i = 0; i < num_16k_roms; i++ )
+    szx_set_custom_rom( snap, i, rom_data + (i * standard_rom_length), standard_rom_length );
+
+  /* Timex 2068 machines have a 16k and an 8k ROM, all other machines just have
+     multiples of 16k ROMs */
+  if( additional_rom_length )
+    szx_set_custom_rom( snap, i, rom_data + (i * standard_rom_length), additional_rom_length );
+
+  libspectrum_snap_set_custom_rom_pages( snap, num_16k_roms +
+                                         !!additional_rom_length );
+
+  return LIBSPECTRUM_ERROR_NONE;
+}
+
+static libspectrum_error
+read_rom_chunk( libspectrum_snap *snap, libspectrum_word version GCC_UNUSED,
+		const libspectrum_byte **buffer,
+		const libspectrum_byte *end GCC_UNUSED, size_t data_length )
+{
+  libspectrum_word flags;
+  libspectrum_dword expected_length;
+  libspectrum_byte *rom_data = NULL; 
+  libspectrum_error retval = LIBSPECTRUM_ERROR_NONE;
+
+  if( data_length < 6 ) {
+    libspectrum_print_error(
+      LIBSPECTRUM_ERROR_UNKNOWN,
+      "read_rom_chunk: length %lu too short", (unsigned long)data_length
+    );
+    return LIBSPECTRUM_ERROR_UNKNOWN;
+  }
+
+  flags = libspectrum_read_word( buffer );
+  expected_length = libspectrum_read_dword( buffer );
+
+  if( flags & ZXSTRF_COMPRESSED ) {
+
+#ifdef HAVE_ZLIB_H
+
+    size_t uncompressed_length = 0;
+
+    libspectrum_error error =
+            libspectrum_zlib_inflate( *buffer, data_length - 6, &rom_data,
+                                      &uncompressed_length );
+    if( error ) return error;
+
+    if( uncompressed_length != expected_length ) {
+      libspectrum_print_error( LIBSPECTRUM_ERROR_UNKNOWN,
+                               "%s:read_rom_chunk: invalid ROM length "
+                               "in compressed file, should be %lu, file "
+                               "has %lu",
+                               __FILE__, 
+                               (unsigned long)expected_length,
+                               (unsigned long)uncompressed_length );
+      return LIBSPECTRUM_ERROR_UNKNOWN;
+    }
+
+    *buffer += data_length - 6;
+
+#else			/* #ifdef HAVE_ZLIB_H */
+
+    libspectrum_print_error(
+      LIBSPECTRUM_ERROR_UNKNOWN,
+      "%s:read_rom_chunk: zlib needed for decompression\n",
+      __FILE__
+    );
+    return LIBSPECTRUM_ERROR_UNKNOWN;
+
+#endif			/* #ifdef HAVE_ZLIB_H */
+
+  } else {
+
+    if( data_length < 6 + expected_length ) {
+      libspectrum_print_error( LIBSPECTRUM_ERROR_UNKNOWN,
+                               "%s:read_rom_chunk: length %lu too short, "
+                               "expected %lu" ,
+                               __FILE__, (unsigned long)data_length,
+                               (unsigned long)6 + expected_length );
+      return LIBSPECTRUM_ERROR_UNKNOWN;
+    }
+
+    rom_data = libspectrum_malloc( expected_length );
+    memcpy( rom_data, *buffer, expected_length );
+    *buffer += expected_length;
+  }
+
+  libspectrum_snap_set_custom_rom( snap, 1 );
+
+  switch ( libspectrum_snap_machine( snap ) ) {
+  case LIBSPECTRUM_MACHINE_16:
+  case LIBSPECTRUM_MACHINE_48:
+  case LIBSPECTRUM_MACHINE_TC2048:
+    retval = szx_extract_roms( snap, rom_data, expected_length, 0x4000 );
+    break;
+  case LIBSPECTRUM_MACHINE_128:
+  case LIBSPECTRUM_MACHINE_PLUS2:
+  case LIBSPECTRUM_MACHINE_SE:
+    retval = szx_extract_roms( snap, rom_data, expected_length, 0x8000 );
+    break;
+  case LIBSPECTRUM_MACHINE_PLUS2A:
+  case LIBSPECTRUM_MACHINE_PLUS3:
+  case LIBSPECTRUM_MACHINE_PLUS3E:
+    retval = szx_extract_roms( snap, rom_data, expected_length, 0x10000 );
+    break;
+  case LIBSPECTRUM_MACHINE_PENT:
+    /* FIXME: This is a conflict with Fuse - szx specs say Pentagon 128k snaps
+       will total 32k, Fuse also has the 'gluck.rom' */
+    retval = szx_extract_roms( snap, rom_data, expected_length, 0x8000 );
+    break;
+  case LIBSPECTRUM_MACHINE_TC2068:
+  case LIBSPECTRUM_MACHINE_TS2068:
+    retval = szx_extract_roms( snap, rom_data, expected_length, 0x6000 );
+    break;
+  case LIBSPECTRUM_MACHINE_SCORP:
+  case LIBSPECTRUM_MACHINE_PENT512:
+  case LIBSPECTRUM_MACHINE_PENT1024:
+    retval = szx_extract_roms( snap, rom_data, expected_length, 0x10000 );
+    break;
+  default:
+    libspectrum_print_error( LIBSPECTRUM_ERROR_UNKNOWN,
+                             "%s:read_rom_chunk: don't know correct custom ROM "
+                             "length for this machine",
+                             __FILE__ );
+    retval = LIBSPECTRUM_ERROR_UNKNOWN;
+    break;
+  }
+
+  libspectrum_free( rom_data );
+
+  return retval;
 }
 
 static libspectrum_error
@@ -1097,7 +1382,7 @@ read_if2r_chunk( libspectrum_snap *snap, libspectrum_word version GCC_UNUSED,
   if( data_length < 4 ) {
     libspectrum_print_error(
       LIBSPECTRUM_ERROR_UNKNOWN,
-      "szx_read_if2r_chunk: length %lu too short", (unsigned long)data_length
+      "read_if2r_chunk: length %lu too short", (unsigned long)data_length
     );
     return LIBSPECTRUM_ERROR_UNKNOWN;
   }
@@ -1149,7 +1434,7 @@ read_dock_chunk( libspectrum_snap *snap, libspectrum_word version GCC_UNUSED,
     libspectrum_print_error( LIBSPECTRUM_ERROR_CORRUPT,
 			     "%s:read_dock_chunk: unknown page number %ld",
 			     __FILE__, (unsigned long)page );
-    free( data );
+    libspectrum_free( data );
     return LIBSPECTRUM_ERROR_CORRUPT;
   }
 
@@ -1164,6 +1449,117 @@ read_dock_chunk( libspectrum_snap *snap, libspectrum_word version GCC_UNUSED,
     libspectrum_snap_set_exrom_ram( snap, page, writeable );
     libspectrum_snap_set_exrom_cart( snap, page, data );
   }
+
+  return LIBSPECTRUM_ERROR_NONE;
+}
+
+static libspectrum_error
+read_dide_chunk( libspectrum_snap *snap, libspectrum_word version GCC_UNUSED,
+		 const libspectrum_byte **buffer,
+		 const libspectrum_byte *end GCC_UNUSED, size_t data_length )
+{
+  libspectrum_error error;
+  libspectrum_word flags;
+  libspectrum_byte *eprom_data = NULL;
+  const size_t expected_length = 0x2000;
+
+  if( data_length < 4 ) {
+    libspectrum_print_error( LIBSPECTRUM_ERROR_UNKNOWN,
+			     "%s:read_dide_chunk: unknown length %lu",
+			     __FILE__, (unsigned long)data_length );
+    return LIBSPECTRUM_ERROR_UNKNOWN;
+  }
+
+  flags = libspectrum_read_word( buffer );
+  libspectrum_snap_set_divide_active( snap, 1 );
+  libspectrum_snap_set_divide_eprom_writeprotect(
+                                      snap,
+                                      !!(flags & ZXSTDIVIDE_EPROM_WRITEPROTECT)
+                                    );
+  libspectrum_snap_set_divide_paged( snap, !!(flags & ZXSTDIVIDE_PAGED) );
+
+  libspectrum_snap_set_divide_control( snap, **buffer ); (*buffer)++;
+  libspectrum_snap_set_divide_pages( snap, **buffer ); (*buffer)++;
+
+  if( flags & ZXSTDIVIDE_COMPRESSED ) {
+
+#ifdef HAVE_ZLIB_H
+
+    size_t uncompressed_length = 0;
+
+    error = libspectrum_zlib_inflate( *buffer, data_length - 4, &eprom_data,
+                                      &uncompressed_length );
+    if( error ) return error;
+
+    if( uncompressed_length != expected_length ) {
+      libspectrum_print_error( LIBSPECTRUM_ERROR_UNKNOWN,
+                               "%s:read_dide_chunk: invalid EPROM length "
+                               "in compressed file, should be %lu, file "
+                               "has %lu",
+                               __FILE__,
+                               (unsigned long)expected_length,
+                               (unsigned long)uncompressed_length );
+      return LIBSPECTRUM_ERROR_UNKNOWN;
+    }
+
+    *buffer += data_length - 4;
+
+#else
+
+    libspectrum_print_error(
+      LIBSPECTRUM_ERROR_UNKNOWN,
+      "%s:read_dide_chunk: zlib needed for decompression\n",
+      __FILE__
+    );
+    return LIBSPECTRUM_ERROR_UNKNOWN;
+
+#endif
+
+  } else {
+
+    if( data_length < 4 + expected_length ) {
+      libspectrum_print_error( LIBSPECTRUM_ERROR_UNKNOWN,
+                               "%s:read_dide_chunk: length %lu too short, "
+                               "expected %lu",
+                               __FILE__, (unsigned long)data_length,
+                               (unsigned long)4 + expected_length );
+      return LIBSPECTRUM_ERROR_UNKNOWN;
+    }
+
+    eprom_data = libspectrum_malloc( expected_length );
+    memcpy( eprom_data, *buffer, expected_length );
+
+    *buffer += expected_length;
+
+  }
+
+  libspectrum_snap_set_divide_eprom( snap, 0, eprom_data );
+
+  return LIBSPECTRUM_ERROR_NONE;
+}
+
+static libspectrum_error
+read_dirp_chunk( libspectrum_snap *snap, libspectrum_word version GCC_UNUSED,
+		 const libspectrum_byte **buffer,
+		 const libspectrum_byte *end GCC_UNUSED, size_t data_length )
+{
+  libspectrum_byte *data;
+  size_t page;
+  libspectrum_error error;
+  libspectrum_word flags;
+
+  error = read_ram_page( &data, &page, buffer, data_length, 0x2000, &flags );
+  if( error ) return error;
+
+  if( page >= SNAPSHOT_DIVIDE_PAGES ) {
+    libspectrum_print_error( LIBSPECTRUM_ERROR_CORRUPT,
+			     "%s:read_dirp_chunk: unknown page number %lu",
+			     __FILE__, (unsigned long)page );
+    libspectrum_free( data );
+    return LIBSPECTRUM_ERROR_CORRUPT;
+  }
+
+  libspectrum_snap_set_divide_ram( snap, page, data );
 
   return LIBSPECTRUM_ERROR_NONE;
 }
@@ -1193,6 +1589,8 @@ static struct read_chunk_t read_chunks[] = {
   { ZXSTBID_BETADISK,	    skip_chunk      },
   { ZXSTBID_COVOX,	    skip_chunk      },
   { ZXSTBID_CREATOR,	    skip_chunk      },
+  { ZXSTBID_DIVIDE,	    read_dide_chunk },
+  { ZXSTBID_DIVIDERAMPAGE,  read_dirp_chunk },
   { ZXSTBID_DOCK,	    read_dock_chunk },
   { ZXSTBID_DSKFILE,	    skip_chunk      },
   { ZXSTBID_GS,		    skip_chunk      },
@@ -1202,13 +1600,14 @@ static struct read_chunk_t read_chunks[] = {
   { ZXSTBID_JOYSTICK,	    read_joy_chunk  },
   { ZXSTBID_KEYBOARD,	    read_keyb_chunk },
   { ZXSTBID_MICRODRIVE,	    skip_chunk      },
-  { ZXSTBID_MOUSE,	    skip_chunk      },
+  { ZXSTBID_MOUSE,	    read_amxm_chunk },
   { ZXSTBID_MULTIFACE,	    skip_chunk      },
   { ZXSTBID_PLUS3DISK,	    skip_chunk      },
   { ZXSTBID_PLUSD,	    read_plsd_chunk },
   { ZXSTBID_PLUSDDISK,	    skip_chunk      },
   { ZXSTBID_RAMPAGE,	    read_ramp_chunk },
-  { ZXSTBID_ROM,	    skip_chunk      },
+  { ZXSTBID_ROM,	    read_rom_chunk  },
+  { ZXSTBID_SIMPLEIDE,	    read_side_chunk },
   { ZXSTBID_SPECDRUM,	    skip_chunk      },
   { ZXSTBID_SPECREGS,	    read_spcr_chunk },
   { ZXSTBID_TIMEXREGS,	    read_scld_chunk },
@@ -1433,6 +1832,12 @@ libspectrum_szx_write( libspectrum_byte **buffer, size_t *length,
   error = write_keyb_chunk( buffer, &ptr, length, out_flags, snap );
   if( error ) return error;
 
+  if( libspectrum_snap_custom_rom( snap ) ) {
+    error = write_rom_chunk( buffer, &ptr, length, out_flags, snap, compress );
+    if( error ) return error;
+  }
+
+
   error = write_ram_pages( buffer, &ptr, length, snap, compress );
   if( error ) return error;
 
@@ -1447,8 +1852,8 @@ libspectrum_szx_write( libspectrum_byte **buffer, size_t *length,
     if( error ) return error;
   }
 
-  if( capabilities & LIBSPECTRUM_MACHINE_CAPABILITY_TRDOS_DISK ) {
-    error = write_b128_chunk( buffer, &ptr, length, snap );
+  if( libspectrum_snap_beta_active( snap ) ) {
+    error = write_b128_chunk( buffer, &ptr, length, snap, compress );
     if( error ) return error;
   }
 
@@ -1511,6 +1916,26 @@ libspectrum_szx_write( libspectrum_byte **buffer, size_t *length,
     if( error ) return error;
   }
 
+  if( libspectrum_snap_kempston_mouse_active( snap ) ) {
+    error = write_amxm_chunk( buffer, &ptr, length, snap );
+    if( error ) return error;
+  }
+
+  if( libspectrum_snap_simpleide_active( snap ) ) {
+    error = write_side_chunk( buffer, &ptr, length, snap );
+    if( error ) return error;
+  }
+
+  if( libspectrum_snap_divide_active( snap ) ) {
+    error = write_dide_chunk( buffer, &ptr, length, snap, compress );
+    if( error ) return error;
+
+    for( i = 0; i < libspectrum_snap_divide_pages( snap ); i++ ) {
+      error = write_dirp_chunk( buffer, &ptr, length, snap, i, compress );
+      if( error ) return error;
+    }
+  }
+
   /* Set length to be actual length, not allocated length */
   *length = ptr - *buffer;
 
@@ -1521,10 +1946,7 @@ static libspectrum_error
 write_file_header( libspectrum_byte **buffer, libspectrum_byte **ptr,
 		   size_t *length, int *out_flags, libspectrum_snap *snap )
 {
-  libspectrum_error error;
-
-  error = libspectrum_make_room( buffer, 8, ptr, length );
-  if( error ) return error;
+  libspectrum_make_room( buffer, 8, ptr, length );
 
   memcpy( *ptr, signature, 4 ); *ptr += 4;
   
@@ -1565,14 +1987,11 @@ static libspectrum_error
 write_crtr_chunk( libspectrum_byte **buffer, libspectrum_byte **ptr,
 		  size_t *length, libspectrum_creator *creator )
 {
-  libspectrum_error error;
   size_t custom_length;
 
   custom_length = libspectrum_creator_custom_length( creator );
 
-  error = write_chunk_header( buffer, ptr, length, ZXSTBID_CREATOR,
-			      36 + custom_length );
-  if( error ) return error;
+  write_chunk_header( buffer, ptr, length, ZXSTBID_CREATOR, 36 + custom_length );
 
   memcpy( *ptr, libspectrum_creator_program( creator ), 32 ); *ptr += 32;
   libspectrum_write_word( ptr, libspectrum_creator_major( creator ) );
@@ -1592,10 +2011,8 @@ write_z80r_chunk( libspectrum_byte **buffer, libspectrum_byte **ptr,
 {
   libspectrum_dword tstates;
   libspectrum_byte flags;
-  libspectrum_error error;
 
-  error = write_chunk_header( buffer, ptr, length, ZXSTBID_Z80REGS, 37 );
-  if( error ) return error;
+  write_chunk_header( buffer, ptr, length, ZXSTBID_Z80REGS, 37 );
 
   *(*ptr)++ = libspectrum_snap_a ( snap );
   *(*ptr)++ = libspectrum_snap_f ( snap );
@@ -1649,11 +2066,9 @@ static libspectrum_error
 write_spcr_chunk( libspectrum_byte **buffer, libspectrum_byte **ptr,
 		  size_t *length, libspectrum_snap *snap )
 {
-  libspectrum_error error;
   int capabilities;
 
-  error = write_chunk_header( buffer, ptr, length, ZXSTBID_SPECREGS, 8 );
-  if( error ) return error;
+  write_chunk_header( buffer, ptr, length, ZXSTBID_SPECREGS, 8 );
 
   capabilities =
     libspectrum_machine_capabilities( libspectrum_snap_machine( snap ) );
@@ -1737,13 +2152,11 @@ static libspectrum_error
 write_joy_chunk( libspectrum_byte **buffer, libspectrum_byte **ptr,
 		  size_t *length, int *out_flags, libspectrum_snap *snap )
 {
-  libspectrum_error error;
   libspectrum_dword flags;
   size_t num_joysticks = libspectrum_snap_joystick_active_count( snap );
   int i;
 
-  error = write_chunk_header( buffer, ptr, length, ZXSTBID_JOYSTICK, 6 );
-  if( error ) return error;
+  write_chunk_header( buffer, ptr, length, ZXSTBID_JOYSTICK, 6 );
 
   flags = 0;
   for( i = 0; i < num_joysticks; i++ ) {
@@ -1760,14 +2173,32 @@ write_joy_chunk( libspectrum_byte **buffer, libspectrum_byte **ptr,
 }
 
 static libspectrum_error
+write_amxm_chunk( libspectrum_byte **buffer, libspectrum_byte **ptr,
+		  size_t *length, libspectrum_snap *snap )
+{
+  write_chunk_header( buffer, ptr, length, ZXSTBID_MOUSE, 7 );
+
+  if( libspectrum_snap_kempston_mouse_active( snap ) )
+    *(*ptr)++ = ZXSTM_KEMPSTON;
+  else
+    *(*ptr)++ = ZXSTM_NONE;
+
+  /* Z80 PIO CTRLA registers for AMX mouse */
+  *(*ptr)++ = '\0'; *(*ptr)++ = '\0'; *(*ptr)++ = '\0';
+
+  /* Z80 PIO CTRLB registers for AMX mouse */
+  *(*ptr)++ = '\0'; *(*ptr)++ = '\0'; *(*ptr)++ = '\0';
+
+  return LIBSPECTRUM_ERROR_NONE;
+}
+
+static libspectrum_error
 write_keyb_chunk( libspectrum_byte **buffer, libspectrum_byte **ptr,
 		  size_t *length, int *out_flags, libspectrum_snap *snap )
 {
-  libspectrum_error error;
   libspectrum_dword flags;
 
-  error = write_chunk_header( buffer, ptr, length, ZXSTBID_KEYBOARD, 5 );
-  if( error ) return error;
+  write_chunk_header( buffer, ptr, length, ZXSTBID_KEYBOARD, 5 );
 
   flags = 0;
   if( libspectrum_snap_issue2( snap ) ) flags |= ZXSTKF_ISSUE2;
@@ -1779,6 +2210,137 @@ write_keyb_chunk( libspectrum_byte **buffer, libspectrum_byte **ptr,
   return LIBSPECTRUM_ERROR_NONE;
 }
   
+static libspectrum_error
+write_rom_chunk( libspectrum_byte **buffer, libspectrum_byte **ptr, size_t *length,
+                 int *out_flags, libspectrum_snap *snap, int compress )
+{
+  libspectrum_error error;
+  size_t i, data_length = 0;
+  size_t uncompressed_data_length = 0;
+  libspectrum_byte *data, *rom_base;
+  int flags = 0;
+
+  for( i = 0; i< libspectrum_snap_custom_rom_pages( snap ); i++ ) {
+    data_length += libspectrum_snap_rom_length( snap, i );
+  }
+
+  /* Check that we have the expected number of ROMs per the machine type */
+  switch( libspectrum_snap_machine( snap ) ) {
+
+  case LIBSPECTRUM_MACHINE_16:
+  case LIBSPECTRUM_MACHINE_48:
+  case LIBSPECTRUM_MACHINE_TC2048:
+    /* 1 ROM = 16k */
+    if( ( libspectrum_snap_custom_rom_pages( snap ) != 1 ||
+          data_length != 0x4000 ) ) {
+      *out_flags |= LIBSPECTRUM_FLAG_SNAPSHOT_MAJOR_INFO_LOSS;
+      return LIBSPECTRUM_ERROR_NONE;
+    }
+    break;
+  case LIBSPECTRUM_MACHINE_128:
+  case LIBSPECTRUM_MACHINE_PENT:
+  case LIBSPECTRUM_MACHINE_PLUS2:
+  case LIBSPECTRUM_MACHINE_SE:
+    /* 2 ROMs = 32k */
+    if( ( libspectrum_snap_custom_rom_pages( snap ) != 2 ||
+          data_length != 0x8000 ) ) {
+      *out_flags |= LIBSPECTRUM_FLAG_SNAPSHOT_MAJOR_INFO_LOSS;
+      return LIBSPECTRUM_ERROR_NONE;
+    }
+    break;
+  case LIBSPECTRUM_MACHINE_PLUS2A:
+  case LIBSPECTRUM_MACHINE_PLUS3:
+  case LIBSPECTRUM_MACHINE_PLUS3E:
+    /* 4 ROMs = 64k */
+    if( ( libspectrum_snap_custom_rom_pages( snap ) != 4 ||
+          data_length != 0x10000 ) ) {
+      *out_flags |= LIBSPECTRUM_FLAG_SNAPSHOT_MAJOR_INFO_LOSS;
+      return LIBSPECTRUM_ERROR_NONE;
+    }
+    break;
+  case LIBSPECTRUM_MACHINE_PENT512:
+  case LIBSPECTRUM_MACHINE_PENT1024:
+    /* 3 ROMs = 48k */
+    if( ( libspectrum_snap_custom_rom_pages( snap ) != 3 ||
+          data_length != 0xc000 ) ) {
+      *out_flags |= LIBSPECTRUM_FLAG_SNAPSHOT_MAJOR_INFO_LOSS;
+      return LIBSPECTRUM_ERROR_NONE;
+    }
+    break;
+  case LIBSPECTRUM_MACHINE_TC2068:
+  case LIBSPECTRUM_MACHINE_TS2068:
+    /* 2 ROMs = 24k */
+    if( ( libspectrum_snap_custom_rom_pages( snap ) != 2 ||
+          data_length != 0x6000 ) ) {
+      *out_flags |= LIBSPECTRUM_FLAG_SNAPSHOT_MAJOR_INFO_LOSS;
+      return LIBSPECTRUM_ERROR_NONE;
+    }
+    break;
+  case LIBSPECTRUM_MACHINE_SCORP:
+    /* 4 ROMs = 64k */
+    if( ( libspectrum_snap_custom_rom_pages( snap ) != 4 ||
+          data_length != 0x10000 ) ) {
+      *out_flags |= LIBSPECTRUM_FLAG_SNAPSHOT_MAJOR_INFO_LOSS;
+      return LIBSPECTRUM_ERROR_NONE;
+    }
+    break;
+
+  case LIBSPECTRUM_MACHINE_UNKNOWN:
+    libspectrum_print_error( LIBSPECTRUM_ERROR_LOGIC,
+			     "Emulated machine type is set to 'unknown'!" );
+    return LIBSPECTRUM_ERROR_LOGIC;
+  }
+
+  uncompressed_data_length = data_length;
+
+  data = libspectrum_malloc( data_length );
+  rom_base = data;
+
+  /* Copy the rom data into a single block ready for putting in the szx */
+  for( i = 0; i< libspectrum_snap_custom_rom_pages( snap ); i++ ) {
+    memcpy( rom_base, libspectrum_snap_roms( snap, i ),
+            libspectrum_snap_rom_length( snap, i ) );
+    rom_base += libspectrum_snap_rom_length( snap, i );
+  }
+
+#ifdef HAVE_ZLIB_H
+
+  if( compress ) {
+
+    libspectrum_byte *compressed_data;
+    size_t compressed_length;
+
+    error = libspectrum_zlib_compress( data, data_length,
+				       &compressed_data, &compressed_length );
+    if( error ) return error;
+
+    if( compress & LIBSPECTRUM_FLAG_SNAPSHOT_ALWAYS_COMPRESS ||
+        compressed_length < data_length ) {
+      libspectrum_byte *old_data = data;
+      flags |= ZXSTRF_COMPRESSED;
+      data = compressed_data;
+      data_length = compressed_length;
+      libspectrum_free( old_data );
+    } else {
+      libspectrum_free( compressed_data );
+    }
+
+  }
+
+#endif				/* #ifdef HAVE_ZLIB_H */
+
+  write_chunk_header( buffer, ptr, length, ZXSTBID_ROM, 6+data_length );
+
+  libspectrum_write_word( ptr, flags );
+  libspectrum_write_dword( ptr, uncompressed_data_length );
+
+  memcpy( *ptr, data, data_length ); *ptr += data_length;
+
+  libspectrum_free( data );
+
+  return LIBSPECTRUM_ERROR_NONE;
+}
+
 static libspectrum_error
 write_ram_pages( libspectrum_byte **buffer, libspectrum_byte **ptr,
 		 size_t *length, libspectrum_snap *snap, int compress )
@@ -1870,8 +2432,7 @@ write_ram_page( libspectrum_byte **buffer, libspectrum_byte **ptr,
   if( !data ) return LIBSPECTRUM_ERROR_NONE;
 
   /* 8 for the chunk header, 3 for the flags and the page number */
-  error = libspectrum_make_room( buffer, 8 + 3, ptr, length );
-  if( error ) return error;
+  libspectrum_make_room( buffer, 8 + 3, ptr, length );
 
   memcpy( *ptr, id, 4 ); (*ptr) += 4;
 
@@ -1911,12 +2472,11 @@ write_ram_page( libspectrum_byte **buffer, libspectrum_byte **ptr,
   libspectrum_write_dword( &block_length, 3 + data_length );
   libspectrum_write_word( &flags, extra_flags );
 
-  error = libspectrum_make_room( buffer, data_length, ptr, length );
-  if( error ) { if( compressed_data ) free( compressed_data ); return error; }
+  libspectrum_make_room( buffer, data_length, ptr, length );
 
   memcpy( *ptr, data, data_length ); *ptr += data_length;
 
-  if( compressed_data ) free( compressed_data );
+  if( compressed_data ) libspectrum_free( compressed_data );
 
   return LIBSPECTRUM_ERROR_NONE;
 }
@@ -1925,11 +2485,9 @@ static libspectrum_error
 write_ay_chunk( libspectrum_byte **buffer, libspectrum_byte **ptr,
 		size_t *length, libspectrum_snap *snap )
 {
-  libspectrum_error error;
   size_t i;
 
-  error = write_chunk_header( buffer, ptr, length, ZXSTBID_AY, 18 );
-  if( error ) return error;
+  write_chunk_header( buffer, ptr, length, ZXSTBID_AY, 18 );
 
   *(*ptr)++ = '\0';			/* Flags */
   *(*ptr)++ = libspectrum_snap_out_ay_registerport( snap );
@@ -1944,10 +2502,7 @@ static libspectrum_error
 write_scld_chunk( libspectrum_byte **buffer, libspectrum_byte **ptr,
 		size_t *length, libspectrum_snap *snap )
 {
-  libspectrum_error error;
-
-  error = write_chunk_header( buffer, ptr, length, ZXSTBID_TIMEXREGS, 2 );
-  if( error ) return error;
+  write_chunk_header( buffer, ptr, length, ZXSTBID_TIMEXREGS, 2 );
 
   *(*ptr)++ = libspectrum_snap_out_scld_hsr( snap );
   *(*ptr)++ = libspectrum_snap_out_scld_dec( snap );
@@ -1957,17 +2512,54 @@ write_scld_chunk( libspectrum_byte **buffer, libspectrum_byte **ptr,
 
 static libspectrum_error
 write_b128_chunk( libspectrum_byte **buffer, libspectrum_byte **ptr,
-		  size_t *length, libspectrum_snap *snap )
+		  size_t *length, libspectrum_snap *snap, int compress )
 {
   libspectrum_error error;
+  libspectrum_byte *rom_data = NULL;
+  libspectrum_byte *compressed_rom_data = NULL;
+  size_t block_size;
+  libspectrum_word beta_rom_length = 0;
+  libspectrum_word uncompressed_rom_length = 0;
   libspectrum_dword flags;
+  int use_compression = 0;
 
-  error = write_chunk_header( buffer, ptr, length, ZXSTBID_BETA128, 10 );
-  if( error ) return error;
+  if( libspectrum_snap_beta_custom_rom( snap ) ) {
+    rom_data = libspectrum_snap_beta_rom( snap, 0 );
+    uncompressed_rom_length = beta_rom_length = 0x4000;
+
+#ifdef HAVE_ZLIB_H
+
+    if( rom_data && compress ) {
+
+      size_t compressed_rom_length;
+
+      error = libspectrum_zlib_compress( rom_data, uncompressed_rom_length,
+                                         &compressed_rom_data,
+                                         &compressed_rom_length );
+      if( error ) return error;
+
+      if( compress & LIBSPECTRUM_FLAG_SNAPSHOT_ALWAYS_COMPRESS ||
+          compressed_rom_length < uncompressed_rom_length ) {
+        use_compression = 1;
+        rom_data = compressed_rom_data;
+        beta_rom_length = compressed_rom_length;
+      }
+
+    }
+
+#endif
+
+  }
+
+  block_size = 10 + beta_rom_length;
+
+  write_chunk_header( buffer, ptr, length, ZXSTBID_BETA128, block_size );
 
   flags = ZXSTBETAF_CONNECTED;	/* Betadisk interface connected */
   if( libspectrum_snap_beta_paged( snap ) ) flags |= ZXSTBETAF_PAGED;
   if( !libspectrum_snap_beta_direction( snap ) ) flags |= ZXSTBETAF_SEEKLOWER;
+  if( libspectrum_snap_beta_custom_rom( snap ) ) flags |= ZXSTBETAF_CUSTOMROM;
+  if( use_compression ) flags |= ZXSTBETAF_COMPRESSED;
   libspectrum_write_dword( ptr, flags );
 
   *(*ptr)++ = 2;	/* 2 drives connected */
@@ -1976,6 +2568,12 @@ write_b128_chunk( libspectrum_byte **buffer, libspectrum_byte **ptr,
   *(*ptr)++ = libspectrum_snap_beta_sector( snap );
   *(*ptr)++ = libspectrum_snap_beta_data  ( snap );
   *(*ptr)++ = libspectrum_snap_beta_status( snap );
+
+  if( libspectrum_snap_beta_custom_rom( snap ) ) {
+    memcpy( *ptr, rom_data, beta_rom_length ); *ptr += beta_rom_length;
+  }
+
+  if( compressed_rom_data ) libspectrum_free( compressed_rom_data );
 
   return LIBSPECTRUM_ERROR_NONE;
 }
@@ -2039,8 +2637,7 @@ write_if1_chunk( libspectrum_byte **buffer, libspectrum_byte **ptr,
     block_size += disk_rom_length;
   }
 
-  error = write_chunk_header( buffer, ptr, length, ZXSTBID_IF1, block_size );
-  if( error ) return error;
+  write_chunk_header( buffer, ptr, length, ZXSTBID_IF1, block_size );
 
   flags |= ZXSTIF1F_ENABLED;
   if( libspectrum_snap_interface1_paged( snap ) ) flags |= ZXSTIF1F_PAGED;
@@ -2059,7 +2656,7 @@ write_if1_chunk( libspectrum_byte **buffer, libspectrum_byte **ptr,
     memcpy( *ptr, rom_data, disk_rom_length ); *ptr += disk_rom_length;
   }
 
-  if( compressed_rom_data ) free( compressed_rom_data );
+  if( compressed_rom_data ) libspectrum_free( compressed_rom_data );
 
   return LIBSPECTRUM_ERROR_NONE;
 }
@@ -2097,7 +2694,7 @@ write_plsd_chunk( libspectrum_byte **buffer, libspectrum_byte **ptr,
     error = libspectrum_zlib_compress( ram_data, disk_ram_length,
 				       &compressed_ram_data, &compressed_ram_length );
     if( error ) {
-      if( compressed_rom_data ) free( compressed_rom_data );
+      if( compressed_rom_data ) libspectrum_free( compressed_rom_data );
       return error;
     }
 
@@ -2120,8 +2717,7 @@ write_plsd_chunk( libspectrum_byte **buffer, libspectrum_byte **ptr,
     block_size += disk_rom_length;
   }
 
-  error = write_chunk_header( buffer, ptr, length, ZXSTBID_PLUSD, block_size );
-  if( error ) return error;
+  write_chunk_header( buffer, ptr, length, ZXSTBID_PLUSD, block_size );
 
   if( libspectrum_snap_plusd_paged( snap ) ) flags |= ZXSTPLUSDF_PAGED;
   if( use_compression ) flags |= ZXSTPLUSDF_COMPRESSED;
@@ -2149,8 +2745,8 @@ write_plsd_chunk( libspectrum_byte **buffer, libspectrum_byte **ptr,
     memcpy( *ptr, rom_data, disk_rom_length ); *ptr += disk_rom_length;
   }
 
-  if( compressed_rom_data ) free( compressed_rom_data );
-  if( compressed_ram_data ) free( compressed_ram_data );
+  if( compressed_rom_data ) libspectrum_free( compressed_rom_data );
+  if( compressed_ram_data ) libspectrum_free( compressed_ram_data );
 
   return LIBSPECTRUM_ERROR_NONE;
 }
@@ -2160,9 +2756,8 @@ write_zxat_chunk( libspectrum_byte **buffer, libspectrum_byte **ptr,
 		  size_t *length, libspectrum_snap *snap )
 {
   libspectrum_word flags;
-  libspectrum_error error;
 
-  error = write_chunk_header( buffer, ptr, length, ZXSTBID_ZXATASP, 8 );
+  write_chunk_header( buffer, ptr, length, ZXSTBID_ZXATASP, 8 );
 
   flags = 0;
   if( libspectrum_snap_zxatasp_upload ( snap ) ) flags |= ZXSTZXATF_UPLOAD;
@@ -2202,9 +2797,8 @@ write_zxcf_chunk( libspectrum_byte **buffer, libspectrum_byte **ptr,
 		  size_t *length, libspectrum_snap *snap )
 {
   libspectrum_word flags;
-  libspectrum_error error;
 
-  error = write_chunk_header( buffer, ptr, length, ZXSTBID_ZXCF, 4 );
+  write_chunk_header( buffer, ptr, length, ZXSTBID_ZXCF, 4 );
 
   flags = 0;
   if( libspectrum_snap_zxcf_upload( snap ) ) flags |= ZXSTZXCFF_UPLOAD;
@@ -2244,8 +2838,7 @@ write_if2r_chunk( libspectrum_byte **buffer, libspectrum_byte **ptr,
   size_t data_length, compressed_length;
 
   /* 8 for the chunk header, 4 for the compressed cart size */
-  error = libspectrum_make_room( buffer, 8 + 4, ptr, length );
-  if( error ) return error;
+  libspectrum_make_room( buffer, 8 + 4, ptr, length );
 
   memcpy( *ptr, ZXSTBID_IF2ROM, 4 ); (*ptr) += 4;
 
@@ -2265,12 +2858,11 @@ write_if2r_chunk( libspectrum_byte **buffer, libspectrum_byte **ptr,
   libspectrum_write_dword( &block_length, 4 + compressed_length );
   libspectrum_write_dword( &cart_size, compressed_length );
 
-  error = libspectrum_make_room( buffer, compressed_length, ptr, length );
-  if( error ) { if( compressed_data ) free( compressed_data ); return error; }
+  libspectrum_make_room( buffer, compressed_length, ptr, length );
 
   memcpy( *ptr, compressed_data, compressed_length ); *ptr += compressed_length;
 
-  if( compressed_data ) free( compressed_data );
+  if( compressed_data ) libspectrum_free( compressed_data );
 
   return LIBSPECTRUM_ERROR_NONE;
 }
@@ -2298,17 +2890,94 @@ write_dock_chunk( libspectrum_byte **buffer, libspectrum_byte **ptr,
 }
 
 static libspectrum_error
+write_side_chunk( libspectrum_byte **buffer, libspectrum_byte **ptr,
+		  size_t *length, libspectrum_snap *snap )
+{
+  write_chunk_header( buffer, ptr, length, ZXSTBID_SIMPLEIDE, 0 );
+  return LIBSPECTRUM_ERROR_NONE;
+}
+
+static libspectrum_error
+write_dide_chunk( libspectrum_byte **buffer, libspectrum_byte **ptr,
+		  size_t *length, libspectrum_snap *snap, int compress )
+{
+  libspectrum_error error;
+  libspectrum_byte *eprom_data = NULL;
+  libspectrum_byte *compressed_eprom_data = NULL;
+  size_t block_size;
+  libspectrum_word flags = 0;
+  libspectrum_word divide_eprom_length = 0;
+  libspectrum_word uncompressed_eprom_length = 0;
+  int use_compression = 0;
+
+  eprom_data = libspectrum_snap_divide_eprom( snap, 0 );
+  uncompressed_eprom_length = divide_eprom_length = 0x2000;
+
+#ifdef HAVE_ZLIB_H
+
+  if( eprom_data && compress ) {
+
+    size_t compressed_eprom_length;
+
+    error = libspectrum_zlib_compress( eprom_data, uncompressed_eprom_length,
+                                       &compressed_eprom_data,
+                                       &compressed_eprom_length );
+    if( error ) return error;
+
+    if( compress & LIBSPECTRUM_FLAG_SNAPSHOT_ALWAYS_COMPRESS ||
+        compressed_eprom_length < uncompressed_eprom_length ) {
+      use_compression = 1;
+      eprom_data = compressed_eprom_data;
+      divide_eprom_length = compressed_eprom_length;
+    }
+
+  }
+
+#endif
+
+  block_size = 4 + divide_eprom_length;
+
+  write_chunk_header( buffer, ptr, length, ZXSTBID_DIVIDE, block_size );
+
+  if( libspectrum_snap_divide_eprom_writeprotect( snap ) )
+    flags |= ZXSTDIVIDE_EPROM_WRITEPROTECT;
+  if( libspectrum_snap_divide_paged( snap ) ) flags |= ZXSTDIVIDE_PAGED;
+  if( use_compression ) flags |= ZXSTDIVIDE_COMPRESSED;
+  libspectrum_write_word( ptr, flags );
+
+  *(*ptr)++ = libspectrum_snap_divide_control( snap );
+  *(*ptr)++ = libspectrum_snap_divide_pages( snap );
+
+  memcpy( *ptr, eprom_data, divide_eprom_length ); *ptr += divide_eprom_length;
+
+  if( compressed_eprom_data ) libspectrum_free( compressed_eprom_data );
+
+  return LIBSPECTRUM_ERROR_NONE;
+}
+
+static libspectrum_error
+write_dirp_chunk( libspectrum_byte **buffer, libspectrum_byte **ptr,
+		  size_t *length, libspectrum_snap *snap, int page,
+		  int compress )
+{
+  libspectrum_error error;
+  const libspectrum_byte *data;
+
+  data = libspectrum_snap_divide_ram( snap, page );
+
+  error = write_ram_page( buffer, ptr, length, ZXSTBID_DIVIDERAMPAGE, data,
+			  0x2000, page, compress, 0x00 );
+  if( error ) return error;
+
+  return LIBSPECTRUM_ERROR_NONE;
+}
+
+static void
 write_chunk_header( libspectrum_byte **buffer, libspectrum_byte **ptr,
 		    size_t *length, const char *id,
 		    libspectrum_dword block_length )
 {
-  libspectrum_error error;
-
-  error = libspectrum_make_room( buffer, 8 + block_length, ptr, length );
-  if( error ) return error;
-
+  libspectrum_make_room( buffer, 8 + block_length, ptr, length );
   memcpy( *ptr, id, 4 ); *ptr += 4;
   libspectrum_write_dword( ptr, block_length );
-
-  return LIBSPECTRUM_ERROR_NONE;
 }

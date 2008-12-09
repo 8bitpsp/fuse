@@ -1,8 +1,8 @@
 /* config.h.  Generated from config.h.in by configure.  */
 /* config.h.in.  Generated from configure.in by autoheader.  */
 
-/* Define to 1 if you have the <765.h> header file. */
-#define HAVE_765_H 1
+/* DirectX 7 or higher is required */
+/* #undef DIRECTSOUND_VERSION */
 
 /* Define to 1 if you have the `dirname' function. */
 #define HAVE_DIRNAME 1
@@ -30,9 +30,6 @@
 
 /* Define to 1 if you have the <jsw.h> header file. */
 /* #undef HAVE_JSW_H */
-
-/* Define to 1 if you have the <libdsk.h> header file. */
-#define HAVE_LIBDSK_H 1
 
 /* Define to 1 if you have the <libgen.h> header file. */
 #define HAVE_LIBGEN_H 1
@@ -114,7 +111,6 @@
 
 /* Location of the ROM images */
 #define ROMSDIR "system"
-/* #undef ROMSDIR */
 
 /* Defined if the sound code uses a fifo */
 /* #undef SOUND_FIFO */
@@ -123,11 +119,10 @@
 #define STDC_HEADERS 1
 
 /* The header needed to define the timer type */
-/* #define TIMER_HEADER <sys/time.h> */
-#define TIMER_HEADER <psprtc.h>
+#define TIMER_HEADER <psptypes.h> \
+#include <psprtc.h>
 
 /* The type needed for the timer routines */
-/* #define TIMER_TYPE struct timeval */
 #define TIMER_TYPE u64
 
 /* Defined if framebuffer UI in use */
@@ -149,7 +144,6 @@
 /* #define UI_X 1 */
 
 /* Defined if we're using hardware joysticks */
-/* #undef USE_JOYSTICK */
 #define USE_JOYSTICK 1
 
 /* Defined if we're going to be using the installed libpng */
@@ -159,7 +153,10 @@
 /* #define USE_WIDGET 1 */
 
 /* Version number of package */
-#define VERSION "0.9.0"
+#define VERSION "0.10.0"
+
+/* Minimal supported version of Windows is 95 or NT4 */
+/* #undef WINVER */
 
 /* Define to 1 if your processor stores words with the most significant byte
    first (like Motorola and SPARC, unlike Intel and VAX). */
@@ -171,6 +168,9 @@
 /* Define to 1 if `lex' declares `yytext' as a `char *' by default, not a
    `char[]'. */
 #define YYTEXT_POINTER 1
+
+/* Internet Explorer is 4.0 or higher is required */
+/* #undef _WIN32_IE */
 
 /* Define to empty if `const' does not conform to ANSI C. */
 /* #undef const */

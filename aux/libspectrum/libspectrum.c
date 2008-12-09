@@ -1,7 +1,7 @@
 /* libspectrum.c: Some general routines
    Copyright (c) 2001-2004 Philip Kendall, Darren Salt, Fredrick Meunier
 
-   $Id: libspectrum.c 3439 2007-12-19 03:28:36Z zubzero $
+   $Id: libspectrum.c 3806 2008-11-08 10:42:38Z pak21 $
 
    This program is free software; you can redistribute it and/or modify
    it under the terms of the GNU General Public License as published by
@@ -47,10 +47,13 @@ static const char *gcrypt_version;
 #if defined AMIGA || defined __MORPHOS__
 #include <proto/exec.h>
 #include <proto/xfdmaster.h>
-struct xfdMasterBase *xfdMasterBase;
 
 #ifndef __MORPHOS__
+struct Library *xfdMasterBase;
+
 struct xfdMasterIFace *IxfdMaster;
+#else 				/* #ifndef __MORPHOS__ */
+struct xfdMasterBase *xfdMasterBase;
 #endif				/* #ifndef __MORPHOS__ */
 
 #endif /* #if defined AMIGA || defined __MORPHOS__ */
@@ -112,6 +115,8 @@ libspectrum_init( void )
   gcrypt_version = NULL;
 
 #endif				/* #ifdef HAVE_GCRYPT_H */
+
+  libspectrum_init_bits_set();
 
   return LIBSPECTRUM_ERROR_NONE;
 }
@@ -458,7 +463,7 @@ libspectrum_identify_file_with_class(
 						new_length );
   if( error ) return error;
 
-  free( new_filename ); free( new_buffer );
+  libspectrum_free( new_filename ); libspectrum_free( new_buffer );
 
   return LIBSPECTRUM_ERROR_NONE;
 }
@@ -518,7 +523,6 @@ libspectrum_identify_file_raw( libspectrum_id_t *type, const char *filename,
       { LIBSPECTRUM_ID_TAPE_TZX,      "tzx", 3, "ZXTape!",	    0, 7, 4 },
       { LIBSPECTRUM_ID_TAPE_WARAJEVO, "tap", 2, "\xff\xff\xff\xff", 8, 4, 2 },
 
-      { LIBSPECTRUM_ID_DISK_DSK,      "dsk", 3, NULL,		    0, 0, 0 },
       { LIBSPECTRUM_ID_DISK_SCL,      "scl", 3, "SINCLAIR",         0, 8, 4 },
       { LIBSPECTRUM_ID_DISK_TRD,      "trd", 3, NULL,		    0, 0, 0 },
 
@@ -534,6 +538,14 @@ libspectrum_identify_file_raw( libspectrum_id_t *type, const char *filename,
 
       { LIBSPECTRUM_ID_DISK_MGT,      "mgt", 3, NULL,		    0, 0, 0 },
       { LIBSPECTRUM_ID_DISK_IMG,      "img", 3, NULL,		    0, 0, 0 },
+
+      { LIBSPECTRUM_ID_DISK_UDI,      "udi", 3, "UDI!",		    0, 4, 4 },
+      { LIBSPECTRUM_ID_DISK_ECPC,     "dsk", 3, "EXTENDED CPC DSK File\r\nDisk-Info\r\n", 0, 34, 4 },
+      { LIBSPECTRUM_ID_DISK_CPC,      "dsk", 3, "MV - CPCEMU Disk-File\r\nDisk-Info\r\n", 0, 34, 4 },
+      { LIBSPECTRUM_ID_DISK_FDI,      "fdi", 3, "FDI",              0, 3, 4 },
+      { LIBSPECTRUM_ID_DISK_SAD,      "sad", 3, "Aley's disk backup", 0, 18, 4 },
+      { LIBSPECTRUM_ID_DISK_TD0,      "td0", 3, "TD",               0, 2, 4 },
+      { LIBSPECTRUM_ID_DISK_TD0,      "td0", 3, "td",               0, 2, 4 },
 
       { -1, NULL, 0, NULL, 0, 0, 0 }, /* End marker */
 
@@ -649,6 +661,8 @@ libspectrum_identify_class( libspectrum_class_t *libspectrum_class,
     *libspectrum_class = LIBSPECTRUM_CLASS_COMPRESSED; return 0;
 
   case LIBSPECTRUM_ID_DISK_DSK:
+  case LIBSPECTRUM_ID_DISK_CPC:
+  case LIBSPECTRUM_ID_DISK_ECPC:
     *libspectrum_class = LIBSPECTRUM_CLASS_DISK_PLUS3; return 0;
 
   case LIBSPECTRUM_ID_DISK_IMG:
@@ -690,6 +704,12 @@ libspectrum_identify_class( libspectrum_class_t *libspectrum_class,
 
   case LIBSPECTRUM_ID_CARTRIDGE_IF2:
     *libspectrum_class = LIBSPECTRUM_CLASS_CARTRIDGE_IF2; return 0;
+
+  case LIBSPECTRUM_ID_DISK_UDI:
+  case LIBSPECTRUM_ID_DISK_FDI:
+  case LIBSPECTRUM_ID_DISK_SAD:
+  case LIBSPECTRUM_ID_DISK_TD0:
+    *libspectrum_class = LIBSPECTRUM_CLASS_DISK_GENERIC; return 0;
 
   }
 
@@ -744,7 +764,7 @@ libspectrum_uncompress_file( unsigned char **new_buffer, size_t *new_length,
     error = libspectrum_bzip2_inflate( old_buffer, old_length,
 				       new_buffer, new_length );
     if( error ) {
-      if( new_filename ) free( *new_filename );
+      if( new_filename ) libspectrum_free( *new_filename );
       return error;
     }
 
@@ -754,7 +774,7 @@ libspectrum_uncompress_file( unsigned char **new_buffer, size_t *new_length,
       LIBSPECTRUM_ERROR_UNKNOWN,
       "libbz2 not available to decompress bzipped file"
     );
-    if( new_filename ) free( *new_filename );
+    if( new_filename ) libspectrum_free( *new_filename );
     return LIBSPECTRUM_ERROR_UNKNOWN;
 
 #endif				/* #ifdef HAVE_LIBBZ2 */
@@ -775,7 +795,7 @@ libspectrum_uncompress_file( unsigned char **new_buffer, size_t *new_length,
     error = libspectrum_gzip_inflate( old_buffer, old_length,
 				      new_buffer, new_length );
     if( error ) {
-      if( new_filename ) free( *new_filename );
+      if( new_filename ) libspectrum_free( *new_filename );
       return error;
     }
 
@@ -783,7 +803,7 @@ libspectrum_uncompress_file( unsigned char **new_buffer, size_t *new_length,
 
     libspectrum_print_error( LIBSPECTRUM_ERROR_UNKNOWN,
 			     "zlib not available to decompress gzipped file" );
-    if( new_filename ) free( *new_filename );
+    if( new_filename ) libspectrum_free( *new_filename );
     return LIBSPECTRUM_ERROR_UNKNOWN;
 
 #endif				/* #ifdef HAVE_ZLIB_H */
@@ -824,7 +844,7 @@ libspectrum_uncompress_file( unsigned char **new_buffer, size_t *new_length,
 #else				/* #ifndef __MORPHOS__ */
               if( xfdDecrunchBuffer( xfdobj ) ) {
 #endif				/* #ifndef __MORPHOS__ */
-                *new_buffer = malloc( xfdobj->xfdbi_TargetBufSaveLen );
+                *new_buffer = libspectrum_malloc( xfdobj->xfdbi_TargetBufSaveLen );
                 *new_length = xfdobj->xfdbi_TargetBufSaveLen;
                 memcpy( *new_buffer, xfdobj->xfdbi_TargetBuffer, *new_length );
 #ifndef __MORPHOS__
@@ -866,7 +886,7 @@ libspectrum_uncompress_file( unsigned char **new_buffer, size_t *new_length,
   default:
     libspectrum_print_error( LIBSPECTRUM_ERROR_LOGIC,
 			     "unknown compressed type %d", type );
-    if( new_filename ) free( *new_filename );
+    if( new_filename ) libspectrum_free( *new_filename );
     return LIBSPECTRUM_ERROR_LOGIC;
   }
 
@@ -876,7 +896,7 @@ libspectrum_uncompress_file( unsigned char **new_buffer, size_t *new_length,
 /* Ensure there is room for `requested' characters after the current
    position `ptr' in `buffer'. If not, realloc() and update the
    pointers as necessary */
-int
+void
 libspectrum_make_room( libspectrum_byte **dest, size_t requested,
 		       libspectrum_byte **ptr, size_t *allocated )
 {
@@ -887,14 +907,12 @@ libspectrum_make_room( libspectrum_byte **dest, size_t requested,
   if( *allocated == 0 ) {
 
     (*allocated) = requested;
-
-    *dest = (libspectrum_byte*)malloc( requested * sizeof(libspectrum_byte) );
-    if( *dest == NULL ) return 1;
+    *dest = libspectrum_malloc( requested * sizeof( **dest ) );
 
   } else {
 
     /* If there's already enough room here, just return */
-    if( current_length + requested <= (*allocated) ) return 0;
+    if( current_length + requested <= (*allocated) ) return;
 
     /* Make the new size the maximum of the new needed size and the
      old allocated size * 2 */
@@ -903,17 +921,11 @@ libspectrum_make_room( libspectrum_byte **dest, size_t requested,
       current_length + requested :
       2 * (*allocated);
 
-    *dest = (libspectrum_byte*)
-      realloc( *dest, (*allocated) * sizeof( libspectrum_byte ) );
-    if( *dest == NULL ) return 1;
-
+    *dest = libspectrum_realloc( *dest, *allocated * sizeof( **dest ) );
   }
 
   /* Update the secondary pointer to the block */
   *ptr = *dest + current_length;
-
-  return 0;
-
 }
 
 /* Read an LSB word from 'buffer' */

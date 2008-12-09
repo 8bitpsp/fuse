@@ -1,7 +1,7 @@
 /* spec48.h: Spectrum 48K specific routines
    Copyright (c) 1999-2004 Philip Kendall
 
-   $Id: spec48.h 3281 2007-11-05 18:51:51Z pak21 $
+   $Id: spec48.h 3562 2008-03-17 15:47:12Z pak21 $
 
    This program is free software; you can redistribute it and/or modify
    it under the terms of the GNU General Public License as published by
@@ -31,7 +31,6 @@
 #include "machine.h"
 
 int spec48_port_from_ula( libspectrum_word port );
-libspectrum_byte spec48_contend_delay( libspectrum_dword time );
 
 int spec48_init( fuse_machine_info *machine );
 int spec48_common_reset( void );

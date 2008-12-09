@@ -41,7 +41,7 @@ extern int fuse_emulation_paused;	/* Is Spectrum emulation paused? */
 int fuse_emulation_pause(void);		/* Stop and start emulation */
 int fuse_emulation_unpause(void);
 
-#if defined(UI_WIN32) || defined(PSP)
+#ifdef UI_WIN32
 int fuse_main(int argc, char **argv);
 #endif
 

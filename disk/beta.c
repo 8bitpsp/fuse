@@ -1,7 +1,7 @@
 /* beta.c: Routines for handling the Beta disk interface
-   Copyright (c) 2004-2007 Stuart Brady
+   Copyright (c) 2004-2008 Stuart Brady
 
-   $Id: beta.c 3400 2007-12-04 18:24:31Z zubzero $
+   $Id: beta.c 3681 2008-06-16 09:40:29Z pak21 $
 
    This program is free software; you can redistribute it and/or modify
    it under the terms of the GNU General Public License as published by
@@ -60,6 +60,8 @@ int beta_builtin = 0;
 
 static int beta_index_pulse = 0;
 
+static int index_event;
+
 #define BETA_NUM_DRIVES 4
 
 static wd_fdc *beta_fdc;
@@ -78,14 +80,17 @@ const size_t beta_peripherals_count =
 
 static void beta_reset( int hard_reset );
 static void beta_memory_map( void );
+static void beta_enabled_snapshot( libspectrum_snap *snap );
 static void beta_from_snapshot( libspectrum_snap *snap );
 static void beta_to_snapshot( libspectrum_snap *snap );
+static void beta_event_index( libspectrum_dword last_tstates, int type,
+			      void *user_data );
 
 static module_info_t beta_module_info = {
 
   beta_reset,
   beta_memory_map,
-  NULL, /* XXX: beta_enabled_snapshot */
+  beta_enabled_snapshot,
   beta_from_snapshot,
   beta_to_snapshot,
 
@@ -116,19 +121,32 @@ beta_memory_map( void )
   memory_map_read[1] = memory_map_write[1] = memory_map_romcs[ 1 ];
 }
 
+static void
+beta_select_drive( int i )
+{
+  if( beta_fdc->current_drive != &beta_drives[ i & 0x03 ] ) {
+    if( beta_fdc->current_drive != NULL )
+      fdd_select( &beta_fdc->current_drive->fdd, 0 );
+    beta_fdc->current_drive = &beta_drives[ i & 0x03 ];
+    fdd_select( &beta_fdc->current_drive->fdd, 1 );
+  }
+}
+
 int
 beta_init( void )
 {
   int i;
   wd_fdc_drive *d;
   
-  beta_fdc = wd_fdc_alloc_fdc( FD1793 );
-  beta_fdc->current_drive = &beta_drives[ 0 ];
+  beta_fdc = wd_fdc_alloc_fdc( FD1793, 0, WD_FLAG_BETA128 );
+  beta_fdc->current_drive = NULL;
 
   for( i = 0; i < BETA_NUM_DRIVES; i++ ) {
     d = &beta_drives[ i ];
-    fdd_init( &d->fdd, 0, 0 );		/* drive geometry 'autodetect' */
+    fdd_init( &d->fdd, FDD_SHUGART, 0, 0 );	/* drive geometry 'autodetect' */
+    d->disk.flag = DISK_FLAG_NONE;
   }
+  beta_select_drive( 0 );
 
   beta_fdc->dden = 1;
   beta_fdc->set_intrq = NULL;
@@ -136,18 +154,21 @@ beta_init( void )
   beta_fdc->set_datarq = NULL;
   beta_fdc->reset_datarq = NULL;
 
+  index_event = event_register( beta_event_index, "Beta disk index" );
+  if( index_event == -1 ) return 1;
+
   module_register( &beta_module_info );
 
   return 0;
 }
 
 static void
-beta_reset( int hard_reset )
+beta_reset( int hard_reset GCC_UNUSED )
 {
   int i;
   wd_fdc_drive *d;
 
-  event_remove_type( EVENT_TYPE_BETA_INDEX );
+  event_remove_type( index_event );
 
   if( !periph_beta128_active ) {
     beta_active = 0;
@@ -198,9 +219,9 @@ beta_reset( int hard_reset )
   ui_menu_activate( UI_MENU_ITEM_MEDIA_DISK_BETA_D_WP_SET,
 		    !beta_drives[ BETA_DRIVE_D ].fdd.wrprot );
 
-  beta_fdc->current_drive = &beta_drives[ 0 ];
+  beta_select_drive( 0 );
   machine_current->memory_map();
-  beta_event_index( 0 );
+  beta_event_index( 0, 0, NULL );
 
   ui_statusbar_update( UI_STATUSBAR_ITEM_DISK, UI_STATUSBAR_STATE_INACTIVE );
 }
@@ -283,10 +304,11 @@ void
 beta_sp_write( libspectrum_word port GCC_UNUSED, libspectrum_byte b )
 {
   if( !beta_active ) return;
-
-  beta_fdc->current_drive = &beta_drives[ b & 0x03 ];
+  
   /* reset 0x04 and then set it to reset controller */
+  beta_select_drive( b & 0x03 );
   /* 0x08 = block hlt, normally set */
+  wd_fdc_set_hlt( beta_fdc, ( ( b & 0x08 ) ? 1 : 0 ) );
   fdd_set_head( &beta_fdc->current_drive->fdd, ( ( b & 0x10 ) ? 0 : 1 ) );
   /* 0x20 = density, reset = FM, set = MFM */
   beta_fdc->dden = b & 0x20 ? 1 : 0;
@@ -444,6 +466,7 @@ beta_disk_eject( beta_drive_number which, int write )
   } else {
   
     if( d->disk.dirty ) {
+      ui_confirm_save_t confirm;
 
       switch( which ) {
 	case BETA_DRIVE_A: drive = 'A'; break;
@@ -453,7 +476,7 @@ beta_disk_eject( beta_drive_number which, int write )
 	default: drive = '?'; break;
       }
 
-      ui_confirm_save_t confirm = ui_confirm_save(
+      confirm = ui_confirm_save(
 	"Disk in Beta drive %c: has been modified.\n"
 	"Do you want to save it?",
 	drive
@@ -511,8 +534,8 @@ beta_disk_write( beta_drive_number which, const char *filename )
   return 0;
 }
 
-int
-beta_event_index( libspectrum_dword last_tstates )
+static void
+beta_event_index( libspectrum_dword last_tstates, int type, void *user_data )
 {
   int error;
   int next_tstates;
@@ -532,17 +555,21 @@ beta_event_index( libspectrum_dword last_tstates )
   }
   next_tstates = ( beta_index_pulse ? 10 : 190 ) *
     machine_current->timings.processor_speed / 1000;
-  error = event_add( last_tstates + next_tstates, EVENT_TYPE_BETA_INDEX );
-  if( error )
-    return error;
-  return 0;
+  error = event_add( last_tstates + next_tstates, index_event );
+  if( error ) return;
+}
+
+static void
+beta_enabled_snapshot( libspectrum_snap *snap )
+{
+  if( libspectrum_snap_beta_active( snap ) )
+    settings_current.beta128 = 1;
 }
 
 static void
 beta_from_snapshot( libspectrum_snap *snap )
 {
-  if( !( machine_current->capabilities & LIBSPECTRUM_MACHINE_CAPABILITY_TRDOS_DISK ) )
-    return;
+  if( !libspectrum_snap_beta_active( snap ) ) return;
 
   beta_active = libspectrum_snap_beta_paged( snap );
 
@@ -551,6 +578,15 @@ beta_from_snapshot( libspectrum_snap *snap )
   } else {
     beta_unpage();
   }
+
+  if( libspectrum_snap_beta_custom_rom( snap ) &&
+      libspectrum_snap_beta_rom( snap, 0 ) &&
+      machine_load_rom_bank_from_buffer(
+                             memory_map_romcs, 0, 0,
+                             libspectrum_snap_beta_rom( snap, 0 ),
+                             MEMORY_PAGE_SIZE * 2,
+                             1 ) )
+    return;
 
   beta_fdc->direction = libspectrum_snap_beta_direction( snap );
 
@@ -566,8 +602,29 @@ beta_to_snapshot( libspectrum_snap *snap )
 {
   int attached;
   wd_fdc *f = beta_fdc;
+  libspectrum_byte *buffer;
+
+  if( !periph_beta128_active ) return;
 
   libspectrum_snap_set_beta_active( snap, 1 );
+
+  if( memory_map_romcs[0].source == MEMORY_SOURCE_CUSTOMROM ) {
+    size_t rom_length = MEMORY_PAGE_SIZE * 2;
+
+    buffer = malloc( rom_length );
+    if( !buffer ) {
+      ui_error( UI_ERROR_ERROR, "Out of memory at %s:%d", __FILE__, __LINE__ );
+      return;
+    }
+
+    memcpy( buffer, memory_map_romcs[0].page, MEMORY_PAGE_SIZE );
+    memcpy( buffer + MEMORY_PAGE_SIZE, memory_map_romcs[1].page,
+	    MEMORY_PAGE_SIZE );
+
+    libspectrum_snap_set_beta_rom( snap, 0, buffer );
+    libspectrum_snap_set_beta_custom_rom( snap, 1 );
+  }
+
   libspectrum_snap_set_beta_paged ( snap, beta_active );
   libspectrum_snap_set_beta_direction( snap, beta_fdc->direction );
   libspectrum_snap_set_beta_status( snap, beta_sr_read( 0x001f, &attached ) );

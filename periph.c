@@ -1,7 +1,7 @@
 /* periph.c: code for handling peripherals
    Copyright (c) 2005-2007 Philip Kendall
 
-   $Id: periph.c 3400 2007-12-04 18:24:31Z zubzero $
+   $Id: periph.c 3681 2008-06-16 09:40:29Z pak21 $
 
    This program is free software; you can redistribute it and/or modify
    it under the terms of the GNU General Public License as published by
@@ -59,6 +59,10 @@ typedef struct periph_private_t {
 
 static GSList *peripherals = NULL;
 static int last_id = 0;
+
+/* The strings used for debugger events */
+static const char *page_event_string = "page",
+  *unpage_event_string = "unpage";
 
 static gint find_by_id( gconstpointer data, gconstpointer id );
 static void free_peripheral( gpointer data, gpointer user_data );
@@ -171,7 +175,16 @@ readport( libspectrum_word port )
   ula_contend_port_early( port );
   ula_contend_port_late( port );
   b = readport_internal( port );
+
+  /* Very ugly to put this here, but unless anything else needs this
+     "writeback" mechanism, no point producing a general framework */
+  if( ( port & 0x8002 ) == 0 &&
+      ( machine_current->machine == LIBSPECTRUM_MACHINE_128   ||
+	machine_current->machine == LIBSPECTRUM_MACHINE_PLUS2    ) )
+    writeport_internal( 0x7ffd, b );
+
   tstates++;
+
 
   return b;
 }
@@ -182,9 +195,8 @@ readport_internal( libspectrum_word port )
   struct peripheral_data_t callback_info;
 
   /* Trigger the debugger if wanted */
-  if( debugger_mode != DEBUGGER_MODE_INACTIVE &&
-      debugger_check( DEBUGGER_BREAKPOINT_TYPE_PORT_READ, port ) )
-    debugger_mode = DEBUGGER_MODE_HALTED;
+  if( debugger_mode != DEBUGGER_MODE_INACTIVE )
+    debugger_check( DEBUGGER_BREAKPOINT_TYPE_PORT_READ, port );
 
   /* If we're doing RZX playback, get a byte from the RZX file */
   if( rzx_playback ) {
@@ -198,7 +210,7 @@ readport_internal( libspectrum_word port )
 
       /* Add a null event to mean we pick up the RZX state change in
 	 z80_do_opcodes() */
-      event_add( tstates, EVENT_TYPE_NULL );
+      event_add( tstates, event_type_null );
       return readport_internal( port );
     }
 
@@ -252,9 +264,8 @@ writeport_internal( libspectrum_word port, libspectrum_byte b )
   struct peripheral_data_t callback_info;
 
   /* Trigger the debugger if wanted */
-  if( debugger_mode != DEBUGGER_MODE_INACTIVE &&
-      debugger_check( DEBUGGER_BREAKPOINT_TYPE_PORT_WRITE, port ) )
-    debugger_mode = DEBUGGER_MODE_HALTED;
+  if( debugger_mode != DEBUGGER_MODE_INACTIVE )
+    debugger_check( DEBUGGER_BREAKPOINT_TYPE_PORT_WRITE, port );
 
   callback_info.port = port;
   callback_info.value = b;
@@ -468,4 +479,15 @@ periph_update( void )
   update_ide_menu();
   if1_update_menu();
   machine_current->memory_map();
+}
+
+int
+periph_register_paging_events( const char *type_string, int *page_event,
+			       int *unpage_event )
+{
+  *page_event = debugger_event_register( type_string, page_event_string );
+  *unpage_event = debugger_event_register( type_string, unpage_event_string );
+  if( *page_event == -1 || *unpage_event == -1 ) return 1;
+
+  return 0;
 }

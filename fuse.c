@@ -1,7 +1,7 @@
 /* fuse.c: The Free Unix Spectrum Emulator
-   Copyright (c) 1999-2007 Philip Kendall
+   Copyright (c) 1999-2008 Philip Kendall
 
-   $Id: fuse.c 3460 2008-01-02 22:27:22Z zubzero $
+   $Id: fuse.c 3868 2008-12-01 21:00:58Z pak21 $
 
    This program is free software; you can redistribute it and/or modify
    it under the terms of the GNU General Public License as published by
@@ -33,13 +33,9 @@
 #include <sys/types.h>
 #include <time.h>
 
-#ifndef PSP
-#ifndef WIN32
-#include <sys/utsname.h>
-#else				/* #ifndef WIN32 */
+#ifdef WIN32
 #include <windows.h>
-#endif				/* #ifndef WIN32 */
-#endif
+#endif				/* #ifdef WIN32 */
 
 #include <unistd.h>
 
@@ -51,6 +47,7 @@
 #include "dck.h"
 #include "debugger/debugger.h"
 #include "disk/beta.h"
+#include "disk/fdd.h"
 #include "display.h"
 #include "divide.h"
 #include "event.h"
@@ -59,6 +56,7 @@
 #include "if2.h"
 #include "joystick.h"
 #include "keyboard.h"
+#include "kempmouse.h"
 #include "machine.h"
 #include "memory.h"
 #include "pokefinder/pokefinder.h"
@@ -78,12 +76,13 @@
 #include "ui/ui.h"
 #include "ui/scaler/scaler.h"
 #include "ula.h"
+#include "unittests/unittests.h"
 #include "utils.h"
 #include "zxatasp.h"
 #include "zxcf.h"
 
 #ifdef USE_WIDGET
-#include "widget/widget.h"
+#include "ui/widget/widget.h"
 #endif                          /* #ifdef USE_WIDGET */
 
 #include "z80/z80.h"
@@ -104,7 +103,7 @@ int fuse_emulation_paused;
 libspectrum_creator *fuse_creator;
 
 /* The earliest version of libspectrum we need */
-static const char *LIBSPECTRUM_MIN_VERSION = "0.2.0.1";
+static const char *LIBSPECTRUM_MIN_VERSION = "0.5.0";
 
 /* The various types of file we may want to run on startup */
 typedef struct start_files_t {
@@ -147,6 +146,8 @@ int fuse_main(int argc, char **argv)
 int main(int argc, char **argv)
 #endif
 {
+  int r;
+
 #ifdef WIN32
   SetErrorMode( SEM_FAILCRITICALERRORS | SEM_NOOPENFILEERRORBOX );
 #endif
@@ -159,16 +160,23 @@ int main(int argc, char **argv)
   if( settings_current.show_help ||
       settings_current.show_version ) return 0;
 
-  while( !fuse_exiting ) {
-    z80_do_opcodes();
-    event_do_events();
+  if( settings_current.unittests ) {
+    r = unittests_run();
+  } else {
+    while( !fuse_exiting ) {
+      z80_do_opcodes();
+      event_do_events();
+    }
+    r = 0;
   }
 
   fuse_end();
   
-  return 0;
+  return r;
 
 }
+
+#include "mempool.h"
 
 static int fuse_init(int argc, char **argv)
 {
@@ -245,15 +253,18 @@ static int fuse_init(int argc, char **argv)
   if( !geteuid() ) { setuid( getuid() ); }
 #endif				/* #ifdef HAVE_GETEUID */
 
+  if( mempool_init() ) return 1;
   if( memory_init() ) return 1;
 
   if( debugger_init() ) return 1;
 
+  if( spectrum_init() ) return 1;
   if( printer_init() ) return 1;
   if( rzx_init() ) return 1;
   if( psg_init() ) return 1;
   if( beta_init() ) return 1;
   if( plusd_init() ) return 1;
+  if( fdd_init_events() ) return 1;
   if( simpleide_init() ) return 1;
   if( zxatasp_init() ) return 1;
   if( zxcf_init() ) return 1;
@@ -265,10 +276,11 @@ static int fuse_init(int argc, char **argv)
   if( ay_init() ) return 1;
   if( slt_init() ) return 1;
   if( profile_init() ) return 1;
+  if( kempmouse_init() ) return 1;
 
   error = pokefinder_clear(); if( error ) return error;
 
-  z80_init();
+  if( z80_init() ) return 1;
 
   if( timer_init() ) return 1;
 
@@ -289,12 +301,14 @@ static int fuse_init(int argc, char **argv)
   if( parse_nonoption_args( argc, argv, first_arg, &start_files ) ) return 1;
   if( do_start_files( &start_files ) ) return 1;
 
+  /* Must do this after all subsytems are initialised */
+  debugger_command_evaluate( settings_current.debugger_command );
+
   if( ui_mouse_present ) ui_mouse_grabbed = ui_mouse_grab( 1 );
 
   fuse_emulation_paused = 0;
 
   return 0;
-
 }
 
 static
@@ -317,7 +331,7 @@ int creator_init( void )
   sys_error = compat_osname( osname, sizeof( osname ) );
   if( sys_error ) return 1;
 
-  error = libspectrum_creator_alloc( &fuse_creator ); if( error ) return error;
+  fuse_creator = libspectrum_creator_alloc();
 
   error = libspectrum_creator_set_program( fuse_creator, "Fuse" );
   if( error ) { libspectrum_creator_free( fuse_creator ); return error; }
@@ -360,8 +374,11 @@ static void fuse_show_copyright(void)
   printf( "\n" );
   fuse_show_version();
   printf(
-   "Copyright (c) 1999-2008 Philip Kendall <philip-fuse@shadowmagic.org.uk>\n"
-   "and others; see the file 'AUTHORS' for more details.\n"
+   "Copyright (c) 1999-2008 Philip Kendall and others; see the file\n"
+   "'AUTHORS' for more details.\n"
+   "\n"
+   "For help, please mail <fuse-emulator-devel@lists.sf.net> or use\n"
+   "the forums at <http://sourceforge.net/forum/?group_id=91293>.\n"
    "\n"
    "This program is distributed in the hope that it will be useful,\n"
    "but WITHOUT ANY WARRANTY; without even the implied warranty of\n"
@@ -537,6 +554,23 @@ parse_nonoption_args( int argc, char **argv, int first_arg,
     case LIBSPECTRUM_CLASS_DISK_TRDOS:
       start_files->disk_beta = filename; break;
 
+    case LIBSPECTRUM_CLASS_DISK_GENERIC:
+      if( machine_current->machine == LIBSPECTRUM_MACHINE_PLUS3 ||
+          machine_current->machine == LIBSPECTRUM_MACHINE_PLUS2A )
+        start_files->disk_plus3 = filename;
+      else if( machine_current->machine == LIBSPECTRUM_MACHINE_PENT ||
+          machine_current->machine == LIBSPECTRUM_MACHINE_PENT512 ||
+          machine_current->machine == LIBSPECTRUM_MACHINE_PENT1024 ||
+          machine_current->machine == LIBSPECTRUM_MACHINE_SCORP )
+        start_files->disk_beta = filename; 
+      else {
+        if( periph_beta128_active )
+          start_files->disk_beta = filename; 
+        else if( periph_plusd_active )
+          start_files->disk_plusd = filename;
+      }
+      break;
+
     case LIBSPECTRUM_CLASS_RECORDING:
       start_files->playback = filename; break;
 
@@ -615,7 +649,7 @@ do_start_files( start_files_t *start_files )
   }
 
   /* If a snapshot has been specified, don't autoload tape, disks etc */
-  autoload = start_files->snapshot ? 0 : settings_current.auto_load;
+  autoload = start_files->snapshot ? 0 : tape_can_autoload();
 
   /* Load in each of the files. Input recording must be done after
      snapshot loading such that the right snapshot is embedded into
@@ -734,6 +768,10 @@ static int fuse_end(void)
      set from memory for the text output */
   printer_end();
 
+  /* also required before memory is deallocated on Fuse for OS X where
+     settings need to look up machine names etc. */
+  settings_end();
+
   psg_end();
   rzx_end();
   debugger_end();
@@ -756,8 +794,6 @@ static int fuse_end(void)
 #ifdef USE_WIDGET
   widget_end();
 #endif                          /* #ifdef USE_WIDGET */
-
-  settings_end();
 
   libspectrum_creator_free( fuse_creator );
 

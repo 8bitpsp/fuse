@@ -1,7 +1,7 @@
 /* input.h: generalised input events layer for Fuse
    Copyright (c) 2004 Philip Kendall
 
-   $Id: input.h 2889 2007-05-26 17:45:08Z zubzero $
+   $Id: input.h 3749 2008-08-15 12:47:44Z fredm $
 
    This program is free software; you can redistribute it and/or modify
    it under the terms of the GNU General Public License as published by
@@ -168,18 +168,7 @@ typedef enum input_key {
   INPUT_KEY_Hyper_R,
   INPUT_KEY_Mode_switch,
 
-} input_key;
-
-typedef struct input_event_key_t {
-
-  input_key native_key;
-  input_key spectrum_key;
-
-} input_event_key_t;
-
-typedef enum input_joystick_button {
-
-  INPUT_JOYSTICK_UP = 0,
+  INPUT_JOYSTICK_UP = 0x1100,
   INPUT_JOYSTICK_DOWN,
   INPUT_JOYSTICK_LEFT,
   INPUT_JOYSTICK_RIGHT,
@@ -195,12 +184,19 @@ typedef enum input_joystick_button {
   INPUT_JOYSTICK_FIRE_9,
   INPUT_JOYSTICK_FIRE_10,
 
-} input_joystick_button;
+} input_key;
+
+typedef struct input_event_key_t {
+
+  input_key native_key;
+  input_key spectrum_key;
+
+} input_event_key_t;
 
 typedef struct input_event_joystick_t {
 
   int which;
-  input_joystick_button button;
+  input_key button;
 
 } input_event_joystick_t;
 

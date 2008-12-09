@@ -1,7 +1,7 @@
 /* timings.c: Timing routines
    Copyright (c) 2003 Philip Kendall
 
-   $Id: timings.c 3296 2007-11-12 11:45:22Z fredm $
+   $Id: timings.c 3859 2008-11-29 11:24:42Z fredm $
 
    This program is free software; you can redistribute it and/or modify
    it under the terms of the GNU General Public License as published by
@@ -86,7 +86,7 @@ static timings_t base_timings[] = {
   /* SE */
   { 3500000, 1750000, 24, 128, 24, 48, 47, 192, 48, 25, 32, 14336 },
   /* TS2068 */
-  { 3528000, 1764000, 24, 128, 24, 48, 24, 192, 25, 21, 32,  9184 },
+  { 3528000, 1764000, 24, 128, 24, 48, 24, 192, 25, 21, 32,  9169 },
   /* Pentagon 512K */
   { 3584000, 1792000, 36, 128, 28, 32, 64, 192, 48, 16, 36, 17988 },
   /* Pentagon 1024K */

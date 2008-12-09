@@ -1,7 +1,7 @@
 /* beta.h: Routines for handling the Beta disk interface
    Copyright (c) 2003-2004 Fredrick Meunier, Philip Kendall
 
-   $Id: beta.h 3400 2007-12-04 18:24:31Z zubzero $
+   $Id: beta.h 3681 2008-06-16 09:40:29Z pak21 $
 
    This program is free software; you can redistribute it and/or modify
    it under the terms of the GNU General Public License as published by
@@ -74,6 +74,5 @@ int beta_disk_insert( beta_drive_number which, const char *filename,
 int beta_disk_eject( beta_drive_number which, int write );
 int beta_disk_writeprotect( beta_drive_number which, int wrprot );
 int beta_disk_write( beta_drive_number which, const char *filename );
-int beta_event_index( libspectrum_dword last_tstates );
 
 #endif                  /* #ifndef FUSE_BETA_H */

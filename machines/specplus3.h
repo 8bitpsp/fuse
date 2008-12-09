@@ -1,7 +1,7 @@
 /* specplus3.h: Spectrum +2A/+3 specific routines
    Copyright (c) 1999-2004 Philip Kendall
 
-   $Id: specplus3.h 3313 2007-11-19 23:35:38Z zubzero $
+   $Id: specplus3.h 3622 2008-05-17 14:35:41Z fredm $
 
    This program is free software; you can redistribute it and/or modify
    it under the terms of the GNU General Public License as published by
@@ -31,20 +31,10 @@
 #include "machine.h"
 #include "periph.h"
 
-#ifdef HAVE_765_H
-#include <limits.h>	/* Needed to get PATH_MAX */
-#include <sys/types.h>
-
-#include <765.h>
-#endif			/* #ifdef HAVE_765_H */
-
 extern const periph_t specplus3_peripherals[];
 extern const size_t specplus3_peripherals_count;
 
-libspectrum_byte specplus3_unattached_port( void );
 int specplus3_port_from_ula( libspectrum_word port );
-libspectrum_byte specplus3_contend_delay( libspectrum_dword time );
-libspectrum_byte specplus3_contend_delay_no_mreq( libspectrum_dword time );
 
 int specplus3_init( fuse_machine_info *machine );
 void specplus3_765_init( void );
@@ -59,30 +49,15 @@ void specplus3_memoryport2_write( libspectrum_word port, libspectrum_byte b );
 
 int specplus3_memory_map( void );
 
-/* We need these outside the HAVE_765_H guards as they're also used
-   for identifying the TRDOS drives */
 typedef enum specplus3_drive_number {
   SPECPLUS3_DRIVE_A = 0,	/* First drive must be number zero */
   SPECPLUS3_DRIVE_B,
 } specplus3_drive_number;
 
-#ifdef HAVE_765_H
-/* The +3's drives */
-
-typedef struct specplus3_drive_t {
-  int fd;			/* The file descriptor for the
-				   temporary file we are using for
-				   this disk */
-  char filename[ PATH_MAX ];	/* And the name of the temporary file */
-
-  FDRV_PTR drive;		/* The lib765 structure for this drive */
-} specplus3_drive_t;
-
-int specplus3_disk_present( specplus3_drive_number which );
 int specplus3_disk_insert( specplus3_drive_number which, const char *filename,
                            int autoload );
 int specplus3_disk_eject( specplus3_drive_number which, int save );
 int specplus3_disk_write( specplus3_drive_number which, const char *filename );
-#endif			/* #ifdef HAVE_765_H */
+int specplus3_disk_writeprotect( specplus3_drive_number which, int wp );
 
 #endif			/* #ifndef FUSE_SPECPLUS3_H */

@@ -1,7 +1,7 @@
 /* fdd.h: Header for handling raw disk images
    Copyright (c) 2007 Gergely Szasz
 
-   $Id: disk.h 3459 2008-01-02 16:40:46Z pak21 $
+   $Id: disk.h 3583 2008-03-25 09:29:59Z fredm $
 
    This program is free software; you can redistribute it and/or modify
    it under the terms of the GNU General Public License as published by
@@ -27,6 +27,9 @@
 #define FUSE_DISK_H
 
 #include <config.h>
+
+static const unsigned int DISK_FLAG_NONE = 0x00;
+static const unsigned int DISK_FLAG_PLUS3_CPC = 0x01;	/* try to fix some CPC issue */
 
 typedef enum disk_error_t {
   DISK_OK = 0,
@@ -78,6 +81,7 @@ typedef enum disk_dens_t {
   DISK_8_DD,		/* 8" DD floppy 10416 */
   DISK_SD,		/* 3125 bpt MF */
   DISK_DD,		/* 6250 bpt */
+  DISK_DD_PLUS,		/* 6500 bpt e.g. Coin Op Hits */
   DISK_HD,		/* 12500 bpt*/
 } disk_dens_t;
 
@@ -87,6 +91,7 @@ typedef struct disk_t {
   int bpt;		/* bytes per track */
   int wrprot;		/* disk write protect */
   int dirty;		/* disk changed */
+  unsigned int flag;
   disk_error_t status;		/* last error code */
   libspectrum_byte *data;	/* disk data */
 /* private part */
@@ -102,7 +107,7 @@ const char *disk_strerror( int error );
 /* create an unformatted disk sides -> (1/2) cylinders -> track/side,
    dens -> 'density' related to unformatted length of a track (SD = 3125,
    DD = 6250, HD = 12500, type -> if write this disk we want to convert
-   into this type of image file (now only UDI implemented)
+   into this type of image file
 */
 int disk_new( disk_t *d, int sides, int cylinders, disk_dens_t dens, disk_type_t type );
 /* open a disk image file. if preindex = 1 and the image file not UDI then
@@ -115,7 +120,6 @@ int disk_open( disk_t *d, const char *filename, int preindex );
    gives the format of file. if it DISK_TYPE_AUTO, disk_write
    try to guess from the file name (extension). if fail save as
    UDI.
-   This time only the UDI format implemented
 */
 int disk_write( disk_t *d, const char *filename );
 /* close a disk and free buffers

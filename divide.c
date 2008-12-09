@@ -1,7 +1,7 @@
 /* divide.c: DivIDE interface routines
-   Copyright (c) 2005 Matthew Westcott
+   Copyright (c) 2005-2008 Matthew Westcott, Philip Kendall
 
-   $Id: divide.c 3389 2007-12-03 12:54:17Z fredm $
+   $Id: divide.c 3703 2008-06-30 20:36:11Z pak21 $
 
    This program is free software; you can redistribute it and/or modify
    it under the terms of the GNU General Public License as published by
@@ -27,6 +27,9 @@
 
 #include <libspectrum.h>
 
+#include <string.h>
+
+#include "debugger/debugger.h"
 #include "ide.h"
 #include "machine.h"
 #include "module.h"
@@ -77,16 +80,23 @@ static libspectrum_byte divide_eprom[ DIVIDE_PAGE_LENGTH ];
 
 static void divide_reset( int hard_reset );
 static void divide_memory_map( void );
+static void divide_enabled_snapshot( libspectrum_snap *snap );
+static void divide_from_snapshot( libspectrum_snap *snap );
+static void divide_to_snapshot( libspectrum_snap *snap );
 
 static module_info_t divide_module_info = {
 
   divide_reset,
   divide_memory_map,
-  NULL,
-  NULL,
-  NULL,
+  divide_enabled_snapshot,
+  divide_from_snapshot,
+  divide_to_snapshot,
 
 };
+
+/* Debugger events */
+static const char *event_type_string = "divide";
+static int page_event, unpage_event;
 
 /* Housekeeping functions */
 
@@ -95,10 +105,8 @@ divide_init( void )
 {
   int error;
 
-  error = libspectrum_ide_alloc( &divide_idechn0, LIBSPECTRUM_IDE_DATA16 );
-  if( error ) return error;
-  error = libspectrum_ide_alloc( &divide_idechn1, LIBSPECTRUM_IDE_DATA16 );
-  if( error ) return error;
+  divide_idechn0 = libspectrum_ide_alloc( LIBSPECTRUM_IDE_DATA16 );
+  divide_idechn1 = libspectrum_ide_alloc( LIBSPECTRUM_IDE_DATA16 );
   
   ui_menu_activate( UI_MENU_ITEM_MEDIA_IDE_DIVIDE_MASTER_EJECT, 0 );
   ui_menu_activate( UI_MENU_ITEM_MEDIA_IDE_DIVIDE_SLAVE_EJECT, 0 );
@@ -119,7 +127,11 @@ divide_init( void )
 
   module_register( &divide_module_info );
 
-  return error;
+  if( periph_register_paging_events( event_type_string, &page_event,
+				     &unpage_event ) )
+    return 1;
+
+  return 0;
 }
 
 int
@@ -311,6 +323,8 @@ divide_page( void )
   divide_active = 1;
   machine_current->ram.romcs = 1;
   machine_current->memory_map();
+
+  debugger_event( page_event );
 }
 
 static void
@@ -319,6 +333,8 @@ divide_unpage( void )
   divide_active = 0;
   machine_current->ram.romcs = 0;
   machine_current->memory_map();
+
+  debugger_event( unpage_event );
 }
 
 void
@@ -353,4 +369,77 @@ divide_memory_map( void )
 
   memory_map_read[0] = memory_map_write[0] = memory_map_romcs[0];
   memory_map_read[1] = memory_map_write[1] = memory_map_romcs[1];
+}
+
+static void
+divide_enabled_snapshot( libspectrum_snap *snap )
+{
+  if( libspectrum_snap_divide_active( snap ) )
+    settings_current.divide_enabled = 1;
+}
+
+static void
+divide_from_snapshot( libspectrum_snap *snap )
+{
+  size_t i;
+
+  if( !libspectrum_snap_divide_active( snap ) ) return;
+
+  settings_current.divide_wp =
+    libspectrum_snap_divide_eprom_writeprotect( snap );
+  divide_control_write_internal( libspectrum_snap_divide_control( snap ) );
+
+  if( libspectrum_snap_divide_eprom( snap, 0 ) ) {
+    memcpy( divide_eprom,
+	    libspectrum_snap_divide_eprom( snap, 0 ), DIVIDE_PAGE_LENGTH );
+  }
+
+  for( i = 0; i < libspectrum_snap_divide_pages( snap ); i++ )
+    if( libspectrum_snap_divide_ram( snap, i ) )
+      memcpy( divide_ram[ i ], libspectrum_snap_divide_ram( snap, i ),
+	      DIVIDE_PAGE_LENGTH );
+
+  if( libspectrum_snap_divide_paged( snap ) ) {
+    divide_page();
+  } else {
+    divide_unpage();
+  }
+}
+
+static void
+divide_to_snapshot( libspectrum_snap *snap )
+{
+  size_t i;
+  libspectrum_byte *buffer;
+
+  if( !settings_current.divide_enabled ) return;
+
+  libspectrum_snap_set_divide_active( snap, 1 );
+  libspectrum_snap_set_divide_eprom_writeprotect( snap,
+                                                  settings_current.divide_wp );
+  libspectrum_snap_set_divide_paged( snap, divide_active );
+  libspectrum_snap_set_divide_control( snap, divide_control );
+
+  buffer = malloc( DIVIDE_PAGE_LENGTH * sizeof( libspectrum_byte ) );
+  if( !buffer ) {
+    ui_error( UI_ERROR_ERROR, "Out of memory at %s:%d", __FILE__, __LINE__ );
+    return;
+  }
+
+  memcpy( buffer, divide_eprom, DIVIDE_PAGE_LENGTH );
+  libspectrum_snap_set_divide_eprom( snap, 0, buffer );
+
+  libspectrum_snap_set_divide_pages( snap, DIVIDE_PAGES );
+
+  for( i = 0; i < DIVIDE_PAGES; i++ ) {
+
+    buffer = malloc( DIVIDE_PAGE_LENGTH * sizeof( libspectrum_byte ) );
+    if( !buffer ) {
+      ui_error( UI_ERROR_ERROR, "Out of memory at %s:%d", __FILE__, __LINE__ );
+      return;
+    }
+
+    memcpy( buffer, divide_ram[ i ], DIVIDE_PAGE_LENGTH );
+    libspectrum_snap_set_divide_ram( snap, i, buffer );
+  }
 }

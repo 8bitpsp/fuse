@@ -1,7 +1,7 @@
 /* sna.c: Routines for handling .sna snapshots
    Copyright (c) 2001-2002 Philip Kendall
 
-   $Id: sna.c 3351 2007-11-29 15:59:47Z pak21 $
+   $Id: sna.c 3784 2008-10-22 12:36:07Z fredm $
 
    This program is free software; you can redistribute it and/or modify
    it under the terms of the GNU General Public License as published by
@@ -32,6 +32,8 @@
 #define LIBSPECTRUM_SNA_HEADER_LENGTH 27
 #define LIBSPECTRUM_SNA_128_HEADER_LENGTH 4
 
+#define SNA_OFFSET_SP 23
+
 static int identify_machine( size_t buffer_length, libspectrum_snap *snap );
 static int libspectrum_sna_read_header( const libspectrum_byte *buffer,
 					size_t buffer_length,
@@ -46,24 +48,17 @@ static int libspectrum_sna_read_128_data( const libspectrum_byte *buffer,
 					  size_t buffer_length,
 					  libspectrum_snap *snap );
 
-static libspectrum_error
+static void
 write_header( libspectrum_byte **buffer, libspectrum_byte **ptr,
-	      size_t *length, libspectrum_byte **sp, libspectrum_snap *snap );
+	      size_t *length, libspectrum_snap *snap );
 static libspectrum_error
 write_48k_sna( libspectrum_byte **buffer, libspectrum_byte **ptr,
-	       size_t *length, libspectrum_byte *sp, libspectrum_snap *snap );
+	       size_t *length, libspectrum_snap *snap );
 static libspectrum_error
 write_128k_sna( libspectrum_byte **buffer, libspectrum_byte **ptr,
 		size_t *length, libspectrum_snap *snap );
 static libspectrum_error
 write_page( libspectrum_byte *buffer, libspectrum_snap *snap, int page );
-
-libspectrum_error
-libspectrum_sna_read( libspectrum_snap *snap,
-	              const libspectrum_byte *buffer, size_t buffer_length )
-{
-  return internal_sna_read( snap, buffer, buffer_length );
-}
 
 libspectrum_error
 internal_sna_read( libspectrum_snap *snap,
@@ -94,7 +89,7 @@ identify_machine( size_t buffer_length, libspectrum_snap *snap )
     break;
   case 131103:
   case 147487:
-    libspectrum_snap_set_machine( snap, LIBSPECTRUM_MACHINE_128 );
+    libspectrum_snap_set_machine( snap, LIBSPECTRUM_MACHINE_PENT );
     break;
   default:
     libspectrum_print_error( LIBSPECTRUM_ERROR_CORRUPT,
@@ -150,7 +145,7 @@ static int
 libspectrum_sna_read_data( const libspectrum_byte *buffer,
 			   size_t buffer_length, libspectrum_snap *snap )
 {
-  int error, page, i, j;
+  int error, page, i;
   libspectrum_word sp, offset;
 
   if( buffer_length < 0xc000 ) {
@@ -187,22 +182,10 @@ libspectrum_sna_read_data( const libspectrum_byte *buffer,
 
     break;
 
-  case LIBSPECTRUM_MACHINE_128:
+  case LIBSPECTRUM_MACHINE_PENT:
     
     for( i=0; i<8; i++ ) {
-
-      libspectrum_byte *ram;
-
-      ram = malloc( 0x4000 * sizeof( libspectrum_byte ) );
-      if( ram == NULL ) {
-	for( j = 0; j < i; j++ ) {
-	  free( libspectrum_snap_pages( snap, i ) );
-	  libspectrum_snap_set_pages( snap, i, NULL );
-	}
-	libspectrum_print_error( LIBSPECTRUM_ERROR_MEMORY,
-				 "libspectrum_sna_read_data: out of memory" );
-	return LIBSPECTRUM_ERROR_MEMORY;
-      }
+      libspectrum_byte *ram = libspectrum_malloc( 0x4000 * sizeof( *ram ) );
       libspectrum_snap_set_pages( snap, i, ram );
     }
 
@@ -298,17 +281,29 @@ libspectrum_sna_write( libspectrum_byte **buffer, size_t *length,
 		       int *out_flags, libspectrum_snap *snap,
 		       int in_flags GCC_UNUSED )
 {
-  libspectrum_error error;
-  libspectrum_byte *ptr, *sp;
+  libspectrum_error error = LIBSPECTRUM_ERROR_NONE;
+  libspectrum_byte *ptr;
 
   /* Minor info loss already due to things like tstate count, halted state,
      etc which are not stored in .sna format */
   *out_flags = LIBSPECTRUM_FLAG_SNAPSHOT_MINOR_INFO_LOSS;
 
-  /* We don't save the ZXATASP or ZXCF at all */
+  /* We don't store +D info at all */
+  if( libspectrum_snap_plusd_active( snap ) )
+    *out_flags |= LIBSPECTRUM_FLAG_SNAPSHOT_MAJOR_INFO_LOSS;
+
+  /* We don't store Beta info at all */
+  if( libspectrum_snap_beta_active( snap ) )
+    *out_flags |= LIBSPECTRUM_FLAG_SNAPSHOT_MAJOR_INFO_LOSS;
+
+  /* We don't save IDE interface info at all */
   if( libspectrum_snap_zxatasp_active( snap ) )
     *out_flags |= LIBSPECTRUM_FLAG_SNAPSHOT_MAJOR_INFO_LOSS;
   if( libspectrum_snap_zxcf_active( snap ) )
+    *out_flags |= LIBSPECTRUM_FLAG_SNAPSHOT_MAJOR_INFO_LOSS;
+  if( libspectrum_snap_simpleide_active( snap ) )
+    *out_flags |= LIBSPECTRUM_FLAG_SNAPSHOT_MAJOR_INFO_LOSS;
+  if( libspectrum_snap_divide_active( snap ) )
     *out_flags |= LIBSPECTRUM_FLAG_SNAPSHOT_MAJOR_INFO_LOSS;
 
   /* We don't save the Interface II ROM at all */
@@ -319,10 +314,13 @@ libspectrum_sna_write( libspectrum_byte **buffer, size_t *length,
   if( libspectrum_snap_dock_active( snap ) )
     *out_flags |= LIBSPECTRUM_FLAG_SNAPSHOT_MAJOR_INFO_LOSS;
 
+  /* We don't save custom ROMs at all */
+  if( libspectrum_snap_custom_rom( snap ) )
+    *out_flags |= LIBSPECTRUM_FLAG_SNAPSHOT_MAJOR_INFO_LOSS;
+
   ptr = *buffer;
 
-  error = write_header( buffer, &ptr, length, &sp, snap );
-  if( error ) return error;
+  write_header( buffer, &ptr, length, snap );
 
   switch( libspectrum_snap_machine( snap ) ) {
 
@@ -333,21 +331,21 @@ libspectrum_sna_write( libspectrum_byte **buffer, size_t *length,
     /* Fall through */
   case LIBSPECTRUM_MACHINE_16:
   case LIBSPECTRUM_MACHINE_48:
-    error = write_48k_sna( buffer, &ptr, length, sp, snap );
+    error = write_48k_sna( buffer, &ptr, length, snap );
     break;
     
+  case LIBSPECTRUM_MACHINE_128:
+  case LIBSPECTRUM_MACHINE_PENT512:
+  case LIBSPECTRUM_MACHINE_PENT1024:
+  case LIBSPECTRUM_MACHINE_PLUS2:
   case LIBSPECTRUM_MACHINE_PLUS2A:
   case LIBSPECTRUM_MACHINE_PLUS3:
   case LIBSPECTRUM_MACHINE_PLUS3E:
-  case LIBSPECTRUM_MACHINE_PENT:
-  case LIBSPECTRUM_MACHINE_PENT512:
-  case LIBSPECTRUM_MACHINE_PENT1024:
   case LIBSPECTRUM_MACHINE_SCORP:
   case LIBSPECTRUM_MACHINE_SE:
     *out_flags |= LIBSPECTRUM_FLAG_SNAPSHOT_MAJOR_INFO_LOSS;
     /* Fall through */
-  case LIBSPECTRUM_MACHINE_PLUS2:
-  case LIBSPECTRUM_MACHINE_128:
+  case LIBSPECTRUM_MACHINE_PENT:
     error = write_128k_sna( buffer, &ptr, length, snap );
     break;
 
@@ -365,15 +363,11 @@ libspectrum_sna_write( libspectrum_byte **buffer, size_t *length,
   return LIBSPECTRUM_ERROR_NONE;
 }
 
-static libspectrum_error
+static void
 write_header( libspectrum_byte **buffer, libspectrum_byte **ptr,
-	      size_t *length, libspectrum_byte **sp, libspectrum_snap *snap )
+	      size_t *length, libspectrum_snap *snap )
 {
-  libspectrum_error error;
-
-  error = libspectrum_make_room( buffer, LIBSPECTRUM_SNA_HEADER_LENGTH, ptr,
-				 length );
-  if( error ) return error;
+  libspectrum_make_room( buffer, LIBSPECTRUM_SNA_HEADER_LENGTH, ptr, length );
 
   *(*ptr)++ = libspectrum_snap_i ( snap );
   libspectrum_write_word( ptr, libspectrum_snap_hl_( snap ) );
@@ -393,33 +387,28 @@ write_header( libspectrum_byte **buffer, libspectrum_byte **ptr,
   *(*ptr)++ = libspectrum_snap_f ( snap );
   *(*ptr)++ = libspectrum_snap_a ( snap );
 
-  /* Store this for later */
-  *sp = *ptr;
   libspectrum_write_word( ptr, libspectrum_snap_sp ( snap ) );
 
   *(*ptr)++ = libspectrum_snap_im( snap );
   *(*ptr)++ = libspectrum_snap_out_ula( snap ) & 0x07;
-
-  return LIBSPECTRUM_ERROR_NONE;
 }
 
 static libspectrum_error
 write_48k_sna( libspectrum_byte **buffer, libspectrum_byte **ptr,
-	       size_t *length, libspectrum_byte *sp, libspectrum_snap *snap )
+	       size_t *length, libspectrum_snap *snap )
 {
   libspectrum_error error;
-  libspectrum_byte *stack;
+  libspectrum_byte *stack, *sp;
 
-  /* Must have somewhere in RAM to store some registers */
+  /* Must have somewhere in RAM to store PC */
   if( libspectrum_snap_sp( snap ) < 0x4002 ) {
     libspectrum_print_error( LIBSPECTRUM_ERROR_INVALID,
-			     "SP is too low (0x%04x) to stack registers",
+			     "SP is too low (0x%04x) to stack PC",
 			     libspectrum_snap_sp( snap ) );
     return LIBSPECTRUM_ERROR_INVALID;
   }
 
-  error = libspectrum_make_room( buffer, 0xc000, ptr, length );
-  if( error ) return error;
+  libspectrum_make_room( buffer, 0xc000, ptr, length );
 
   error = write_page( &( (*ptr)[ 0x0000 ] ), snap, 5 );
   if( error ) return error;
@@ -435,7 +424,8 @@ write_48k_sna( libspectrum_byte **buffer, libspectrum_byte **ptr,
   *ptr += 0xc000;
 
   /* Store the new value of SP */
-  libspectrum_write_word( &sp, libspectrum_snap_sp( snap ) );
+  sp = *buffer + SNA_OFFSET_SP;
+  libspectrum_write_word( &sp, libspectrum_snap_sp( snap ) - 2 );
 
   return LIBSPECTRUM_ERROR_NONE;
 }
@@ -448,10 +438,8 @@ write_128k_sna( libspectrum_byte **buffer, libspectrum_byte **ptr,
   
   page = libspectrum_snap_out_128_memoryport( snap ) & 0x07;
 
-  error = libspectrum_make_room( buffer,
-				 0xc000 + LIBSPECTRUM_SNA_128_HEADER_LENGTH,
-				 ptr, length );
-  if( error ) return error;
+  libspectrum_make_room( buffer, 0xc000 + LIBSPECTRUM_SNA_128_HEADER_LENGTH,
+			 ptr, length );
 
   error = write_page( *ptr, snap, 5 ); (*ptr) += 0x4000;
   if( error ) return error;
@@ -469,8 +457,7 @@ write_128k_sna( libspectrum_byte **buffer, libspectrum_byte **ptr,
     /* Already written pages 5, 2 and whatever's paged in */
     if( i == 5 || i == 2 || i == page ) continue;
 
-    error = libspectrum_make_room( buffer, 0x4000, ptr, length );
-    if( error ) return error;
+    libspectrum_make_room( buffer, 0x4000, ptr, length );
 
     error = write_page( *ptr, snap, i ); (*ptr) += 0x4000;
     if( error ) return error;

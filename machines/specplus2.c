@@ -1,7 +1,7 @@
 /* specplus2.c: Spectrum +2 specific routines
    Copyright (c) 1999-2004 Philip Kendall
 
-   $Id: specplus2.c 3400 2007-12-04 18:24:31Z zubzero $
+   $Id: specplus2.c 3566 2008-03-18 12:59:16Z pak21 $
 
    This program is free software; you can redistribute it and/or modify
    it under the terms of the GNU General Public License as published by
@@ -49,10 +49,10 @@ int specplus2_init( fuse_machine_info *machine )
 
   machine->timex = 0;
   machine->ram.port_from_ula	     = spec48_port_from_ula;
-  machine->ram.contend_delay	     = spec128_contend_delay;
-  machine->ram.contend_delay_no_mreq = spec128_contend_delay;
+  machine->ram.contend_delay	     = spectrum_contend_delay_65432100;
+  machine->ram.contend_delay_no_mreq = spectrum_contend_delay_65432100;
 
-  machine->unattached_port = spec128_unattached_port;
+  machine->unattached_port = spectrum_unattached_port;
 
   machine->shutdown = NULL;
 

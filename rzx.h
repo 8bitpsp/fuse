@@ -1,7 +1,7 @@
 /* rzx.h: .rzx files
    Copyright (c) 2002-2003 Philip Kendall
 
-   $Id: rzx.h 2958 2007-06-10 14:09:38Z pak21 $
+   $Id: rzx.h 3681 2008-06-16 09:40:29Z pak21 $
 
    This program is free software; you can redistribute it and/or modify
    it under the terms of the GNU General Public License as published by
@@ -79,7 +79,5 @@ int rzx_end( void );
 int rzx_rollback( void );
 
 int rzx_rollback_to( void );
-
-void rzx_sentinel( void );
 
 #endif			/* #ifndef FUSE_RZX_H */

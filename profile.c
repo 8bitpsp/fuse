@@ -1,7 +1,7 @@
 /* profile.c: Z80 profiler
    Copyright (c) 2005 Philip Kendall
 
-   $Id: profile.c 3389 2007-12-03 12:54:17Z fredm $
+   $Id: profile.c 3681 2008-06-16 09:40:29Z pak21 $
 
    This program is free software; you can redistribute it and/or modify
    it under the terms of the GNU General Public License as published by
@@ -81,7 +81,7 @@ profile_start( void )
   /* Schedule an event to ensure that the main z80 emulation loop recognises
      profiling is turned on; otherwise problems occur if we we started while
      the debugger was active (bug #1530345) */
-  event_add( tstates, EVENT_TYPE_NULL );
+  event_add( tstates, event_type_null );
 
   ui_menu_activate( UI_MENU_ITEM_MACHINE_PROFILER, 1 );
 }
@@ -138,7 +138,7 @@ profile_finish( const char *filename )
 
   /* Again, schedule an event to ensure this change is picked up by
      the main loop */
-  event_add( tstates, EVENT_TYPE_NULL );
+  event_add( tstates, event_type_null );
 
   ui_menu_activate( UI_MENU_ITEM_MACHINE_PROFILER, 0 );
 }

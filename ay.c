@@ -1,7 +1,7 @@
 /* ay.c: AY-8-3912 routines
    Copyright (c) 1999-2004 Philip Kendall
 
-   $Id: ay.c 3390 2007-12-03 12:59:54Z fredm $
+   $Id: ay.c 3494 2008-01-15 16:37:50Z pak21 $
 
    This program is free software; you can redistribute it and/or modify
    it under the terms of the GNU General Public License as published by
@@ -66,7 +66,7 @@ ay_init( void )
 }
 
 static void
-ay_reset( int hard_reset )
+ay_reset( int hard_reset GCC_UNUSED )
 {
   ayinfo *ay = &machine_current->ay;
 

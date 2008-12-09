@@ -1,7 +1,7 @@
 /* ui.h: General UI event handling routines
    Copyright (c) 2000-2004 Philip Kendall
 
-   $Id: ui.h 3312 2007-11-19 22:02:14Z zubzero $
+   $Id: ui.h 3584 2008-03-25 10:27:30Z fredm $
 
    This program is free software; you can redistribute it and/or modify
    it under the terms of the GNU General Public License as published by
@@ -156,7 +156,9 @@ typedef enum ui_menu_item {
   UI_MENU_ITEM_MEDIA_DISK,
   UI_MENU_ITEM_MEDIA_DISK_PLUS3,
   UI_MENU_ITEM_MEDIA_DISK_PLUS3_A_EJECT,
+  UI_MENU_ITEM_MEDIA_DISK_PLUS3_A_WP_SET,
   UI_MENU_ITEM_MEDIA_DISK_PLUS3_B_EJECT,
+  UI_MENU_ITEM_MEDIA_DISK_PLUS3_B_WP_SET,
   UI_MENU_ITEM_MEDIA_DISK_BETA,
   UI_MENU_ITEM_MEDIA_DISK_BETA_A_EJECT,
   UI_MENU_ITEM_MEDIA_DISK_BETA_A_WP_SET,

@@ -1,7 +1,7 @@
 /* plusd.h: Routines for handling the +D interface
    Copyright (c) 2005-2007 Stuart Brady
 
-   $Id: plusd.h 3313 2007-11-19 23:35:38Z zubzero $
+   $Id: plusd.h 3681 2008-06-16 09:40:29Z pak21 $
 
    This program is free software; you can redistribute it and/or modify
    it under the terms of the GNU General Public License as published by
@@ -77,6 +77,5 @@ int plusd_disk_insert( plusd_drive_number which, const char *filename,
 int plusd_disk_eject( plusd_drive_number which, int write );
 int plusd_disk_write( plusd_drive_number which, const char *filename );
 int plusd_disk_writeprotect( plusd_drive_number which, int wrprot );
-int plusd_event_index( libspectrum_dword last_tstates );
 
 #endif                  /* #ifndef FUSE_PLUSD_H */

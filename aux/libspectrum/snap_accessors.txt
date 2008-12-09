@@ -1,7 +1,7 @@
 # snap_accessors.txt: simple accessors for libspectrum_snap
-# Copyright (c) 2003 Philip Kendall
+# Copyright (c) 2003-2008 Philip Kendall
 
-# $Id: snap_accessors.txt 3408 2007-12-05 01:45:24Z fredm $
+# $Id: snap_accessors.txt 3608 2008-04-25 01:59:46Z fredm $
 
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -68,12 +68,14 @@ size_t interface1_rom_length 1
 
 int beta_active
 int beta_paged
+int beta_custom_rom
 int beta_direction
 libspectrum_byte beta_system
 libspectrum_byte beta_track
 libspectrum_byte beta_sector
 libspectrum_byte beta_data
 libspectrum_byte beta_status
+libspectrum_byte* beta_rom 1
 
 int plusd_active
 int plusd_paged
@@ -86,6 +88,11 @@ libspectrum_byte plusd_data
 libspectrum_byte plusd_status
 libspectrum_byte* plusd_rom 1
 libspectrum_byte* plusd_ram 1
+
+int custom_rom
+size_t custom_rom_pages
+libspectrum_byte* roms 1
+size_t rom_length 1
 
 libspectrum_byte* pages 1
 
@@ -125,3 +132,15 @@ int issue2
 size_t joystick_active_count
 libspectrum_joystick joystick_list 1
 int joystick_inputs 1
+
+int kempston_mouse_active
+
+int simpleide_active
+
+int divide_active
+int divide_eprom_writeprotect
+int divide_paged
+libspectrum_byte divide_control
+size_t divide_pages
+libspectrum_byte* divide_eprom 1
+libspectrum_byte* divide_ram 1

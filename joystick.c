@@ -135,7 +135,7 @@ joystick_release_all( int which )
     timex2_value = 0x00;
     return 1;
 
-  case JOYSTICK_TYPE_NONE: return 0;
+  default: return 0;
   }
 }
 

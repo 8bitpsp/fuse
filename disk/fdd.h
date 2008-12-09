@@ -1,7 +1,7 @@
 /* fdd.h: Header for handling raw disk images
    Copyright (c) 2007 Gergely Szasz
 
-   $Id: fdd.h 3312 2007-11-19 22:02:14Z zubzero $
+   $Id: fdd.h 3681 2008-06-16 09:40:29Z pak21 $
 
    This program is free software; you can redistribute it and/or modify
    it under the terms of the GNU General Public License as published by
@@ -28,6 +28,7 @@
 
 #include <config.h>
 
+#include "event.h"
 #include "disk.h"
 
 typedef enum fdd_error_t {
@@ -40,8 +41,27 @@ typedef enum fdd_error_t {
 } fdd_error_t;
 
 typedef enum fdd_type_t {
-  FDD_SHUGART = 0,
-  FDD_IBMPC = 1,
+  FDD_SHUGART = 0,		/* head load when selected */
+  /* 
+     .. In a single drive system (program shunt position
+        "MX" shorted), with program shunt position "HL"
+	shorted, Drive Select when activated to a logical
+	zero level, will load the R/W head against the
+	diskette enabling contact of the R/W head against
+	the media. ...
+	
+	In a multiple drive system (program shunt position
+        "MX" open), the three input lines (Drive Select 1,
+	Drive Select 2 and Drive select 3) are provided so
+	that the using system may select which drive on
+	the interface is to be used. In this mode of opera-
+	tion only the drive with its Drive Select line active
+	will respond to the input lines and gate the output
+	lines. In addition, the selected drive will load its
+	R/W head if program shunt position "HL" is
+	shorted. ...
+  */
+  FDD_IBMPC,
 } fdd_type_t;
 
 typedef enum fdd_write_t {
@@ -55,18 +75,20 @@ typedef enum fdd_dir_t {
 } fdd_dir_t;
 
 typedef struct fdd_t {
-  fdd_type_t type;	/* fdd interface Shugart or IBMPC */
+  fdd_type_t type;	/* fdd type: Shugart or IBMPC */
+  int auto_geom;	/* change geometry according to loading disk */
   int fdd_heads;	/* 1 or 2 */
   int fdd_cylinders;	/* 40/40+/80/80+ */
 
   int tr00;		/* track 0 mark */
   int index;		/* index hole */
-  int wrprot;		/* write protect 0 -> write protect */
+  int wrprot;		/* write protect */
   int data;		/* read/write to data byte 0x00nn or 0xffnn */
   
   disk_t *disk;		/* pointer to inserted disk */
   int loaded;		/* disk loaded */
   int upsidedown;	/* flipped disk */
+  int selected;		/* Drive Select line active */
   int ready;		/* some disk drive offer a ready signal */
   
   fdd_error_t status;
@@ -80,9 +102,12 @@ typedef struct fdd_t {
 
 } fdd_t;
 
+/* initialize the event codes */
+int fdd_init_events( void );
+
 const char *fdd_strerror( int error );
 /* initialize the fdd_t struct, and set fdd_heads and cylinders (e.g. 2/83 ) */
-int fdd_init( fdd_t *d, int heads, int cyls );
+int fdd_init( fdd_t *d, fdd_type_t type, int heads, int cyls );
 /* load the given disk into the fdd. if upsidedown = 1, floppy upsidedown in drive :) */
 int fdd_load( fdd_t *d, disk_t *disk, int upsidedown );
 /* unload the disk from fdd */
@@ -96,6 +121,8 @@ void fdd_motoron( fdd_t *d, int on );
 /* start (1) or stop (0) spindle motor */
 void fdd_head_load( fdd_t *d, int load );
 /* load (1) or unload (0) head */
+void fdd_select( fdd_t *d, int select );
+/* select (1) or unselect (0) FDD */
 void fdd_flip( fdd_t *d, int upsidedown );
 /* read or write next 1 byte from disk. if read, the read byte go into
    d->data, if write d->data written to disk. if d->data = 0xffnn then this

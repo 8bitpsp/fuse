@@ -4,7 +4,7 @@
    Copyright (c) 2003 Witold Filipczyk
    Copyright (c) 2003 Darren Salt
 
-   $Id: ts2068.c 3281 2007-11-05 18:51:51Z pak21 $
+   $Id: ts2068.c 3566 2008-03-18 12:59:16Z pak21 $
 
    This program is free software; you can redistribute it and/or modify
    it under the terms of the GNU General Public License as published by
@@ -57,8 +57,8 @@ ts2068_init( fuse_machine_info *machine )
 
   machine->timex = 1;
   machine->ram.port_from_ula	     = tc2048_port_from_ula;
-  machine->ram.contend_delay	     = tc2068_contend_delay;
-  machine->ram.contend_delay_no_mreq = tc2068_contend_delay;
+  machine->ram.contend_delay	     = spectrum_contend_delay_65432100;
+  machine->ram.contend_delay_no_mreq = spectrum_contend_delay_65432100;
 
   memset( fake_bank, 0xff, MEMORY_PAGE_SIZE );
 
@@ -69,7 +69,7 @@ ts2068_init( fuse_machine_info *machine )
   fake_mapping.source = MEMORY_SOURCE_SYSTEM;
   fake_mapping.offset = 0x0000;
 
-  machine->unattached_port = tc2068_unattached_port;
+  machine->unattached_port = spectrum_unattached_port_none;
 
   machine->shutdown = NULL;
 

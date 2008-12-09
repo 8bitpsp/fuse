@@ -1,7 +1,7 @@
 /* scorpion.c: Scorpion 256K specific routines
    Copyright (c) 1999-2007 Philip Kendall, Fredrick Meunier and Stuart Brady
 
-   $Id: scorpion.c 3400 2007-12-04 18:24:31Z zubzero $
+   $Id: scorpion.c 3566 2008-03-18 12:59:16Z pak21 $
 
    This program is free software; you can redistribute it and/or modify
    it under the terms of the GNU General Public License as published by
@@ -46,7 +46,6 @@
 #include "spectrum.h"
 #include "ula.h"
 
-static libspectrum_byte scorpion_contend_delay( libspectrum_dword time );
 static int scorpion_reset( void );
 static int scorpion_memory_map( void );
 
@@ -66,19 +65,6 @@ static const periph_t peripherals[] = {
 static const size_t peripherals_count =
   sizeof( peripherals ) / sizeof( periph_t );
 
-static libspectrum_byte
-scorpion_unattached_port( void )
-{
-  return 0xff;
-}
-
-static libspectrum_byte
-scorpion_contend_delay( libspectrum_dword time GCC_UNUSED )
-{
-  /* No contention */
-  return 0;
-}
-
 int
 scorpion_init( fuse_machine_info *machine )
 {
@@ -89,10 +75,10 @@ scorpion_init( fuse_machine_info *machine )
 
   machine->timex = 0;
   machine->ram.port_from_ula  = pentagon_port_from_ula;
-  machine->ram.contend_delay  = scorpion_contend_delay;
-  machine->ram.contend_delay_no_mreq = scorpion_contend_delay;
+  machine->ram.contend_delay  = spectrum_contend_delay_none;
+  machine->ram.contend_delay_no_mreq = spectrum_contend_delay_none;
 
-  machine->unattached_port = scorpion_unattached_port;
+  machine->unattached_port = spectrum_unattached_port_none;
 
   machine->shutdown = NULL;
 

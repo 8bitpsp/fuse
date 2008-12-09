@@ -1,7 +1,8 @@
-/* pentagon1024.c: Pentagon 1024 specific routines
+/* pentagon1024.c: Pentagon 1024 specific routines This machine is expected to
+                  be a post-1996 Pentagon (a 1024k v2.2 1024SL?).
    Copyright (c) 1999-2007 Philip Kendall and Fredrick Meunier
 
-   $Id: pentagon1024.c 3400 2007-12-04 18:24:31Z zubzero $
+   $Id: pentagon1024.c 3599 2008-04-09 13:16:13Z fredm $
 
    This program is free software; you can redistribute it and/or modify
    it under the terms of the GNU General Public License as published by
@@ -62,12 +63,6 @@ static const periph_t peripherals[] = {
 static const size_t peripherals_count =
   sizeof( peripherals ) / sizeof( periph_t );
 
-static libspectrum_byte
-pentagon1024_unattached_port( void )
-{
-  return 0xff;
-}
-
 int
 pentagon1024_init( fuse_machine_info *machine )
 {
@@ -78,10 +73,10 @@ pentagon1024_init( fuse_machine_info *machine )
 
   machine->timex = 0;
   machine->ram.port_from_ula  = pentagon_port_from_ula;
-  machine->ram.contend_delay  = pentagon_contend_delay;
-  machine->ram.contend_delay_no_mreq = pentagon_contend_delay;
+  machine->ram.contend_delay  = spectrum_contend_delay_none;
+  machine->ram.contend_delay_no_mreq = spectrum_contend_delay_none;
 
-  machine->unattached_port = pentagon1024_unattached_port;
+  machine->unattached_port = spectrum_unattached_port_none;
 
   machine->shutdown = NULL;
 

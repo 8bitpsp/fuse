@@ -1,7 +1,7 @@
 /* menu.c: general menu callbacks
    Copyright (c) 2004-2005 Philip Kendall
 
-   $Id: menu.c 3422 2007-12-13 12:26:01Z zubzero $
+   $Id: menu.c 3787 2008-10-22 19:10:25Z pak21 $
 
    This program is free software; you can redistribute it and/or modify
    it under the terms of the GNU General Public License as published by
@@ -35,6 +35,7 @@
 #include "fuse.h"
 #include "if1.h"
 #include "if2.h"
+#include "joystick.h"
 #include "menu.h"
 #include "profile.h"
 #include "psg.h"
@@ -46,7 +47,9 @@
 #include "tape.h"
 #include "ui/ui.h"
 #include "utils.h"
-#include "widget/widget.h"
+#include "ui/scaler/scaler.h"
+#include "ui/widget/widget.h"
+#include "z80/z80.h"
 #include "zxatasp.h"
 #include "zxcf.h"
 
@@ -65,7 +68,7 @@ MENU_CALLBACK( menu_file_open )
   filename = ui_get_open_filename( "Fuse - Open Spectrum File" );
   if( !filename ) { fuse_emulation_unpause(); return; }
 
-  utils_open_file( filename, settings_current.auto_load, NULL );
+  utils_open_file( filename, tape_can_autoload(), NULL );
 
   free( filename );
 
@@ -85,13 +88,12 @@ MENU_CALLBACK( menu_file_recording_insertsnapshot )
 
   libspectrum_rzx_stop_input( rzx );
 
-  error = libspectrum_snap_alloc( &snap );
-  if( error ) return;
+  snap = libspectrum_snap_alloc();
 
   error = snapshot_copy_to( snap );
   if( error ) { libspectrum_snap_free( snap ); return; }
 
-  libspectrum_rzx_add_snap( rzx, snap );
+  libspectrum_rzx_add_snap( rzx, snap, 0 );
 
   libspectrum_rzx_start_input( rzx, tstates );
 }
@@ -208,15 +210,15 @@ MENU_CALLBACK_WITH_ACTION( menu_options_selectroms_select )
   case  8: menu_select_roms( LIBSPECTRUM_MACHINE_TC2048,   18, 1 ); return;
   case  9: menu_select_roms( LIBSPECTRUM_MACHINE_TC2068,   19, 2 ); return;
   case 10: menu_select_roms( LIBSPECTRUM_MACHINE_TS2068,   21, 2 ); return;
-  case 11: menu_select_roms( LIBSPECTRUM_MACHINE_PENT,     23, 4 ); return;
-  case 12: menu_select_roms( LIBSPECTRUM_MACHINE_PENT512,  27, 4 ); return;
-  case 13: menu_select_roms( LIBSPECTRUM_MACHINE_PENT1024, 31, 4 ); return;
-  case 14: menu_select_roms( LIBSPECTRUM_MACHINE_SCORP,    35, 4 ); return;
-  case 15: menu_select_roms( LIBSPECTRUM_MACHINE_SE,       39, 2 ); return;
+  case 11: menu_select_roms( LIBSPECTRUM_MACHINE_PENT,     23, 3 ); return;
+  case 12: menu_select_roms( LIBSPECTRUM_MACHINE_PENT512,  26, 4 ); return;
+  case 13: menu_select_roms( LIBSPECTRUM_MACHINE_PENT1024, 30, 4 ); return;
+  case 14: menu_select_roms( LIBSPECTRUM_MACHINE_SCORP,    34, 4 ); return;
+  case 15: menu_select_roms( LIBSPECTRUM_MACHINE_SE,       38, 2 ); return;
 
-  case 16: menu_select_roms_with_title( "Interface I",     41, 1 ); return;
-  case 17: menu_select_roms_with_title( "Beta 128",        42, 1 ); return;
-  case 18: menu_select_roms_with_title( "+D",              43, 1 ); return;
+  case 16: menu_select_roms_with_title( "Interface I",     40, 1 ); return;
+  case 17: menu_select_roms_with_title( "Beta 128",        41, 1 ); return;
+  case 18: menu_select_roms_with_title( "+D",              42, 1 ); return;
 
   }
 
@@ -273,7 +275,7 @@ MENU_CALLBACK( menu_machine_profiler_stop )
 MENU_CALLBACK( menu_machine_nmi )
 {
   WIDGET_END;
-  event_add( 0, EVENT_TYPE_NMI );
+  event_add( 0, z80_nmi_event );
 }
 
 MENU_CALLBACK( menu_media_tape_open )
@@ -360,9 +362,7 @@ MENU_CALLBACK_WITH_ACTION( menu_media_insert_new )
 
   switch( type ) {
   case 0:
-#ifdef HAVE_765_H
-/*  specplus3_disk_insert( which, NULL, 0 ); */
-#endif				/* #ifdef HAVE_765_H */
+    specplus3_disk_insert( which, NULL, 0 );
     break;
   case 1:
     beta_disk_insert( which, NULL, 0 );
@@ -409,9 +409,7 @@ MENU_CALLBACK_WITH_ACTION( menu_media_insert )
 
   switch( type ) {
   case 0:
-#ifdef HAVE_765_H
     specplus3_disk_insert( which, filename, 0 );
-#endif				/* #ifdef HAVE_765_H */
     break;
   case 1:
     beta_disk_insert( which, filename, 0 );
@@ -442,9 +440,7 @@ MENU_CALLBACK_WITH_ACTION( menu_media_eject )
 
   switch( type ) {
   case 0:
-#ifdef HAVE_765_H
     specplus3_disk_eject( which, write );
-#endif			/* #ifdef HAVE_765_H */
     break;
   case 1:
     beta_disk_eject( which, write );
@@ -472,9 +468,7 @@ MENU_CALLBACK_WITH_ACTION( menu_media_writeprotect )
 
   switch( type ) {
   case 0:
-#ifdef HAVE_765_H
-/*    specplus3_disk_writeprotect( which, wrprot ); */
-#endif			/* #ifdef HAVE_765_H */
+    specplus3_disk_writeprotect( which, wrprot );
     break;
   case 1:
     beta_disk_writeprotect( which, wrprot );
@@ -620,6 +614,187 @@ MENU_CALLBACK( menu_media_ide_divide_writeprotect )
   WIDGET_END;
 }
 
+MENU_CALLBACK( menu_file_savesnapshot )
+{
+  char *filename;
+
+  WIDGET_END;
+
+  fuse_emulation_pause();
+
+  filename = ui_get_save_filename( "Fuse - Save Snapshot" );
+  if( !filename ) { fuse_emulation_unpause(); return; }
+
+  snapshot_write( filename );
+
+  free( filename );
+
+  fuse_emulation_unpause();
+}
+
+MENU_CALLBACK( menu_file_savescreenasscr )
+{
+  char *filename;
+
+  WIDGET_END;
+
+  fuse_emulation_pause();
+
+  filename = ui_get_save_filename( "Fuse - Save Screenshot as SCR" );
+  if( !filename ) { fuse_emulation_unpause(); return; }
+
+  screenshot_scr_write( filename );
+
+  free( filename );
+
+  fuse_emulation_unpause();
+}
+
+#ifdef USE_LIBPNG
+
+MENU_CALLBACK( menu_file_savescreenaspng )
+{
+  scaler_type scaler;
+  char *filename;
+
+  WIDGET_END;
+
+  fuse_emulation_pause();
+
+  scaler = menu_get_scaler( screenshot_available_scalers );
+  if( scaler == SCALER_NUM ) {
+    fuse_emulation_unpause();
+    return;
+  }
+
+  filename =
+    ui_get_save_filename( "Fuse - Save Screenshot as PNG" );
+  if( !filename ) { fuse_emulation_unpause(); return; }
+
+  screenshot_write( filename, scaler );
+
+  free( filename );
+
+  fuse_emulation_unpause();
+}
+#endif
+
+MENU_CALLBACK( menu_file_movies_recordmovieasscr )
+{
+  char *filename;
+
+  WIDGET_END;
+  
+  fuse_emulation_pause();
+
+  filename = ui_get_save_filename( "Fuse - Record Movie as SCR" );
+  if( !filename ) { fuse_emulation_unpause(); return; }
+
+  snprintf( screenshot_movie_file, PATH_MAX-SCREENSHOT_MOVIE_FILE_MAX, "%s",
+            filename );
+
+  screenshot_movie_record = 1;
+  ui_menu_activate( UI_MENU_ITEM_FILE_MOVIES_RECORDING, 1 );
+
+  free( filename );
+
+  fuse_emulation_unpause();
+}
+
+#ifdef USE_LIBPNG
+MENU_CALLBACK( menu_file_movies_recordmovieaspng )
+{
+  scaler_type scaler;
+  char *filename;
+
+  WIDGET_END;
+
+  fuse_emulation_pause();
+
+  scaler = menu_get_scaler( screenshot_available_scalers );
+  if( scaler == SCALER_NUM ) {
+    fuse_emulation_unpause();
+    return;
+  }
+
+  filename = ui_get_save_filename( "Fuse - Save Screenshot as PNG" );
+  if( !filename ) { fuse_emulation_unpause(); return; }
+
+  screenshot_write( filename, scaler );
+
+  free( filename );
+
+  fuse_emulation_unpause();
+}
+#endif
+
+MENU_CALLBACK( menu_file_recording_record )
+{
+  char *recording;
+
+  if( rzx_playback || rzx_recording ) return;
+
+  fuse_emulation_pause();
+
+  recording = ui_get_save_filename( "Fuse - Start Recording" );
+  if( !recording ) { fuse_emulation_unpause(); return; }
+
+  rzx_start_recording( recording, 1 );
+
+  free( recording );
+
+  fuse_emulation_unpause();
+}
+
+MENU_CALLBACK( menu_file_recording_recordfromsnapshot )
+{
+  char *snap, *recording;
+
+  if( rzx_playback || rzx_recording ) return;
+
+  fuse_emulation_pause();
+
+  snap = ui_get_open_filename( "Fuse - Load Snapshot " );
+  if( !snap ) { fuse_emulation_unpause(); return; }
+
+  recording = ui_get_save_filename( "Fuse - Start Recording" );
+  if( !recording ) { free( snap ); fuse_emulation_unpause(); return; }
+
+  if( snapshot_read( snap ) ) {
+    free( snap ); free( recording ); fuse_emulation_unpause(); return;
+  }
+
+  rzx_start_recording( recording, settings_current.embed_snapshot );
+
+  free( recording );
+
+  display_refresh_all();
+
+  fuse_emulation_unpause();
+}
+
+MENU_CALLBACK( menu_file_aylogging_record )
+{
+  char *psgfile;
+
+  if( psg_recording ) return;
+
+  fuse_emulation_pause();
+
+  psgfile = ui_get_save_filename( "Fuse - Start AY Log" );
+  if( !psgfile ) { fuse_emulation_unpause(); return; }
+
+  psg_start_recording( psgfile );
+
+  free( psgfile );
+
+  display_refresh_all();
+
+  ui_menu_activate( UI_MENU_ITEM_AY_LOGGING, 1 );
+
+  fuse_emulation_unpause();
+}
+
 int
 menu_open_snap( void )
 {
@@ -641,15 +816,11 @@ menu_check_media_changed( void )
 
   confirm = tape_close(); if( confirm ) return 1;
 
-#ifdef HAVE_765_H
-
   confirm = specplus3_disk_eject( SPECPLUS3_DRIVE_A, 0 );
   if( confirm ) return 1;
 
   confirm = specplus3_disk_eject( SPECPLUS3_DRIVE_B, 0 );
   if( confirm ) return 1;
-
-#endif			/* #ifdef HAVE_765_H */
 
   confirm = beta_disk_eject( BETA_DRIVE_A, 0 );
   if( confirm ) return 1;
@@ -716,4 +887,43 @@ menu_select_roms( libspectrum_machine machine, size_t start, size_t n )
 {
   return menu_select_roms_with_title( libspectrum_machine_name( machine ),
 				      start, n );
+}
+
+const char*
+menu_machine_detail( void )
+{
+  return libspectrum_machine_name( machine_current->machine );
+}
+
+const char*
+menu_filter_detail( void )
+{
+  return scaler_name(current_scaler);
+}
+
+const char*
+menu_keyboard_joystick_detail( void )
+{
+  return joystick_name[ settings_current.joystick_keyboard_output ];
+}
+
+const char*
+menu_joystick_1_detail( void )
+{
+  return joystick_name[ settings_current.joystick_1_output ];
+}
+
+const char*
+menu_joystick_2_detail( void )
+{
+  return joystick_name[ settings_current.joystick_2_output ];
+}
+
+const char*
+menu_tape_detail( void )
+{
+  if( !tape_present() ) return "Not inserted";
+
+  if( tape_is_playing() ) return "Playing";
+  else return "Stopped";
 }

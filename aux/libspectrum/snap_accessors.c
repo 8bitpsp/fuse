@@ -1,5 +1,5 @@
 /* snap_accessors.c: simple accessor functions for libspectrum_snap
-   Copyright (c) 2003-2004 Philip Kendall
+   Copyright (c) 2003-2008 Philip Kendall
 
    This program is free software; you can redistribute it and/or modify
    it under the terms of the GNU General Public License as published by
@@ -46,6 +46,12 @@ struct libspectrum_snap {
   int halted;			/* Is the Z80 currently HALTed? */
   int last_instruction_ei;	/* Was the last instruction an EI? */
 
+  /* Custom ROM */
+  int custom_rom;
+  size_t custom_rom_pages;
+  libspectrum_byte* roms[ 4 ];
+  size_t rom_length[ 4 ];
+
   /* RAM */
 
   libspectrum_byte *pages[ SNAPSHOT_RAM_PAGES ];
@@ -85,11 +91,13 @@ struct libspectrum_snap {
   /* Betadisk status */
   int beta_active;
   int beta_paged;
+  int beta_custom_rom;
   int beta_direction;	/* FDC seek direction:
 			      zero => towards lower cylinders (hubwards)
 			  non-zero => towards higher cylinders (rimwards) */
   libspectrum_byte beta_system, beta_track, beta_sector, beta_data,
     beta_status;
+  libspectrum_byte *beta_rom[1];
 
   /* Plus D status */
   int plusd_active;
@@ -138,20 +146,28 @@ struct libspectrum_snap {
   size_t joystick_active_count;
   libspectrum_joystick joystick_list[ SNAPSHOT_JOYSTICKS ];
   int joystick_inputs[ SNAPSHOT_JOYSTICKS ];
+
+  /* Kempston mouse status */
+  int kempston_mouse_active;
+
+  /* Simple 8-bit IDE status */
+  int simpleide_active;
+
+  /* DivIDE status */
+  int divide_active;
+  int divide_eprom_writeprotect;
+  int divide_paged;
+  libspectrum_byte divide_control;
+  size_t divide_pages;
+  libspectrum_byte* divide_eprom[ 1 ];
+  libspectrum_byte* divide_ram[ SNAPSHOT_DIVIDE_PAGES ];
 };
 
 /* Initialise a libspectrum_snap structure */
-libspectrum_error
-libspectrum_snap_alloc_internal( libspectrum_snap **snap )
+libspectrum_snap*
+libspectrum_snap_alloc_internal( void )
 {
-  (*snap) = malloc( sizeof( libspectrum_snap ) );
-  if( !(*snap) ) {
-    libspectrum_print_error( LIBSPECTRUM_ERROR_MEMORY,
-			     "libspectrum_snap_alloc: out of memory" );
-    return LIBSPECTRUM_ERROR_MEMORY;
-  }
-
-  return LIBSPECTRUM_ERROR_NONE;
+  return libspectrum_malloc( sizeof( libspectrum_snap ) );
 }
 
 libspectrum_machine
@@ -611,6 +627,18 @@ libspectrum_snap_set_beta_paged( libspectrum_snap *snap, int beta_paged )
 }
 
 int
+libspectrum_snap_beta_custom_rom( libspectrum_snap *snap )
+{
+  return snap->beta_custom_rom;
+}
+
+void
+libspectrum_snap_set_beta_custom_rom( libspectrum_snap *snap, int beta_custom_rom )
+{
+  snap->beta_custom_rom = beta_custom_rom;
+}
+
+int
 libspectrum_snap_beta_direction( libspectrum_snap *snap )
 {
   return snap->beta_direction;
@@ -680,6 +708,18 @@ void
 libspectrum_snap_set_beta_status( libspectrum_snap *snap, libspectrum_byte beta_status )
 {
   snap->beta_status = beta_status;
+}
+
+libspectrum_byte*
+libspectrum_snap_beta_rom( libspectrum_snap *snap, int idx )
+{
+  return snap->beta_rom[idx];
+}
+
+void
+libspectrum_snap_set_beta_rom( libspectrum_snap *snap, int idx, libspectrum_byte* beta_rom )
+{
+  snap->beta_rom[idx] = beta_rom;
 }
 
 int
@@ -812,6 +852,54 @@ void
 libspectrum_snap_set_plusd_ram( libspectrum_snap *snap, int idx, libspectrum_byte* plusd_ram )
 {
   snap->plusd_ram[idx] = plusd_ram;
+}
+
+int
+libspectrum_snap_custom_rom( libspectrum_snap *snap )
+{
+  return snap->custom_rom;
+}
+
+void
+libspectrum_snap_set_custom_rom( libspectrum_snap *snap, int custom_rom )
+{
+  snap->custom_rom = custom_rom;
+}
+
+size_t
+libspectrum_snap_custom_rom_pages( libspectrum_snap *snap )
+{
+  return snap->custom_rom_pages;
+}
+
+void
+libspectrum_snap_set_custom_rom_pages( libspectrum_snap *snap, size_t custom_rom_pages )
+{
+  snap->custom_rom_pages = custom_rom_pages;
+}
+
+libspectrum_byte*
+libspectrum_snap_roms( libspectrum_snap *snap, int idx )
+{
+  return snap->roms[idx];
+}
+
+void
+libspectrum_snap_set_roms( libspectrum_snap *snap, int idx, libspectrum_byte* roms )
+{
+  snap->roms[idx] = roms;
+}
+
+size_t
+libspectrum_snap_rom_length( libspectrum_snap *snap, int idx )
+{
+  return snap->rom_length[idx];
+}
+
+void
+libspectrum_snap_set_rom_length( libspectrum_snap *snap, int idx, size_t rom_length )
+{
+  snap->rom_length[idx] = rom_length;
 }
 
 libspectrum_byte*
@@ -1184,4 +1272,112 @@ void
 libspectrum_snap_set_joystick_inputs( libspectrum_snap *snap, int idx, int joystick_inputs )
 {
   snap->joystick_inputs[idx] = joystick_inputs;
+}
+
+int
+libspectrum_snap_kempston_mouse_active( libspectrum_snap *snap )
+{
+  return snap->kempston_mouse_active;
+}
+
+void
+libspectrum_snap_set_kempston_mouse_active( libspectrum_snap *snap, int kempston_mouse_active )
+{
+  snap->kempston_mouse_active = kempston_mouse_active;
+}
+
+int
+libspectrum_snap_simpleide_active( libspectrum_snap *snap )
+{
+  return snap->simpleide_active;
+}
+
+void
+libspectrum_snap_set_simpleide_active( libspectrum_snap *snap, int simpleide_active )
+{
+  snap->simpleide_active = simpleide_active;
+}
+
+int
+libspectrum_snap_divide_active( libspectrum_snap *snap )
+{
+  return snap->divide_active;
+}
+
+void
+libspectrum_snap_set_divide_active( libspectrum_snap *snap, int divide_active )
+{
+  snap->divide_active = divide_active;
+}
+
+int
+libspectrum_snap_divide_eprom_writeprotect( libspectrum_snap *snap )
+{
+  return snap->divide_eprom_writeprotect;
+}
+
+void
+libspectrum_snap_set_divide_eprom_writeprotect( libspectrum_snap *snap, int divide_eprom_writeprotect )
+{
+  snap->divide_eprom_writeprotect = divide_eprom_writeprotect;
+}
+
+int
+libspectrum_snap_divide_paged( libspectrum_snap *snap )
+{
+  return snap->divide_paged;
+}
+
+void
+libspectrum_snap_set_divide_paged( libspectrum_snap *snap, int divide_paged )
+{
+  snap->divide_paged = divide_paged;
+}
+
+libspectrum_byte
+libspectrum_snap_divide_control( libspectrum_snap *snap )
+{
+  return snap->divide_control;
+}
+
+void
+libspectrum_snap_set_divide_control( libspectrum_snap *snap, libspectrum_byte divide_control )
+{
+  snap->divide_control = divide_control;
+}
+
+size_t
+libspectrum_snap_divide_pages( libspectrum_snap *snap )
+{
+  return snap->divide_pages;
+}
+
+void
+libspectrum_snap_set_divide_pages( libspectrum_snap *snap, size_t divide_pages )
+{
+  snap->divide_pages = divide_pages;
+}
+
+libspectrum_byte*
+libspectrum_snap_divide_eprom( libspectrum_snap *snap, int idx )
+{
+  return snap->divide_eprom[idx];
+}
+
+void
+libspectrum_snap_set_divide_eprom( libspectrum_snap *snap, int idx, libspectrum_byte* divide_eprom )
+{
+  snap->divide_eprom[idx] = divide_eprom;
+}
+
+libspectrum_byte*
+libspectrum_snap_divide_ram( libspectrum_snap *snap, int idx )
+{
+  return snap->divide_ram[idx];
+}
+
+void
+libspectrum_snap_set_divide_ram( libspectrum_snap *snap, int idx, libspectrum_byte* divide_ram )
+{
+  snap->divide_ram[idx] = divide_ram;
 }

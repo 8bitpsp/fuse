@@ -1,7 +1,7 @@
 /* spectrum.h: Spectrum 48K specific routines
    Copyright (c) 1999-2004 Philip Kendall, Darren Salt
 
-   $Id: spectrum.h 3281 2007-11-05 18:51:51Z pak21 $
+   $Id: spectrum.h 3681 2008-06-16 09:40:29Z pak21 $
 
    This program is free software; you can redistribute it and/or modify
    it under the terms of the GNU General Public License as published by
@@ -69,10 +69,18 @@ typedef struct spectrum_raminfo {
 
 } spectrum_raminfo;
 
+libspectrum_byte spectrum_contend_delay_none( libspectrum_dword time );
+libspectrum_byte spectrum_contend_delay_65432100( libspectrum_dword time );
+libspectrum_byte spectrum_contend_delay_76543210( libspectrum_dword time );
+
 libspectrum_byte spectrum_unattached_port( void );
+libspectrum_byte spectrum_unattached_port_none( void );
 
 /* Miscellaneous stuff */
 
+extern int spectrum_frame_event;
+
+int spectrum_init( void );
 int spectrum_frame( void );
 
 #endif			/* #ifndef FUSE_SPECTRUM_H */

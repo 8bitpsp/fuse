@@ -2,7 +2,7 @@
    Copyright (c) 1999-2007 Stuart Brady, Fredrick Meunier, Philip Kendall,
    Dmitry Sanarin, Darren Salt
 
-   $Id: plusd.c 3398 2007-12-04 12:53:15Z fredm $
+   $Id: plusd.c 3681 2008-06-16 09:40:29Z pak21 $
 
    This program is free software; you can redistribute it and/or modify
    it under the terms of the GNU General Public License as published by
@@ -46,6 +46,8 @@ int plusd_active = 0;
 
 static int plusd_index_pulse;
 
+static int index_event;
+
 #define PLUSD_NUM_DRIVES 2
 
 static wd_fdc *plusd_fdc;
@@ -58,6 +60,8 @@ static void plusd_memory_map( void );
 static void plusd_enabled_snapshot( libspectrum_snap *snap );
 static void plusd_from_snapshot( libspectrum_snap *snap );
 static void plusd_to_snapshot( libspectrum_snap *snap );
+static void plusd_event_index( libspectrum_dword last_tstates, int type,
+			       void *user_data );
 
 static module_info_t plusd_module_info = {
 
@@ -123,20 +127,24 @@ plusd_init( void )
   int i;
   wd_fdc_drive *d;
 
-  plusd_fdc = wd_fdc_alloc_fdc( WD1770 );
-  plusd_fdc->current_drive = &plusd_drives[ 0 ];
+  plusd_fdc = wd_fdc_alloc_fdc( WD1770, 0, WD_FLAG_NONE );
 
   for( i = 0; i < PLUSD_NUM_DRIVES; i++ ) {
     d = &plusd_drives[ i ];
-    fdd_init( &d->fdd, 0, 0 );		/* drive geometry 'autodetect' */
+    fdd_init( &d->fdd, FDD_SHUGART, 0, 0 );	/* drive geometry 'autodetect' */
+    d->disk.flag = DISK_FLAG_NONE;
   }
 
+  plusd_fdc->current_drive = &plusd_drives[ 0 ];
+  fdd_select( &plusd_drives[ 0 ].fdd, 1 );
   plusd_fdc->dden = 1;
   plusd_fdc->set_intrq = NULL;
   plusd_fdc->reset_intrq = NULL;
   plusd_fdc->set_datarq = NULL;
   plusd_fdc->reset_datarq = NULL;
   plusd_fdc->iface = NULL;
+
+  index_event = event_register( plusd_event_index, "+D index" );
 
   module_register( &plusd_module_info );
 
@@ -152,7 +160,7 @@ plusd_reset( int hard_reset )
   plusd_active = 0;
   plusd_available = 0;
 
-  event_remove_type( EVENT_TYPE_PLUSD_INDEX );
+  event_remove_type( index_event );
 
   if( !periph_plusd_active )
     return;
@@ -198,8 +206,9 @@ plusd_reset( int hard_reset )
 		    !plusd_drives[ PLUSD_DRIVE_2 ].fdd.wrprot );
 
   plusd_fdc->current_drive = &plusd_drives[ 0 ];
+  fdd_select( &plusd_drives[ 0 ].fdd, 1 );
   machine_current->memory_map();
-  plusd_event_index( 0 );
+  plusd_event_index( 0, index_event, NULL );
 
   ui_statusbar_update( UI_STATUSBAR_ITEM_DISK, UI_STATUSBAR_STATE_INACTIVE );
 }
@@ -292,11 +301,12 @@ plusd_cn_write( libspectrum_word port GCC_UNUSED, libspectrum_byte b )
   side = ( b & 0x80 ) ? 1 : 0;
 
   /* TODO: set current_drive to NULL when bits 0 and 1 of b are '00' or '11' */
-  plusd_fdc->current_drive = &plusd_drives[ drive ];
-
   for( i = 0; i < PLUSD_NUM_DRIVES; i++ ) {
     fdd_set_head( &plusd_drives[ i ].fdd, side );
   }
+  fdd_select( &plusd_drives[ (!drive) ].fdd, 0 );
+  fdd_select( &plusd_drives[ drive ].fdd, 1 );
+  plusd_fdc->current_drive = &plusd_drives[ drive ];
 
   printer_parallel_strobe_write( b & 0x40 );
 }
@@ -505,10 +515,10 @@ plusd_disk_write( plusd_drive_number which, const char *filename )
   return 0;
 }
 
-int
-plusd_event_index( libspectrum_dword last_tstates )
+static void
+plusd_event_index( libspectrum_dword last_tstates, int type GCC_UNUSED,
+                   void *user_data GCC_UNUSED )
 {
-  int error;
   int next_tstates;
   int i;
 
@@ -524,10 +534,7 @@ plusd_event_index( libspectrum_dword last_tstates )
   }
   next_tstates = ( plusd_index_pulse ? 10 : 190 ) *
     machine_current->timings.processor_speed / 1000;
-  error = event_add( last_tstates + next_tstates, EVENT_TYPE_PLUSD_INDEX );
-  if( error )
-    return error;
-  return 0;
+  event_add( last_tstates + next_tstates, index_event );
 }
 
 static libspectrum_byte *
@@ -558,20 +565,13 @@ plusd_from_snapshot( libspectrum_snap *snap )
   if( !libspectrum_snap_plusd_active( snap ) ) return;
 
   if( libspectrum_snap_plusd_custom_rom( snap ) &&
-      libspectrum_snap_plusd_rom( snap, 0 ) ) {
-    memory_map_romcs[0].offset = 0;
-    memory_map_romcs[0].page_num = 0;
-    memory_map_romcs[0].page =
-      memory_pool_allocate( MEMORY_PAGE_SIZE * sizeof( libspectrum_byte ) );
-    if( !memory_map_romcs[0].page ) {
-      ui_error( UI_ERROR_ERROR, "Out of memory at %s:%d", __FILE__, __LINE__ );
-      return;
-    }
-    memory_map_romcs[0].source = MEMORY_SOURCE_CUSTOMROM;
-
-    memcpy( memory_map_romcs[0].page, libspectrum_snap_plusd_rom( snap, 0 ),
-            MEMORY_PAGE_SIZE );
-  }
+      libspectrum_snap_plusd_rom( snap, 0 ) &&
+      machine_load_rom_bank_from_buffer(
+                             memory_map_romcs, 0, 0,
+                             libspectrum_snap_plusd_rom( snap, 0 ),
+                             MEMORY_PAGE_SIZE,
+                             1 ) )
+    return;
 
   if( libspectrum_snap_plusd_ram( snap, 0 ) ) {
     memcpy( plusd_ram,

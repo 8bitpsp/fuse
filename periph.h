@@ -1,7 +1,7 @@
 /* periph.h: code for handling peripherals
    Copyright (c) 2004 Philip Kendall
 
-   $Id: periph.h 3400 2007-12-04 18:24:31Z zubzero $
+   $Id: periph.h 3648 2008-06-01 17:42:03Z pak21 $
 
    This program is free software; you can redistribute it and/or modify
    it under the terms of the GNU General Public License as published by
@@ -54,6 +54,10 @@ int periph_register( const periph_t *peripheral );
 int periph_register_n( const periph_t *peripherals_list, size_t n );
 int periph_set_active( int id, int active );
 void periph_clear( void );
+
+/* Register debugger page/unpage events for a peripheral */
+int periph_register_paging_events( const char *type_string, int *page_event,
+				   int *unpage_event );
 
 /*
  * The actual routines to read and write a port

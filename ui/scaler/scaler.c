@@ -1,11 +1,14 @@
 /* scaler.c: code for selecting (etc) scalers
  * Copyright (C) 2003 Fredrick Meunier, Philip Kendall
  * 
- * $Id: scaler.c 3115 2007-08-19 02:49:14Z fredm $
+ * $Id: scaler.c 3612 2008-05-02 12:56:05Z fredm $
  *
  * Originally taken from ScummVM - Scumm Interpreter
  * Copyright (C) 2001  Ludvig Strigeus
  * Copyright (C) 2001/2002 The ScummVM project
+ *
+ * HQ2x and HQ3x scalers taken from HiEnd3D Demos (http://www.hiend3d.com)
+ * Copyright (C) 2003 MaxSt ( maxst@hiend3d.com )
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
@@ -102,11 +105,15 @@ static const struct scaler_info available_scalers[] = {
   { "Timex 1.5x",      "timex15x",   SCALER_FLAGS_NONE,        1.5,
     scaler_Timex1_5x_16,  scaler_Timex1_5x_32,  NULL                },
   { "PAL TV",	       "paltv",     SCALER_FLAGS_EXPAND,       1.0,
-    scaler_PalTV_16,  	  scaler_PalTV_32,  expand_pal1        	    },
+    scaler_PalTV_16,  	  scaler_PalTV_32,      expand_pal1         },
   { "PAL TV 2x",       "paltv2x",   SCALER_FLAGS_EXPAND,       2.0,
-    scaler_PalTV2x_16,    scaler_PalTV2x_32,  expand_pal            },
+    scaler_PalTV2x_16,    scaler_PalTV2x_32,    expand_pal          },
   { "PAL TV 3x",       "paltv3x",   SCALER_FLAGS_EXPAND,       3.0,
-    scaler_PalTV3x_16,    scaler_PalTV3x_32,  expand_pal            },
+    scaler_PalTV3x_16,    scaler_PalTV3x_32,    expand_pal          },
+  { "HQ 2x",           "hq2x",      SCALER_FLAGS_EXPAND,       2.0,
+    scaler_HQ2x_16,       scaler_HQ2x_32,       expand_1            },
+  { "HQ 3x",           "hq3x",      SCALER_FLAGS_EXPAND,       3.0,
+    scaler_HQ3x_16,       scaler_HQ3x_32,       expand_1            },
 };
 
 scaler_type current_scaler = SCALER_NUM;

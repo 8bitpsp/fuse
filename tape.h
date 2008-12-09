@@ -1,7 +1,7 @@
 /* tape.h: tape handling routines
    Copyright (c) 1999-2004 Philip Kendall
 
-   $Id: tape.h 3313 2007-11-19 23:35:38Z zubzero $
+   $Id: tape.h 3714 2008-07-06 18:10:29Z fredm $
 
    This program is free software; you can redistribute it and/or modify
    it under the terms of the GNU General Public License as published by
@@ -42,19 +42,22 @@ int tape_select_block_no_update( size_t n );
 int tape_get_current_block( void );
 int tape_write( const char *filename );
 
+int tape_can_autoload( void );
+
 int tape_load_trap( void );
 int tape_save_trap( void );
 
 int tape_do_play( int autoplay );
 int tape_toggle_play( int autoplay );
 
-int tape_next_edge( libspectrum_dword last_tstates );
+void tape_next_edge( libspectrum_dword last_tstates, int type,
+		     void *user_data );
 
 int tape_stop( void );
 int tape_is_playing( void );
+int tape_present( void );
 
 int tape_record_start( void );
-void tape_event_record_sample( libspectrum_dword last_tstates );
 int tape_record_stop( void );
 
 /* Call a user-supplied function for every block in the current tape */
@@ -72,5 +75,7 @@ extern int tape_microphone;
 extern int tape_modified;
 extern int tape_playing;
 extern int tape_recording;
+
+extern int tape_edge_event;
 
 #endif

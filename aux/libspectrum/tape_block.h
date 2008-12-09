@@ -1,7 +1,7 @@
 /* tape_block.h: individual tape block types
-   Copyright (c) 2003-2007 Philip Kendall
+   Copyright (c) 2003-2008 Philip Kendall
 
-   $Id: tape_block.h 2909 2007-05-29 14:33:22Z fredm $
+   $Id: tape_block.h 3775 2008-09-28 03:28:22Z fredm $
 
    This program is free software; you can redistribute it and/or modify
    it under the terms of the GNU General Public License as published by
@@ -416,9 +416,15 @@ struct libspectrum_tape_block_state {
 libspectrum_error
 libspectrum_tape_pure_data_next_bit( libspectrum_tape_pure_data_block *block,
                              libspectrum_tape_pure_data_block_state *state );
-libspectrum_error
+void
 libspectrum_tape_raw_data_next_bit( libspectrum_tape_raw_data_block *block,
                              libspectrum_tape_raw_data_block_state *state );
+libspectrum_error
+generalised_data_edge( libspectrum_tape_generalised_data_block *block,
+                       libspectrum_tape_generalised_data_block_state *state,
+		       libspectrum_dword *tstates, int *end_of_block,
+		       int *flags );
+
 
 #endif				/* #ifndef LIBSPECTRUM_TAPE_BLOCK_H */
 

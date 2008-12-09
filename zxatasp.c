@@ -1,8 +1,7 @@
 /* zxatasp.c: ZXATASP interface routines
-   Copyright (c) 2003-2005 Garry Lancaster,
-		 2004-2005 Philip Kendall
+   Copyright (c) 2003-2008 Garry Lancaster and Philip Kendall
 
-   $Id: zxatasp.c 3389 2007-12-03 12:54:17Z fredm $
+   $Id: zxatasp.c 3707 2008-06-30 21:33:49Z fredm $
 
    This program is free software; you can redistribute it and/or modify
    it under the terms of the GNU General Public License as published by
@@ -30,6 +29,7 @@
 
 #include <libspectrum.h>
 
+#include "debugger/debugger.h"
 #include "ide.h"
 #include "machine.h"
 #include "memory.h"
@@ -45,6 +45,10 @@
        No software ever supported it, and v2.0+ boards don't have it.
 */
 
+
+/* Debugger events */
+static const char *event_type_string = "zxatasp";
+static int page_event, unpage_event;
 
 /* Private function prototypes */
 
@@ -152,12 +156,10 @@ static module_info_t zxatasp_module_info = {
 int
 zxatasp_init( void )
 {
-  int error;
+  int error = 0;
 
-  error = libspectrum_ide_alloc( &zxatasp_idechn0, LIBSPECTRUM_IDE_DATA16 );
-  if( error ) return error;
-  error = libspectrum_ide_alloc( &zxatasp_idechn1, LIBSPECTRUM_IDE_DATA16 );
-  if( error ) return error;
+  zxatasp_idechn0 = libspectrum_ide_alloc( LIBSPECTRUM_IDE_DATA16 );
+  zxatasp_idechn1 = libspectrum_ide_alloc( LIBSPECTRUM_IDE_DATA16 );
   
   ui_menu_activate( UI_MENU_ITEM_MEDIA_IDE_ZXATASP_MASTER_EJECT, 0 );
   ui_menu_activate( UI_MENU_ITEM_MEDIA_IDE_ZXATASP_SLAVE_EJECT, 0 );
@@ -177,6 +179,10 @@ zxatasp_init( void )
   }
 
   module_register( &zxatasp_module_info );
+
+  if( periph_register_paging_events( event_type_string, &page_event,
+				     &unpage_event ) )
+    return 1;
 
   return error;
 }
@@ -362,14 +368,18 @@ zxatasp_portC_write( libspectrum_word port GCC_UNUSED, libspectrum_byte data )
   }
 
   if( newC & ZXATASP_RAM_LATCH ) {
+    int was_paged = machine_current->ram.romcs;
+
     set_zxatasp_bank( newC & ZXATASP_RAM_BANK );
 
     if( newC & ZXATASP_RAM_DISABLE ) {
       machine_current->ram.romcs = 0;
       current_page = ZXATASP_NOT_PAGED;
+      if( was_paged ) debugger_event( unpage_event );
     } else {
       machine_current->ram.romcs = 1;
       current_page = newC & ZXATASP_RAM_BANK;
+      if( !was_paged ) debugger_event( page_event );
     }
 
     machine_current->memory_map();

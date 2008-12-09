@@ -1,7 +1,7 @@
 /* zxs.c: Routines for .zxs snapshots
    Copyright (c) 1998,2003 Philip Kendall
 
-   $Id: zxs.c 2890 2007-05-26 19:31:43Z zubzero $
+   $Id: zxs.c 3698 2008-06-30 15:12:02Z pak21 $
 
    This program is free software; you can redistribute it and/or modify
    it under the terms of the GNU General Public License as published by
@@ -71,13 +71,7 @@ inflate_block( libspectrum_byte **uncompressed, size_t *uncompressed_length,
 
   /* Some space to put the zlib header for decompression */
   zlib_buffer =
-    malloc( ( compressed_length + 6 ) * sizeof( libspectrum_byte ) );
-  if( !zlib_buffer ) {
-    libspectrum_print_error( LIBSPECTRUM_ERROR_MEMORY,
-			     "zxs_inflate_block: out of memory at %d",
-			     __LINE__ );
-    return LIBSPECTRUM_ERROR_MEMORY;
-  }
+    libspectrum_malloc( ( compressed_length + 6 ) * sizeof( *zlib_buffer ) );
 
   /* zlib's header */
   zlib_buffer[0] = 0x78; zlib_buffer[1] = 0xda;
@@ -85,14 +79,7 @@ inflate_block( libspectrum_byte **uncompressed, size_t *uncompressed_length,
   memcpy( &zlib_buffer[2], *compressed, compressed_length );
   *compressed += compressed_length;
 
-  *uncompressed = malloc( *uncompressed_length * sizeof( libspectrum_byte ) );
-  if( !( *uncompressed ) ) {
-    free( zlib_buffer );
-    libspectrum_print_error( LIBSPECTRUM_ERROR_MEMORY,
-			     "zxs_inflate_block: out of memory at %d",
-			     __LINE__ );
-    return LIBSPECTRUM_ERROR_MEMORY;
-  }
+  *uncompressed = libspectrum_malloc( *uncompressed_length * sizeof( **uncompressed ) );
 
   actual_length = *uncompressed_length;
   error = uncompress( *uncompressed, &actual_length, zlib_buffer,
@@ -103,14 +90,14 @@ inflate_block( libspectrum_byte **uncompressed, size_t *uncompressed_length,
      that the random bytes will match, so we might (very rarely) get
      Z_OK */
   if( error != Z_DATA_ERROR && error != Z_OK ) {
-    free( *uncompressed ); free( zlib_buffer );
+    libspectrum_free( *uncompressed ); libspectrum_free( zlib_buffer );
     libspectrum_print_error( LIBSPECTRUM_ERROR_CORRUPT,
 			     "zxs_inflate_block: unexpected zlib error" );
     return LIBSPECTRUM_ERROR_CORRUPT;
   }
 
   if( *uncompressed_length != actual_length ) {
-    free( *uncompressed ); free( zlib_buffer );
+    libspectrum_free( *uncompressed ); libspectrum_free( zlib_buffer );
     libspectrum_print_error(
       LIBSPECTRUM_ERROR_CORRUPT,
       "zxs_inflate_block: block expanded to 0x%04lx, not the expected 0x%04lx bytes",
@@ -119,13 +106,13 @@ inflate_block( libspectrum_byte **uncompressed, size_t *uncompressed_length,
     return LIBSPECTRUM_ERROR_CORRUPT;
   }
 
-  free( zlib_buffer );
+  libspectrum_free( zlib_buffer );
 
   actual_crc32 = crc32( 0, Z_NULL, 0 );
   actual_crc32 = crc32( actual_crc32, *uncompressed, *uncompressed_length );
 
   if( actual_crc32 != expected_crc32 ) {
-    free( *uncompressed );
+    libspectrum_free( *uncompressed );
     libspectrum_print_error(
       LIBSPECTRUM_ERROR_CORRUPT,
       "zxs_inflate_block: crc 0x%08x does not match expected 0x%08x",
@@ -372,7 +359,7 @@ read_ram_chunk( libspectrum_snap *snap, int *compression,
     if( error ) return error;
 
     if( uncompressed_length != 0x4000 ) {
-      free( buffer2 );
+      libspectrum_free( buffer2 );
       libspectrum_print_error(
         LIBSPECTRUM_ERROR_CORRUPT,
 	"zxs_read_ram_chunk: page %d does not expand to 0x4000 bytes", page
@@ -391,15 +378,7 @@ read_ram_chunk( libspectrum_snap *snap, int *compression,
       return LIBSPECTRUM_ERROR_UNKNOWN;
     }
 
-    buffer2 = malloc( 0x4000 * sizeof( libspectrum_byte ) );
-    if( !buffer2 ) {
-      libspectrum_print_error(
-        LIBSPECTRUM_ERROR_MEMORY,
-	"zxs_read_ram_chunk: out of memory parsing page %d", page
-      );
-      return LIBSPECTRUM_ERROR_MEMORY;
-    }
-
+    buffer2 = libspectrum_malloc( 0x4000 * sizeof( *buffer2 ) );
     memcpy( buffer2, buffer, 0x4000 ); *buffer += 0x4000;
   }
 
@@ -533,7 +512,7 @@ libspectrum_zxs_read( libspectrum_snap *snap, const libspectrum_byte *buffer,
     for( i = 0; i < 8; i++ ) {
       libspectrum_byte *page = libspectrum_snap_pages( snap, i );
       if( page ) {
-	free( page );
+	libspectrum_free( page );
 	libspectrum_snap_set_pages( snap, i, NULL );
       }
     }

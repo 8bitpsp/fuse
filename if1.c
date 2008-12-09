@@ -1,7 +1,7 @@
 /* if1.c: Interface I handling routines
-   Copyright (c) 2004-2007 Gergely Szasz, Philip Kendall
+   Copyright (c) 2004-2008 Gergely Szasz, Philip Kendall
 
-   $Id: if1.c 3421 2007-12-13 01:51:12Z zubzero $
+   $Id: if1.c 3703 2008-06-30 20:36:11Z pak21 $
 
    This program is free software; you can redistribute it and/or modify
    it under the terms of the GNU General Public License as published by
@@ -34,6 +34,7 @@
 #include <unistd.h>
 
 #include "compat.h"
+#include "debugger/debugger.h"
 #include "if1.h"
 #include "machine.h"
 #include "memory.h"
@@ -214,6 +215,10 @@ const periph_t if1_peripherals[] = {
 const size_t if1_peripherals_count =
   sizeof( if1_peripherals ) / sizeof( periph_t );
 
+/* Debugger events */
+static const char *event_type_string = "if1";
+static int page_event, unpage_event;
+
 static void
 update_menu( enum if1_menu_item what )
 {
@@ -294,9 +299,7 @@ if1_init( void )
   if1_ula.esc_in = 0; /* empty */
 
   for( m = 0; m < 8; m++ ) {
-    libspectrum_error error =
-      libspectrum_microdrive_alloc( &( microdrive[m].cartridge ) );
-    if( error ) return error;
+    microdrive[m].cartridge = libspectrum_microdrive_alloc();
     microdrive[m].inserted = 0;
     microdrive[m].modified = 0;
   }
@@ -320,6 +323,10 @@ if1_init( void )
   }
 
   module_register( &if1_module_info );
+
+  if( periph_register_paging_events( event_type_string, &page_event,
+				     &unpage_event ) )
+    return 1;
 
   return 0;
 }
@@ -384,6 +391,8 @@ if1_page( void )
   if1_active = 1;
   machine_current->ram.romcs = 1;
   machine_current->memory_map();
+
+  debugger_event( page_event );
 }
 
 void
@@ -392,6 +401,8 @@ if1_unpage( void )
   if1_active = 0;
   machine_current->ram.romcs = 0;
   machine_current->memory_map();
+
+  debugger_event( unpage_event );
 }
 
 void
@@ -415,44 +426,13 @@ if1_from_snapshot( libspectrum_snap *snap )
   if( !libspectrum_snap_interface1_active( snap ) ) return;
 
   if( libspectrum_snap_interface1_custom_rom( snap ) &&
-      libspectrum_snap_interface1_rom( snap, 0 ) ) {
-
-    if( libspectrum_snap_interface1_rom_length( snap, 0 ) >=
-        MEMORY_PAGE_SIZE ) {
-      memory_map_romcs[0].offset = 0;
-      memory_map_romcs[0].page_num = 0;
-      memory_map_romcs[0].page = memory_pool_allocate( MEMORY_PAGE_SIZE );
-      if( !memory_map_romcs[0].page ) {
-        ui_error( UI_ERROR_ERROR, "Out of memory at %s:%d", __FILE__,
-                  __LINE__ );
-        return;
-      }
-      memory_map_romcs[0].source = MEMORY_SOURCE_CUSTOMROM;
-
-      memcpy( memory_map_romcs[0].page,
-              libspectrum_snap_interface1_rom( snap, 0 ),
-              MEMORY_PAGE_SIZE );
-    }
-
-    if( libspectrum_snap_interface1_rom_length( snap, 0 ) ==
-        MEMORY_PAGE_SIZE*2 ) {
-
-      memory_map_romcs[1].offset = 0;
-      memory_map_romcs[1].page_num = 0;
-      memory_map_romcs[1].page = memory_pool_allocate( MEMORY_PAGE_SIZE );
-      if( !memory_map_romcs[1].page ) {
-        ui_error( UI_ERROR_ERROR, "Out of memory at %s:%d", __FILE__,
-                  __LINE__ );
-        return;
-      }
-
-      memory_map_romcs[1].source = MEMORY_SOURCE_CUSTOMROM;
-
-      memcpy( memory_map_romcs[1].page,
-              libspectrum_snap_interface1_rom( snap, 0 ) + MEMORY_PAGE_SIZE,
-              MEMORY_PAGE_SIZE );
-    }
-  }
+      libspectrum_snap_interface1_rom( snap, 0 ) &&
+      machine_load_rom_bank_from_buffer(
+                             memory_map_romcs, 0, 0,
+                             libspectrum_snap_interface1_rom( snap, 0 ),
+                             libspectrum_snap_interface1_rom_length( snap, 0 ),
+                             1 ) )
+    return;
 
   if( libspectrum_snap_interface1_paged( snap ) ) {
     if1_page();
@@ -1212,9 +1192,8 @@ if1_mdr_write( int which, const char *filename )
 {
   microdrive_t *mdr = &microdrive[which];  
   
-  if( libspectrum_microdrive_mdr_write( mdr->cartridge, &mdr->file.buffer,
-					  &mdr->file.length ) )
-    return 1;
+  libspectrum_microdrive_mdr_write( mdr->cartridge, &mdr->file.buffer,
+			            &mdr->file.length );
     
   if( utils_write_file( filename, mdr->file.buffer, mdr->file.length ) )
     return 1;
@@ -1239,8 +1218,8 @@ if1_plug( const char *filename, int what )
   case 1:
     if( if1_ula.fd_r >= 0 )
       close( if1_ula.fd_r );
-    fd = if1_ula.fd_r = open( filename, O_RDWR | O_BINARY | O_NONBLOCK );
-    if( fcntl( fd, F_SETFL, O_RDONLY | O_BINARY | O_NONBLOCK ) )
+    fd = if1_ula.fd_r = open( filename, O_RDWR | O_NONBLOCK );
+    if( fcntl( fd, F_SETFL, O_RDONLY | O_NONBLOCK ) )
       ui_error( UI_ERROR_ERROR, "Cannot set O_RDONLY on '%s': %s",
 		filename, strerror( errno ) );
     if1_ula.rs232_buffer = 0x100;		/* buffer is empty */
@@ -1248,15 +1227,15 @@ if1_plug( const char *filename, int what )
   case 2:
     if( if1_ula.fd_t >= 0 )
       close( if1_ula.fd_t );
-    fd = if1_ula.fd_t = open( filename, O_RDWR | O_BINARY | O_NONBLOCK );
-    if( fcntl( fd, F_SETFL, O_WRONLY | O_BINARY | O_NONBLOCK ) )
+    fd = if1_ula.fd_t = open( filename, O_RDWR | O_NONBLOCK );
+    if( fcntl( fd, F_SETFL, O_WRONLY | O_NONBLOCK ) )
       ui_error( UI_ERROR_ERROR, "Cannot set O_WRONLY on '%s': %s",
 		filename, strerror( errno ) );
     break;
   case 3:
     if( if1_ula.fd_net >= 0 )
       close( if1_ula.fd_net );
-    fd = if1_ula.fd_net = open( filename, O_RDWR | O_BINARY | O_NONBLOCK );
+    fd = if1_ula.fd_net = open( filename, O_RDWR | O_NONBLOCK );
     break;
   }
 

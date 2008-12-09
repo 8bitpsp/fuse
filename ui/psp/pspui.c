@@ -78,9 +78,7 @@ static const char
 
 static const char *QuickloadFilter[] =
       { "ZIP", "DCK", "ROM", "MDR", "TAP", "SPC", "STA", "LTP", "TZX",
-#ifdef HAVE_LIBDSK_H
         "DSK",
-#endif
         "SCL", "TRD", "HDF", "BZ2", "GZ", "RAW", "CSW",
         "WAV", "MGT", "IMG", "Z80", "RZX", "SNA", "SNP", "SP", "SZX",
         "SLT", "ZXS", "MGTSNP", '\0' };
@@ -1723,6 +1721,8 @@ int ui_error_specific(ui_error_level severity, const char *message)
 #endif
   return 0;
 }
+
+int fuse_main(int argc, char *argv[]);
 
 /**************************/
 /* PSP main()             */

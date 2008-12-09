@@ -1,7 +1,7 @@
 /* debugger.c: Fuse's monitor/debugger
-   Copyright (c) 2002-2004 Philip Kendall
+   Copyright (c) 2002-2008 Philip Kendall
 
-   $Id: debugger.c 3115 2007-08-19 02:49:14Z fredm $
+   $Id: debugger.c 3686 2008-06-21 14:33:22Z pak21 $
 
    This program is free software; you can redistribute it and/or modify
    it under the terms of the GNU General Public License as published by
@@ -28,7 +28,9 @@
 #include "debugger.h"
 #include "debugger_internals.h"
 #include "event.h"
+#include "fuse.h"
 #include "memory.h"
+#include "mempool.h"
 #include "periph.h"
 #include "ui/ui.h"
 #include "z80/z80.h"
@@ -40,12 +42,36 @@ enum debugger_mode_t debugger_mode;
 /* Which base should we display things in */
 int debugger_output_base;
 
+/* Memory pool used by the lexer and parser */
+int debugger_memory_pool;
+
+/* The event type used for time breakpoints */
+int debugger_breakpoint_event;
+
 int
 debugger_init( void )
 {
+  int error;
+
   debugger_breakpoints = NULL;
   debugger_output_base = 16;
-  return debugger_reset();
+
+  debugger_memory_pool = mempool_register_pool();
+  if( debugger_memory_pool == -1 ) return 1;
+
+  debugger_breakpoint_event = event_register( debugger_breakpoint_time_fn, "Breakpoint" );
+  if( debugger_breakpoint_event == -1 ) return 1;
+
+  error = debugger_event_init();
+  if( error ) return error;
+
+  error = debugger_variable_init();
+  if( error ) return error;
+
+  error = debugger_reset();
+  if( error ) return error;
+
+  return 0;
 }
 
 int
@@ -145,4 +171,16 @@ debugger_port_write( libspectrum_word port, libspectrum_byte value )
 {
   writeport_internal( port, value );
   return 0;
+}
+
+/* Exit the emulator */
+void
+debugger_exit_emulator( void )
+{
+  fuse_exiting = 1;
+
+  /* Ensure we break out of the main Z80 loop immediately */
+  event_add( 0, event_type_null );
+
+  debugger_run();
 }

@@ -1,7 +1,7 @@
 /* loader.h: loader detection
    Copyright (c) 2006 Philip Kendall
 
-   $Id: loader.h 2889 2007-05-26 17:45:08Z zubzero $
+   $Id: loader.h 3596 2008-04-01 11:06:45Z pak21 $
 
    This program is free software; you can redistribute it and/or modify
    it under the terms of the GNU General Public License as published by
@@ -32,5 +32,6 @@ void loader_frame( libspectrum_dword frame_length );
 void loader_tape_play( void );
 void loader_tape_stop( void );
 void loader_detect_loader( void );
+void loader_set_acceleration_flags( int flags );
 
 #endif			/* #ifndef FUSE_LOADER_H */

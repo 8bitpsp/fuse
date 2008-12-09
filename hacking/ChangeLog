@@ -1,4 +1,4 @@
-20030505 snapshot.c: use the fully encapsulated libspectrum_snap
+snapshot.c: use the fully encapsulated libspectrum_snap
 	 implementation
 20030506 ui/gtk/options.pl: make 'cancel via Escape' GTK+ 2.0 compatible
 	 (Matthew Westcott)
@@ -2424,3 +2424,533 @@
 20080104 man/fuse.1: change date style (Release-0_9_0-branch) (Stuart).
 20080105 disk/disk.c: initialise variables (Release-0_9_0-branch).
 20080105 TAG: Release-0_9_0
+20080107 Merge Release-0_9_0-branch changes r3444:3841 to trunk.
+20080108 Makefile.am,configure.in,sound/Makefile.am,timer/Makefile.am,
+	 ui/{gtk/Makefile.am,sdl/Makefile.am},widget/Makefile.am: tidy up
+	 use of SDL_CFLAGS and SDL_LIBS.
+20080113 z80/z80.c: unhalt on NMI (thanks, Simon Owen) (Stuart).
+20080115 ay.c,disk/{beta.c,disk.c,wd_fdc.c}: warnings removal.
+20080118 windres.rc,ui/win32/{picture.{c,h,rc},win32display.h,win32internals.h,
+	 win32ui.c,Makefile.am}: add a keyboard help dialog for the Win32 UI
+	 (Marek Januszewski).
+20080118 ui/win32/picture.c: swap red and blue colour components (Stuart).
+20080130 debugger/{commandl.l,commandy.y,debugger.c,debugger_internals.h}:
+         add command to exit emulator.
+20080202 ui/gtk/fileselector.c: give a default action for save dialogs.
+20080203 Makefile.am,winfuse.ico: add a conversion of Paul van der Laan's icon
+	 for Mac OS X Fuse to Windows ICO format (Arda Erdikmen).
+20080203 ui/win32/{win32ui.c,win32display.[ch]}: allow Win32 window to be
+	 resized (Stuart).
+20080205 sound/win32sound.c: Windows Multimedia API sound route - allows to
+	 have sound on Win32 without the need for DirectX headers (MinGW
+	 currently doesn't have them) (Marek).
+20080205 ui/win32/picture.{c,rc}: Win32: fix for keyboard help dialog (Marek).
+20080206 configure.in,sound/Makefile.am: Win32: make autotools recognize and
+	 use Windows Multimedia API header (mmsystem.h) (Marek).
+20080208 ui/win32/win32ui.c: Win32: machine select dialog, minor code
+	 formatting changes (Marek).
+20080209 ui/win32/{debugger.c,error.c,picture.c,pokefinder.c,win32display.c,
+	 win32internals.h,win32keyboard.h,win32ui.c}: formatting fixes (Stuart).
+20080209 ui/win32/debugger.rc: Win32: include resource definitions from
+	 debugger.h (Stuart).
+20080209 sound/aosound.c,ui/win32/{debugger.h,win32ui.c}: replace C99-style
+	 '// ...' comments with '/* ... */' comments (Stuart).
+20080210 windres.rc,ui/win32/{win32ui.c,machine_select.{h,rc}}: Win32:
+	 make Machine Select dialog a modal one (Marek).
+20080212 windres.rc,ui/win32/{win32ui.c,options-resource.pl,options-header.pl,
+	 options.pl,Makefile.am}: Win32: fix for the 'options' dialogs (Marek).
+20080213 windres.rc,ui/win32/{win32ui.c,machine_select.{h,rc},
+	 select_template.{h,rc}}: Win32: simplification of the Select Machine
+	 dialog (Marek).
+20080215 ui/win32/win32ui.c: Win32: implementation of the Filters dialog using a
+	 reusable selector_dialog (Marek).
+20080217 ui/win32/{win32ui.c,pokefinder.{c,rc},win32internals.h,Makefile.am}:
+	 Win32: fixes for pokefinder (Marek).
+20080220 ui/win32/{win32ui.c,debugger.{c,h,rc},win32internals.h}: Win32: Partial
+	 implementation of the debugger window (Marek).
+20080221 ui/win32/{debugger.{c,h,rc}}: Win32: implementation of disassembly pane
+	 in the debugger window (Marek).
+20080227 disk/disk.c: disk 'log' formatting fixes (part of patch #1894441)
+         (Gergely Szasz).
+20080227 disk/disk.c: auto disk density selection fix (part of patch #1894441)
+         (Gergely Szasz).
+20080227 disk/disk.c: track length calculation fixes (include gap lengths and
+         use sector headers rather than file header lengths (part of patch
+         #1894441) (Gergely Szasz).
+20080227 disk/disk.c: add support for DSK/EDSK files with weak sectors, use the
+         first 'copy' of the weak sector and fix sector lengths when there are
+         weak sectors with multiple images in a file (part of patch #1894441)
+         (Gergely Szasz).
+20080227 disk/{fdd.[ch]}: add automatic disk geometry setting from the loaded
+         disk file and set fdd->index if needed (part of patch #1894441)
+         (Gergely Szasz).
+20080228 ula.c: use ULA_CONTENTION macro.
+20080229 event.[ch],disk/{beta.c,fdd.[ch],plusd.c,wd_fdc.[ch]}: add fdd motor
+         on/off, head load/unload, spindle motor spin up/down, ready
+         state/signal and fdd drive select emulation (remainder of patch
+         #1894441) (Gergely Szasz).
+20080304 windres.rc,ui/win32/{memorybrowser.{c,h,rc},win32ui.c,debugger.c,
+	 Makefile.am}: Win32: Initial implementation of the Memory Browser
+	 dialog (Marek).
+20080306 disk/plusd.c,if1.c,machine.[ch]: refactor loading custom ROMs from
+         snapshots for +D and Interface 1 (Fred).
+20080311 memory.c: add support for saving custom machine ROMs in snapshots
+         (Fred).
+20080311 ui/win32/{win32ui.{c,rc},statusbar.c,options.pl,win32internals.h,
+         win32display.c,icons/{mouse_active.bmp,mdr_inactive.bmp,
+         mouse_inactive.bmp,mdr_active.bmp}}: Win32: status bar fixes (Marek).
+20080311 ui/win32/statusbar.c: Win32: fixed switched inactive tape icon (Marek).
+20080313 windres.rc,ui/win32/{win32ui.c,binary.{c,h,rc},Makefile.am}: Win32:
+         implementation of the routines to load/save chunks of binary data
+         (Marek).
+20080313 hacking/win32_todo.txt,ui/win32/del_o.bat: Win32: deleted obsolete
+         files (Marek).
+20080314 windres.rc,ui/win32/{win32ui.{c,rc},browse.{c,h,rc},Makefile.am,
+         icons/tape_marker_mask.bmp,icons/Makefile.am}: Win32: implementation
+         of Browse Tape dialog (Marek).
+20080314 windres.rc,ui/win32/pokefinder.[ch]: Win32: fix conflicting resource
+	 ids between debugger and pokefinder (Marek).
+20080314 windres.rc,ui/win32/{win32ui.rc,Makefile.am,statusbar.rc}: Win32: moved
+	 win32ui.rc to statusbar.rc, as this resource's contents applied to
+	 statusbar only (Marek).
+20080315 compat/amiga/{Makefile.am,osname.c}: add AmigaOS-specific osname
+         implementation (more of patch #1712260) (Chris Young).
+20080315 fuse.c: remove obsolete #include <sys/utsname.h> as uname call has
+         been moved to compat/unix/osname.c (more of patch #1712260) (Chris
+         Young).
+20080315 disk/disk.[ch]: reorganise gap, sync and mark byte generation to move
+         the sync and the first half of mark bytes to the correct place (part
+         of patch #1882836) (Gergely Szasz).
+20080315 disk/{beta.c,disk.[ch],plusd.c}: add new flag to disk_t for supporting
+         +3 protected disks with unusual track lengths (long, short and 0
+         length) (part of patch #1882836) (Gergely Szasz).
+20080315 disk/disk.c: write_log() fix (part of patch #1882836) (Gergely Szasz).
+20080315 disk/fdd.c: set the write protect flag if there is no disk in the
+         drive (part of patch #1882836) (Gergely Szasz).
+20080315 disk/beta.c: support for Beta 128 custom ROMs in snapshots
+         (patch #1844606) (Stuart).
+20080315 disk/{fdd.c,wd_fdc.c}: make disk timing more accruate - improve
+         emulation of head actions when null actions are performed, improve
+         spin duration calculation, turn off motor and set status to not ready
+         on head unload, add emulation of finding and reading the address mark
+         id and make timeout reset DRQ (fixes bug #1910395) (patch #1913785)
+         (Gergely Szasz).
+20080315 Makefile.am,configure.in,fuse.c,unittests/{Makefile.am,unittests.[ch]}:
+	 add beginnings of unit testing framework.
+20080316 fuse.c,configure.in,settings.dat: make unit testing framework a 
+	 run-time rather than build-time option.
+20080317 disk/disk.c: add support for some alternate DSK headers (part of patch
+         #1882836) (Gergely Szasz).
+20080317 disk/disk.c: fix max track length problem with Turbo outrun side B
+         (part of patch #1882836) (Gergely Szasz).
+20080317 machines/{pentagon.c,pentagon.h,pentagon1024.c,pentagon512.c,
+	 scorpion.c,spec128.c,spec128.h,spec16.c,spec48.c,spec48.h,spec_se.c,
+	 specplus2.c,specplus2a.c,specplus3.c,specplus3.h,specplus3e.c,tc2048.c,
+	 tc2068.c,tc2068.h,ts2068.c},spectrum.c,spectrum.h,
+	 unittests/unittests.c: refactor contention functions. Changes TS2068
+	 contention such that it starts 1 tstate before the top-left pixel is
+	 displayed rather than 16, which must be wrong as we then get
+	 uncontended accesses at the end of each line.
+20080317 windres.rc,ui/win32/{win32ui.c,roms.{c,h,rc},Makefile.am}: Win32:
+	 implementation of the ROM selection dialog (Marek).
+20080318 unittests/unittests.c: add floating bus unit test. Currently fails
+	 on the Pentagon 512, but I'm convinced that's a copy-and-paste error
+	 in the Pentagon 512 code.
+20080318 disk/disk.c: fix for CPC images to pad every 128 byte length sector to
+         256 bytes immediately after the sector data (128xE5 + 128x00;
+         128xE5+128x00; ...  128xE5+128x00), so every sector uses 256 data
+         bytes (part of patch #1882836) (Gergely Szasz).
+20080318 machines/{pentagon.c,pentagon1024.c,pentagon512.c,scorpion.c,
+	 spec128.[ch],spec16.c,spec48.c,spec_se.c,specplus2.c,specplus2a.c,
+	 specplus3.[ch],specplus3e.c,tc2048.c,tc2068.[ch],ts2068.c},spectrum.c,
+	 spectrum.h: refactor floating bus code, including removing
+	 Pentagon 512 floating bus.
+20080319 roms/{plus3e-0.rom,plus3e-1.rom,plus3e-2.rom}: update to v1.35 of the
+         +3e ROMs (Fred).
+20080321 machine.[ch],settings.dat,ui/options.dat,unittests/unittests.c:
+	 add --late-timings option to emulate machines with 1 tstate later
+	 timings.
+20080322 periph.c: implement the "write back" that occurs with any bytes read
+	 from port 0x7ffd on the 128/+2 (thanks, Marat Fayzullin).
+20080322 windres.rc,ui/win32/{rollback.h.{c,h,rc},win32ui.c,Makefile.am}:
+	 Win32: Implementation of the Rollback dialog (Marek).
+20080324 disk/disk.c: fix for bytes per track settings in auto density
+         selection code (part of patch #1882836) (Gergely Szasz).
+20080324 disk/disk.c: add additional handling for fake sectors (part of patch
+         #1882836) (Gergely Szasz).
+20080325 disk/disk.[ch]: add support for disks with eak sectors that are longer
+         than 6144 bytes (primarily Coin Op Hits with 6500 bytes per track)
+         (part of patch #1882836) (Gergely Szasz).
+20080325 README,Makefile.am,configure.in,
+         disk/{Makefile.am,upd_fdc.[ch]},event.[ch]},machine.c,
+         machines/{specplus3.[ch],specplus3e.c},man/fuse.1,menu.c,
+         menu_data.dat,ui.c,ui/ui.h,utils.c: replace lib765 and libdsk with
+         new upd765 FDC emulation for +3 (remainder of patch #1882836)
+         (thanks, Mark Woodmass) (Gergely Szasz).
+20080326 configure.in,windres.rc,ui/win32/{win32ui.c,win32joystick.{c,h,rc},
+	 Makefile.am}: Win32: Implementation of the Configure Joystick
+	 dialog. Joystick will be read using Windows' mmsystem library (Marek).
+20080327 ui/win32/{win32ui.c,win32mouse.c,win32internals.h,Makefile.am}: Win32:
+	 Implementation of the mouse functions (Marek).
+20080327 ui/win32/{binary.{c,h,rc}}: Win32: Added prefix BINARY to Binary
+	 dialogs ids, used Windows' constants for OK and Cancel (Marek).
+20080327 windres.rc,ui/win32/{browse.h,debugger.{h,rc},memorybrowser.h,
+	 options.pl,options-{header,resource}.pl,picture.{c,h,rc},pokefinder.h,
+	 roms.{c,h,rc},select_template.{h,rc},win32ui.c}: Win32: Made dialogs
+	 use IDOK, IDCANCEL, IDCLOSE and IDCONTINUE to use dialog manager's
+	 capabilities
+	 (http://blogs.msdn.com/oldnewthing/archive/2004/12/14/300204.aspx)
+	 (Marek).
+20080328 loader.c: let loader detection work with the Digital Integration
+	 loader (ATF, Tomahawk, TT Racer).
+20080401 z80/z80_ops.c: cgoto array was one entry too small, leading to
+	 buffer overflow (fixes bug #1931036).
+20080401 loader.[ch],settings.dat,tape.c,ui/options.dat: add support for
+	 tape acceleration (slightly extended version of patch #1880376).
+20080401 loader.c: add acceleration for Search Loader (Deflektor, Rana Rama).
+20080409 machines/{pentagon.c,pentagon512.c,pentagon1024.c},man/fuse.1,menu.c,
+         settings.[dat|pl]: change Pentagon 128k back to being a machine as
+         described in the RusFAQ and emulated by older versions of Fuse and
+         other Spectrum emulators for SZX and other snapshot compatibility with
+         those emulators, leave the Pentagon 512k and 1024k as later issue
+         machines (Pentagon SL 1.x and 2.2?) as we are free to specify correct
+         snapshot support for those machines (Fred).
+20080409 roms/{plus3e-0.rom,plus3e-2.rom}: update to v1.36 of the +3e ROMs
+         (Fred).
+20080409 machines/{specplus3.c,specplus3e.c}: have the +3e share the +3 FDC
+         (fixes bug #1931947) (Gergely Szasz).
+20080409 disk/upd_fdc.c: initialise head_load member of upd_fdc struct
+         (fixes bug #1931555) (Gergely Szasz).
+20080415 fuse.c,memory.[ch],menu.c,tape.[ch],ui/win32/win32ui.c: don't use tape
+         traps or auto-load snapshots if we are using a custom ROM as the entry
+         points are very likely to have moved (Fred).
+20080417 kempmouse.[ch],fuse.c: write Kempston mouse status to snapshots
+         (Fred).
+20080418 simpleide.c: add snapshot support for Simple 8-bit IDE interface
+         (Fred).
+20080425 divide.c: add snapshot support for DivIDE interface (Fred).
+20080501 Makefile.am,configure.in,dck.c,fuse.c,input.c,keysyms.pl,menu.c,
+         ui/Makefile.am,ui/fb/fbkeyboard.c,ui/sdl/{sdldisplay.c,sdlkeyboard.c},
+         ui/svga/svgakeyboard.c,ui/widget,ui/widget/Makefile.am,
+         ui/xlib/{xdisplay.c,xerror.c,xkeyboard.c},utils.c,widget: move the
+         widget UI files to the ui subdirectory, remove remnants of the GGI UI
+         (Fred).
+20080502 ui/gtk/{Makefile.am,gtkdisplay.c},
+         ui/scaler/{Makefile.am,scaler.[ch],scaler_hq[23]x.c,
+         scaler_internals.h,scalers.c},ui/sdl/sdldisplay.c,
+         ui/win32/win32display.c,ui/xlib/xdisplay.c: add HQ2x and HQ3x scalers
+         (patch #1952304) (Gergely Szasz).
+20080511 ui/scaler/scalers.c: fix green8_Mask and green16_Mask for 555 16 bit
+         graphics modes and for 888 32 bit big endian graphics modes (Fred).
+20080513 ui/fb/fbdisplay.c: ensure framebuffer display is restored on all
+         errors (patch #1912101).
+20080517 Makefile.am,fuse.c,mempool.[ch],unittests/unittests.c: add simple
+	 memory pool code.
+20080518 screenshot.c: missed file from patch #1952304 (Gergely Szasz).
+20080518 machines/specplus3.h: remove reference to old specplus3_disk_present
+         (Fred).
+20080522 ui/{fb/fbdisplay.c,widget/Makefile.am}: fix compilation failures
+	 (Stuart).
+20080523 compat/unix/osname.c: uname() returns a positive integer on success
+         on OpenSolaris (thanks, Andrew Owen) (Fred).
+20080526 debugger/{breakpoint.c,command.c,commandy.y,debugger.c,
+	 debugger_internals.h,expression.c}: ensure memory is not leaked when
+	 parsing expressions.
+20080526 debugger/{Makefile.am,breakpoint.c,breakpoint.h,commandl.l,commandy.y,
+	 debugger.c,debugger.h,debugger_internals.h,event.c},mempool.c,
+	 mempool.h,tape.c,ui/gtk/debugger.c: add "debugger events" where the
+	 debugger can stop when certain events happen. So far, only "tape
+	 playing" implemented.
+20080527 debugger/{breakpoint.c,debugger_internals.h,event.c}: allow event
+         breakpoints to be set only if the appropriate event is registered.
+20080528 z80/z80.pl: emulate C, H and P/V on repeated I/O instructions.
+20080528 z80/z80.pl: can't modify HL until contention has happened.
+20080528 unittests/unittests.c: fix warning (Stuart).
+20080528 disk/beta.c,ui/widget/pokefinder.c: make code C89 compatible with
+         code from fuzegiz (thanks, sweetlilmr) (Fred).
+20080528 mempool.c,debugger/event.c: add <string.h> for string prototypes
+         (Fred).
+20080529 z80/tests/tests.expected: update tests for improved repeated
+         I/O instruction emulation.
+20080529 z80/{coretest.c,tests/tests.expected}: change coretest driver to
+         make fake IO ports return different values.
+20080530 z80/{coretest.c,tests/tests.expected}: change the value printed
+	 as well as the value returned.
+20080530 z80/tests/{tests.expected,tests.in}: add new tests for improved
+	 {IN,OUT}[DI] flag emulation.
+20080601 divide.c,if1.c,periph.c,periph.h,tape.c,zxatasp.c,zxcf.c: add
+	 debugger events for tape stop and peripheral page/unpage.
+20080603 unittests/unittests.c: mempool unit test was failing as the
+         debugger had created a memory pool.
+20080603 debugger/{breakpoint.c,commandl.l,commandy.y,debugger_internals.h,
+	 event.c},fuse.c,settings.dat: allow debugger commands to be
+	 specified on the command line. A side-effect is allowing multiple
+	 debugger commands separated by newlines in one call to the parser,
+	 and also fix the fact that event breakpoints didn't pay attention
+	 to ignore counts, conditions or lifetime.
+20080604 debugger/commandl.l: allow event strings to include numbers
+         (necessary for if1 events to work...)
+20080606 ui/widget/debugger.c: handle event breakpoints in display.
+20080607 mempool.c: print error message if we couldn't initialise pools.
+20080607 debugger/{breakpoint.c,breakpoint.h,commandl.l,commandy.y,
+	 debugger_internals.h,event.c},memory.c,periph.c,ui/gtk/debugger.c:
+	 add facility to run debugger commands when a breakpoint is hit.
+20080608 debugger/{Makefile.am,commandl.l,commandy.y,debugger.c,
+	 debugger_internals.h,expression.c}: add numeric debugger variables
+20080608 debugger/debugger.c: a breakpoint command could have disabled the
+	 debugger before the UI is brought up.
+20080608 debugger/{breakpoint.c,debugger.c}: ensure the commands for all
+	 breakpoints are run; also move previous fix.
+20080609 debugger/variable.c: add forgotten file.
+20080609 debugger/breakpoint.c: must copy expression when setting a
+         breakpoint condition.
+20080609 debugger/breakpoint.[ch],ui/gtk/debugger.c: multiple time breakpoints
+         didn't work properly.
+20080610 debugger/breakpoint.c: add <string.h> for string prototypes (Fred).
+20080610 ui/widget/debugger.c: fix widget debugger for multiple time
+         breakpoints (Fred).
+20080610 debugger/commandl.l: much better to have COMMANDSTATE1 as an
+         inclusive start condition.
+20080610 ui/{fb/fbdisplay.c,sdl/sdldisplay.c,svga/svgadisplay.c,uidisplay.h,
+         widget/{browse.c,debugger.c,error.c,filesel.c,menu.c,options.pl,
+         pokefinder.c,query.c,roms.c,select.c,text.c,widget.[ch],
+         widget_internals.h,xlib/xdisplay.c}: modify widget UI to have a
+         Spectrum 128 style look and feel based on FuseX (Fred).
+20080612 ui/widget/{widget_internals.h,widget.c,options.pl}: allow options
+         dialogs to be navigated by cursor keys (Fred).
+20080613 debugger/{expression.c,variable.c}: add <string.h> for string
+         prototypes (Fred).
+20080614 ui/widget/{options.pl,widget_internals.h}: try to have widget
+         options size themselves a little better (Fred).
+20080614 ui/options.dat: make blocks plural (Fred).
+20080614 ui/widget/options.pl: make a better stab at accounting for entry
+         text length (Fred).
+20080614 ui/widget/select.c: make select widgets size themselves a bit
+         better too (Fred).
+20080614 ui/widget/options.pl: move to a single generic options menu draw
+         function (Fred).
+20080614 ui/widget/options.pl: fix widget number entry options (Fred).
+20080614 ui/widget/memory.c: fix the widget memory browse display
+         (patch #1991755) (Gergely Szasz).
+20080614 ui/xlib/xui.c: use XCheckMaskEvent() instead of XCheckIfEvent() with
+         an empty test (patch #1991780) (Gergely Szasz).
+20080614 menu_data.dat: ROM shortcut key for TS2068 doesn't work (Fred).
+20080614 ui/widget/{widget_internals.h,widget.c}: fix disabled widget menu
+         entries (thanks, Phil) (Fred).
+20080616 debugger/{breakpoint.c,debugger.c,debugger_internals.h},
+         disk/{beta.[ch],fdd.[ch],plusd.[ch],upd_fdc.[ch],wd_fdc.[ch]},
+         event.[ch],fuse.c,loader.c,machine.c,menu.c,periph.c,profile.c,
+         rzx.[ch],spectrum.[ch],tape.[ch],timer/timer.[ch],ui/gtk/debugger.c,
+         z80/{coretest.c,z80.[ch],z80.pl,z80_ops.c}: refactor the event
+         architecture so that modules register their own events with the
+         event system (patch #1991683).
+20080619 event.c: add missing #include <string.h>.
+20080619 ui/gtk/gtkkeyboard.c: remove X dependency for unshifting keys.
+20080619 rzx.c: add debugger event for end of RZX playback.
+20080621 debugger/breakpoint.c: don't try copying an empty condition.
+20080621 debugger/debugger.c: when exiting, quit the main emulation loop
+	 immediately.
+20080623 compat/{amiga/Makefile.am,morphos/Makefile.am,unix/{Makefile.am,
+         file.c},wii/{Makefile.am,file.c},win32/Makefile.am},compat.h,if1.c,
+         utils.c: factor out low-level file handling into compat/<os>/file.c;
+         needed for Wii port.
+20080623 compat/{unix/file.c,wii/file.c},utils.c: don't produce an error
+	 message if opening a file failed as this can be a normal result.
+20080623 utils.c: call the right function when reading a file.
+20080624 ui/widget/query.c: make widget queries navigable keyboardlessly
+         (Fred).
+20080626 menu.c,ui/{gtk/gtkui.c,widget/menu.c,win32/win32ui.c}: amalgamate
+         triplicated functions (patch #1991628) (Gergely Szasz).
+20080626 compat/unix/file.c: add <string.h> for strerror prototypes, printf
+         warning fixes too (Fred).
+20080629 utils.c: add <string.h> for strncpy prototype (Fred).
+20080629 menu.[ch],menu_data.[dat|pl],ui/widget/{menu.c,widget.[ch]}: add
+         optional detail to menus showing current option selected (Fred).
+20080630 dck.c,divide.c,fuse.c,if1.c,menu.c,rzx.c,simpleide.c,snapshot.c,
+	 tape.c,zxatasp.c,zxcf.c: handle new allocator returns object
+	 style API from libspectrum.
+20080630 zxatasp.c: intialise error before returning it (Fred).
+20080701 tape.c: one more function that can no longer error.
+20080706 debugger/commandl.l: fix warning with recent versions of Flex.
+20080706 sound/alsasound.c: don't call deprecated functions (fixes bug
+	 #1916457) (Gergely Szasz).
+20080706 menu.[ch],menu_data.dat,tape.[ch]: add some detail text for the tape
+         branch for the Widget UI ala FuseX (thanks, crabfists) (Fred).
+20080715 PORTING: add document on what you can and cannot do with Fuse's code.
+20080717 ui/win32/debugger.c: Win32: accommodation for the new event
+	 architecture (Marek).
+20080719 README,fuse.c: try and direct support requests to locations seen
+	 by more people than just me.
+20080721 ui/win32/{win32ui.c,error.c,Makefile.am}: Win32: Integrated
+	 ui_error_specific into win32ui.c similarly to gtk ui (Marek).
+20080721 ui/win32/{win32ui.c,memorybrowser.c,binary.c,debugger.c,win32display.c,
+	 browse.c,picture.c,roms.c,pokefinder.c}: Win32: make functions and
+	 variables static wherever applicable (Marek).
+20080721 ui/win32/{win32ui.c,win32internals.h,confirm.c,Makefile.am}: Win32:
+	 fixed confirmation dialog box and moved it to confirm.c similarly to
+	 gtk ui (Marek).
+20080721 compat/unix/file.c: Win32: applied a minor fix to compat_file_open for
+	 Win32 (Marek).
+20080721 disk/upd_fdc.c: allow EDSK images with large sector sizes to work
+         (patch #2024218) (Gergely Szasz) (thanks, Simon Owen).
+20080722 ui/win32/win32ui.c: Win32: implemented win32ui_make_menu and
+	 ui_menu_item_set_active functions (Marek).
+20080722 ui/win32/win32ui.c: Win32: Minor fixes to how reset menu and window
+	 close event are handled (Marek).
+20080723 menu_data.pl,ui/win32/{win32ui.c,debugger.c,win32internals.h,
+	 win32display.c,win32display.h,picture.c,win32keyboard.c,options.pl,
+	 Makefile.am,win32keyboard.h}: Win32: Refactored win32 ui code to
+	 resemble gtk ui, applied minor fixes: fixed debugger's Break button,
+	 added static wherever applicable to options*.pl, fixed compiler
+	 warnings in ui_error_specific and win32ui_picture functions (Marek).
+20080723 ui/win32/fileselector.c: Win32: Added fileselector.c to win32 ui as
+	 part of refactoring the ui (Marek).
+20080724 ui/win32/win32ui.c: Win32: continuing refactoring: moved WM_SIZE
+	 handler into a new function win32ui_window_resize, and WM_SIZING
+	 handler into a new function win32ui_window_resizing (Marek).
+20080724 ui/win32/{win32ui.c,win32internals.h,win32display.c}: Win32:
+	 Refactored win32 ui sizing functions to resemble gtk ui: removed
+	 win32display_resize(), renamed win32display_resize_update() to
+	 win32display_drawing_area_resize(), overwritten the contents of
+	 win32display_drawing_area_resize() with the contents of gtk ui's
+	 drawing_area_resize() (Marek).
+20080724 ui/win32/{win32ui.c,win32internals.h,win32display.c}: Win32: win32 ui
+	 refactoring continued: added static wherever applicable, moved
+	 WM_PAINT handler into a new function win32ui_window_paint, moved
+	 WM_CREATE handler into ui_init, moved most of WinMain into ui_init,
+	 changed uidisplay_init be exactly the same one as on gtk ui, changes
+	 to win32display_area to have more similar structure to that of gtk
+	 ui's (Marek).
+20080724 ui/win32/win32display.c: Win32: win32 ui refactoring: removed
+	 register_scalers_noresize and win32display_setsize, replaced
+	 uidisplay_hotswap_gfx_mode with the code from gtk ui (Marek).
+20080725 ui/win32/{win32ui.c,win32display.c}: Win32: Refactored WM_PAINT
+	 handler, fixed crash when the screen is resized to 3x, fixed unclosed
+	 handle to the drawing area (Marek).
+20080728 utils.c: add missing return.
+20080728 ui/win32/statusbar.c: Win32: implemented transparency for the status
+	 bar icons (Marek).
+20080728 configure.in,keysyms.pl,ui/win32/{browse.{c,h,rc},debugger.{c,h,rc},
+	 memorybrowser.{c,h,rc},picture.{c,h,rc},pokefinder.{c,h,rc},
+	 rollback.c}: Win32: moved Windows version requirement from being local
+	 to some units to be a fuse-wide requirement and adjusted the code
+	 accordingly (Marek).
+20080730 ui/win32/debugger.{c,h}: Win32: implemented showing and hiding panes,
+	 without resizing for now (Marek).
+20080731 ui/win32/{win32ui.c,debugger.{c,h,rc},win32internals.h}: Win32:
+	 partially redesigned the debugger window to make the structure similar
+	 to gtk ui, implemented monospaced font code, which is used by debugger
+	 only for now (Marek).
+20080810 ui/win32/win32ui.c: Win32: modified the procedure preventing to draw
+	 the mouse cursor if it's 'grabbed' to explictly call default window
+	 procedure if the the mouse cursor is not grabbed, to avoid any
+	 confussion (Marek).
+20080810 ui/win32/{win32ui.c,debugger.c,win32internals.h}: Win32: fixed the
+	 pause/unpause routines by introducing win32ui_process_messages - an
+	 equivalent of gtk's gtk_main (Marek).
+20080810 ui/win32/{options,options-resource,options-header}.pl: Win32: renamed
+	 options dialogs from IDG_* to IDD_* to follow the naming convention
+	 (Marek).
+20080811 ui/win32/memorybrowser.c: Win32: made the memory browser dialog use
+	 the win32ui_get_monospaced_font function (Marek).
+20080812 configure.in: Win32: Added version requirement for DirectX sound
+	 interface. The module needs version DirectX 7 or higher. This also
+	 stops all the redefinition errors happening without this requirement
+	 (Marek).
+20080815 disk/disk.c: add sanity checks for disk geometry (fixes bug #2051291)
+         (Gergely Szasz).
+20080815 input.[ch],ui/sdl/sdljoystick.c,ui/svga/svgajoystick.c,
+         ui/uijoystick.c,ui/widget/{browse.c,filesel.c,menu.c,options.pl,
+         picture.c,query.c,select.c}: unify input_joystick_button and input_key
+         and allow widget UI to be controlled by joystick (Fred).
+20080818 z80/coretest.c: don't abort on startup.
+20080819 settings.dat,input.c,ui/win32/win32joystick.c,ui/gtk/gtkjoystick.c:
+	 Added ability to define the keyboard joystick emulation keys (Marek).
+20080819 sound/dxsound.c: Win32 DirectX sound: Added static keyword where
+	 applicable (Marek).
+20080819 sound/win32sound.c: Win32 mmsystem sound: Added support for 8 bit
+	 sound, applied static keyword where applicable, applied coding style
+	 fixes (Marek).
+20080819 sound/win32sound.c: Wi32 mmsystem sound: Changed buffer_size to be a
+	 macro instead of int, changed buffer memory allocation to static
+	 instead of dynamic (Marek).
+20080824 configure.in: Changed configure logic: if SDL ui is selected, choose
+	 SDL for sound over any other available sound API (Marek).
+20080901 ui/win32/{win32ui.c,win32internals.h,statusbar.c}: Win32: Simplified
+	 WM_SIZE handlers by getting rid of GetClientRect (Marek).
+20080902 ui/win32/win32ui.c: Win32: Implemented gain and lose focus handlers
+	 similiarly to gtk ui (Marek).
+20080902 ui/win32/win32ui.c: Win32: Fixed an error message occurring when
+	 window is being minimized (Unknown display size/image size 0/1)
+	 (Marek).
+20080906 menu_data.pl,ui/win32/{win32ui.c,memorybrowser.c,debugger.c,
+	 win32internals.h,browse.c,picture.c,options.pl,pokefinder.c}: Win32:
+	 Reviewed and fixed all the return codes for all window message handles
+	 fixed selector dialog problem where cancelling the dialog would result
+	 in choosing option 0 (Marek).
+20080906 menu_data.pl: Win32: Minor fix to the menu handling code - moved
+	 return into proper place (Marek).
+20080910 ui/win32/{roms.rc,win32joystick.rc,pokefinder.rc,options-resource.pl,
+	 browse.rc,picture.rc,memorybrowser.rc,binary.rc,debugger.rc,
+	 rollback.rc,select_template.rc}: Win32: Changed style for all dialogs
+	 to make those dialogs show on the taskbar, converted
+	 select_template.rc from DOS to UNIX (Marek).
+20081006 compat/unix/file.c: make sure mode is specified when opening a file
+         for writing (fixes bug #2146742) (thanks, Cygnus) (Fred).
+20081021 z80/tests/README: small documentation update (patch #2183257)
+         (Matthew Westcott).
+20081021 ChangeLog: update for 0.10.0 release.
+20081022 menu.c,rzx.c,settings.dat,ui/options.dat: support for autosaves
+	 when using RZX recording.
+20081024 man/fuse.1: update. Still TODO: debugger updates.
+20081024 man/fuse.1: debugger updates.
+20081024 man/fuse.1: minor update for disk formats and compressed disk images
+         (Fred).
+20081028 configure.in: Fixed a typo in the configure script
+	 (was '--without-libsamplerate use libsamplerate') (Marek).
+20081029 fuse.c: move up settings_end to happen just after printer_end for
+         similar reasons - on OS X settings_end refers to machine and other
+         entries, so must be complete before deallocating the machine arrays
+         (Fred).
+20081031 README: small update for 0.10.0.
+20081102 disk/{fdd.c,upd_fdc.c}: stop hang if asked for index hole when disk
+         motor is off, and change spindown time so that The Running Man disk
+         works (bug #2212424) (Gergely Szasz; thanks, Mark Woodmass).
+20081102 ui/win32/win32ui.c: Win32: Made ui_error_specific function work
+	 similarly to the gtk ui equivalent (Marek).
+20081102 ui/win32/{win32ui.c,win32internals.h,win32joystick.[ch}: Win32:
+	 Implemented joystick handling using mmsystem API (and tested using PPJoy
+	 joystick emulator, hope it works with real hardware) (Marek).
+20081108 disk/disk.c: prevent array overrun (bug #2240211) (Gergely Szasz).
+20081108 disk/disk.c,fuse.c,utils.c: use libspectrum's ability to
+         identify more disk image formats (patch #2233744) (Gergely Szasz).
+20081109 hacking/cvs-tags: document 0.10.0 branch.
+20081109 disk/disk.c: stop buffer overrun from malformed .dsk (fixes bug
+	 #2248067) (Gergely Szasz).
+20081115 man/fuse.1: add debugger variables and print command
+	 (Release-0_10_0-branch).
+20081115 Makefile.am,hacking/Makefile.am,ui/win32/Makefile.am: make sure
+	 all files are distributed (Release-0_10_0-branch).
+20081116 ChangeLog,machines/{specplus2a.c,specplus3.c}: reading from the
+	 AY data port on the +2A/+3 is the same as reading from the
+         register port (thanks, Mark Woodmass).
+20081117 ocnfigure.in: bump version number for 0.10.0-pre1 release
+	 (Release_0_10_0-branch).
+20081118 rzx.c: don't autosave rzx snapshots when we are recording in compo
+         mode (Fred).
+20081119 disk/{disk.c,upd_fdc.c}: fix READ_DIAG emlation bugs to support
+         LERM Plus-3-Mate (fixes bug #2312217) (Gergely Szasz).
+20081120 compat/amiga/paths.c: implement compat_is_absolute_path for Amiga
+         (final part of patch #1712260) (Chris Young).
+20081120 utils.c: don't switch machine on autoloading a Timex dock cart if we
+         can already support them (Fred).
+20081122 disk/disk.c: fix a track length calculation bug (more of bug #2312217)
+         (Gergely Szasz).
+20081125 scld.c: fix loading of dock/exrom information from snapshots (Fred).
+20081129 disk/disk.c: limit weak sector handling to fix Coin-Op Hits (more of
+         bug #2312217) (Gergely Szasz).
+20081129 disk/disk.c: one instance of plus3_fix wasn't updated (thanks, Stuart
+         Brady) (Fred).
+20081129 configure.in,man/fuse.1,README: final tweaks for 0.10.0 release
+	 (Release_0_10_0-branch).
+20081201 fuse.c: update libspectrum version needed (Release_0_10_0-branch).
