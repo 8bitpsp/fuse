@@ -60,6 +60,10 @@ PSP_MAIN_THREAD_ATTR(PSP_THREAD_ATTR_USER);
 #define SYSTEM_TYPE        0x13
 #define SYSTEM_MONITOR     0x14
 #define SYSTEM_FASTLOAD    0x15
+#define SYSTEM_TAPE_TRAPS  0x16
+#define SYSTEM_AUTOLOAD    0x17
+#define SYSTEM_ISSUE2      0x18
+#define SYSTEM_SOUND_LOAD  0x19
 
 #define SPC_MENU     1
 #define SPC_KYBD     2
@@ -340,9 +344,15 @@ PL_MENU_ITEMS_BEGIN(SystemMenuDef)
   PL_MENU_HEADER("Video")
   PL_MENU_ITEM("Monitor type",SYSTEM_MONITOR,MonitorTypes,"\026\250\020 Select type of monitor (color/grayscale)")
   PL_MENU_HEADER("System")
-  PL_MENU_ITEM("Fastloading",SYSTEM_FASTLOAD,ToggleOptions,
-                             "\026\250\020 When enabled, emulator will run at max speed while loading tapes")
   PL_MENU_ITEM("Machine type",SYSTEM_TYPE,MachineTypes,"\026\250\020 Select emulated system")
+  PL_MENU_ITEM("Tape autoloading",SYSTEM_AUTOLOAD,ToggleOptions,
+                             "\026\250\020 When enabled, emulator will immediately load and run tape")
+  PL_MENU_ITEM("Tape fastloading",SYSTEM_FASTLOAD,ToggleOptions,
+                             "\026\250\020 When enabled, emulator will run at max speed while loading tapes")
+  PL_MENU_ITEM("Issue 2 keyboard support",SYSTEM_ISSUE2,ToggleOptions,
+                             "\026\250\020 Enable/disable older keyboard model support")
+  PL_MENU_ITEM("Loading sound",SYSTEM_SOUND_LOAD,ToggleOptions,
+                             "\026\250\020 Enable/disable sound while loading tape")
   PL_MENU_HEADER("Options")
   PL_MENU_ITEM("Reset",SYSTEM_RESET,NULL,"\026\001\020 Reset system")
   PL_MENU_ITEM("Save screenshot",SYSTEM_SCRNSHOT,NULL,"\026\001\020 Save screenshot")
@@ -411,8 +421,16 @@ static psp_ctrl_map_t default_map =
     KBD|INPUT_KEY_0,       /* Start        */
     SPC|SPC_MENU,          /* L+R Triggers */
     0,                     /* Start+Select */
-    0,                     /* Select + L   */
-    0,                     /* Select + R   */
+    0,                     /* L + Select   */
+    0,                     /* R + Select   */
+    0,                     /* L + Square   */
+    0,                     /* L + Cross    */
+    0,                     /* L + Circle   */
+    0,                     /* L + Triangle */
+    0,                     /* R + Square   */
+    0,                     /* R + Cross    */
+    0,                     /* R + Circle   */
+    0,                     /* R + Triangle */
   }
 };
 
@@ -443,8 +461,16 @@ psp_ctrl_mask_to_index_map_t physical_to_emulated_button_map[] =
 {
   { PSP_CTRL_LTRIGGER | PSP_CTRL_RTRIGGER, 16 },
   { PSP_CTRL_START    | PSP_CTRL_SELECT,   17 },
-  { PSP_CTRL_SELECT   | PSP_CTRL_LTRIGGER, 18 },
-  { PSP_CTRL_SELECT   | PSP_CTRL_RTRIGGER, 19 },
+  { PSP_CTRL_LTRIGGER | PSP_CTRL_SELECT,   18 },
+  { PSP_CTRL_RTRIGGER | PSP_CTRL_SELECT,   19 },
+  { PSP_CTRL_LTRIGGER | PSP_CTRL_SQUARE,   20 },
+  { PSP_CTRL_LTRIGGER | PSP_CTRL_CROSS,    21 },
+  { PSP_CTRL_LTRIGGER | PSP_CTRL_CIRCLE,   22 },
+  { PSP_CTRL_LTRIGGER | PSP_CTRL_TRIANGLE, 23 },
+  { PSP_CTRL_RTRIGGER | PSP_CTRL_SQUARE,   24 },
+  { PSP_CTRL_RTRIGGER | PSP_CTRL_CROSS,    25 },
+  { PSP_CTRL_RTRIGGER | PSP_CTRL_CIRCLE,   26 },
+  { PSP_CTRL_RTRIGGER | PSP_CTRL_TRIANGLE, 27 },
   { PSP_CTRL_ANALUP,   0 }, { PSP_CTRL_ANALDOWN,  1 },
   { PSP_CTRL_ANALLEFT, 2 }, { PSP_CTRL_ANALRIGHT, 3 },
   { PSP_CTRL_UP,   4 }, { PSP_CTRL_DOWN,  5 },
@@ -626,6 +652,12 @@ static void psp_display_menu()
       pl_menu_select_option_by_value(item, (void*)(machine_current->machine));
       item = pl_menu_find_item_by_id(&SystemUiMenu.Menu, SYSTEM_FASTLOAD);
       pl_menu_select_option_by_value(item, (void*)(settings_current.fastload));
+      item = pl_menu_find_item_by_id(&SystemUiMenu.Menu, SYSTEM_AUTOLOAD);
+      pl_menu_select_option_by_value(item, (void*)(settings_current.auto_load));
+      item = pl_menu_find_item_by_id(&SystemUiMenu.Menu, SYSTEM_ISSUE2);
+      pl_menu_select_option_by_value(item, (void*)(settings_current.issue2));
+      item = pl_menu_find_item_by_id(&SystemUiMenu.Menu, SYSTEM_SOUND_LOAD);
+      pl_menu_select_option_by_value(item, (void*)(settings_current.sound_load));
 
       pspUiOpenMenu(&SystemUiMenu, NULL);
       break;
@@ -1014,6 +1046,9 @@ static void psp_load_options()
                     psp_game_path, sizeof(psp_game_path));
 
   settings_current.fastload = pl_ini_get_int(&file, "System", "Fastload", 1);
+  settings_current.auto_load = pl_ini_get_int(&file, "System", "Autoload", 1);
+  settings_current.issue2 = pl_ini_get_int(&file, "System", "Issue2", 0);
+  settings_current.sound_load = pl_ini_get_int(&file, "System", "Loading Sound", 1);
 
   /* Clean up */
   pl_ini_destroy(&file);
@@ -1053,6 +1088,9 @@ static int psp_save_options()
                     psp_game_path);
 
   pl_ini_set_int(&file, "System", "Fastload", settings_current.fastload);
+  pl_ini_set_int(&file, "System", "Autoload", settings_current.auto_load);
+  pl_ini_set_int(&file, "System", "Issue2", settings_current.issue2);
+  pl_ini_set_int(&file, "System", "Loading Sound", settings_current.sound_load);
 
   int status = pl_ini_save(&file, path);
   pl_ini_destroy(&file);
@@ -1165,7 +1203,7 @@ close_archive:
   if (error == 0) 
     error = utils_open_file_buffer(file, 
                                    game_path, 
-                                   1,
+                                   settings_current.auto_load,
                                    NULL);
 
   /* Free file resource */
@@ -1457,6 +1495,15 @@ static int OnMenuItemChanged(const struct PspUiMenu *uimenu,
       break;
     case SYSTEM_FASTLOAD:
       settings_current.fastload = (int)option->value;
+      break;
+    case SYSTEM_AUTOLOAD:
+      settings_current.auto_load = (int)option->value;
+      break;
+    case SYSTEM_ISSUE2:
+      settings_current.issue2 = (int)option->value;
+      break;
+    case SYSTEM_SOUND_LOAD:
+      settings_current.sound_load = (int)option->value;
       break;
     }
   }

@@ -5,7 +5,7 @@
 #define DISPLAY_MODE_FIT_HEIGHT  1
 #define DISPLAY_MODE_FILL_SCREEN 2
 
-#define MAP_BUTTONS 20
+#define MAP_BUTTONS 28
 
 #define KBD 0x10000
 #define JST 0x20000
