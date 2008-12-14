@@ -59,6 +59,7 @@ PSP_MAIN_THREAD_ATTR(PSP_THREAD_ATTR_USER);
 #define SYSTEM_RESET       0x12
 #define SYSTEM_TYPE        0x13
 #define SYSTEM_MONITOR     0x14
+#define SYSTEM_FASTLOAD    0x15
 
 #define SPC_MENU     1
 #define SPC_KYBD     2
@@ -339,6 +340,8 @@ PL_MENU_ITEMS_BEGIN(SystemMenuDef)
   PL_MENU_HEADER("Video")
   PL_MENU_ITEM("Monitor type",SYSTEM_MONITOR,MonitorTypes,"\026\250\020 Select type of monitor (color/grayscale)")
   PL_MENU_HEADER("System")
+  PL_MENU_ITEM("Fastloading",SYSTEM_FASTLOAD,ToggleOptions,
+                             "\026\250\020 When enabled, emulator will run at max speed while loading tapes")
   PL_MENU_ITEM("Machine type",SYSTEM_TYPE,MachineTypes,"\026\250\020 Select emulated system")
   PL_MENU_HEADER("Options")
   PL_MENU_ITEM("Reset",SYSTEM_RESET,NULL,"\026\001\020 Reset system")
@@ -621,6 +624,8 @@ static void psp_display_menu()
       pl_menu_select_option_by_value(item, (void*)(int)psp_options.enable_bw);
       item = pl_menu_find_item_by_id(&SystemUiMenu.Menu, SYSTEM_TYPE);
       pl_menu_select_option_by_value(item, (void*)(machine_current->machine));
+      item = pl_menu_find_item_by_id(&SystemUiMenu.Menu, SYSTEM_FASTLOAD);
+      pl_menu_select_option_by_value(item, (void*)(settings_current.fastload));
 
       pspUiOpenMenu(&SystemUiMenu, NULL);
       break;
@@ -1008,6 +1013,8 @@ static void psp_load_options()
   pl_ini_get_string(&file, "File", "Game Path", NULL, 
                     psp_game_path, sizeof(psp_game_path));
 
+  settings_current.fastload = pl_ini_get_int(&file, "System", "Fastload", 1);
+
   /* Clean up */
   pl_ini_destroy(&file);
 }
@@ -1044,6 +1051,8 @@ static int psp_save_options()
                  psp_options.autoload_slot);
   pl_ini_set_string(&file, "File", "Game Path",
                     psp_game_path);
+
+  pl_ini_set_int(&file, "System", "Fastload", settings_current.fastload);
 
   int status = pl_ini_save(&file, path);
   pl_ini_destroy(&file);
@@ -1445,6 +1454,9 @@ static int OnMenuItemChanged(const struct PspUiMenu *uimenu,
           || !pspUiConfirm("This will reset the system. Proceed?"))
         return 0;
       machine_select((int)option->value);
+      break;
+    case SYSTEM_FASTLOAD:
+      settings_current.fastload = (int)option->value;
       break;
     }
   }
