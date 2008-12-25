@@ -393,8 +393,16 @@ PL_MENU_ITEMS_BEGIN(ControlMenuDef)
   PL_MENU_ITEM(PSP_CHAR_START,15,MappableButtons,ControlHelpText)
   PL_MENU_ITEM(PSP_CHAR_LTRIGGER"+"PSP_CHAR_RTRIGGER,16,MappableButtons,ControlHelpText)
   PL_MENU_ITEM(PSP_CHAR_START"+"PSP_CHAR_SELECT,17,MappableButtons,ControlHelpText)
-  PL_MENU_ITEM(PSP_CHAR_SELECT"+"PSP_CHAR_LTRIGGER,18,MappableButtons,ControlHelpText)
-  PL_MENU_ITEM(PSP_CHAR_SELECT"+"PSP_CHAR_RTRIGGER,19,MappableButtons,ControlHelpText)
+  PL_MENU_ITEM(PSP_CHAR_LTRIGGER"+"PSP_CHAR_SELECT,18,MappableButtons,ControlHelpText)
+  PL_MENU_ITEM(PSP_CHAR_RTRIGGER"+"PSP_CHAR_SELECT,19,MappableButtons,ControlHelpText)
+  PL_MENU_ITEM(PSP_CHAR_LTRIGGER"+"PSP_CHAR_SQUARE,20,MappableButtons,ControlHelpText)
+  PL_MENU_ITEM(PSP_CHAR_LTRIGGER"+"PSP_CHAR_CROSS,21,MappableButtons,ControlHelpText)
+  PL_MENU_ITEM(PSP_CHAR_LTRIGGER"+"PSP_CHAR_CIRCLE,22,MappableButtons,ControlHelpText)
+  PL_MENU_ITEM(PSP_CHAR_LTRIGGER"+"PSP_CHAR_TRIANGLE,23,MappableButtons,ControlHelpText)
+  PL_MENU_ITEM(PSP_CHAR_RTRIGGER"+"PSP_CHAR_SQUARE,24,MappableButtons,ControlHelpText)
+  PL_MENU_ITEM(PSP_CHAR_RTRIGGER"+"PSP_CHAR_CROSS,25,MappableButtons,ControlHelpText)
+  PL_MENU_ITEM(PSP_CHAR_RTRIGGER"+"PSP_CHAR_CIRCLE,26,MappableButtons,ControlHelpText)
+  PL_MENU_ITEM(PSP_CHAR_RTRIGGER"+"PSP_CHAR_TRIANGLE,27,MappableButtons,ControlHelpText)
 PL_MENU_ITEMS_END
 
 /* Default configuration */
@@ -726,12 +734,12 @@ int ui_event( void )
       u32 code = current_map.button_map[current_mapping->index];
       u8  on = (pad.Buttons & current_mapping->mask) == current_mapping->mask;
 
-      /* Check to see if a button set is pressed. If so, unset it, so it */
-      /* doesn't trigger any other combination presses. */
-      if (on) pad.Buttons &= ~current_mapping->mask;
-
       if (!show_kybd_held)
       {
+        /* Check to see if a button set is pressed. If so, unset it, so it */
+        /* doesn't trigger any other combination presses. */
+        if (on) pad.Buttons &= ~current_mapping->mask;
+
         if (code & KBD)
         {
           if (on) psp_keyboard_toggle(CODE_MASK(code), on);
@@ -1135,7 +1143,7 @@ static int psp_load_game(const char *path)
       }
 
       extension = pl_file_get_extension(archived_file);
-      for (j = 1; *QuickloadFilter[j]; j++)
+      for (j = 1; QuickloadFilter[j]; j++)
       {
         if (strcasecmp(QuickloadFilter[j], extension) == 0)
         {
