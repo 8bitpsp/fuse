@@ -30,5 +30,5 @@ compat_get_home_path( void )
 int
 compat_is_absolute_path( const char *path )
 {
-  return path[0] == '/';
+  return (path[0] == '/') || (strcasestr(path, "ms0:/") == path);
 }

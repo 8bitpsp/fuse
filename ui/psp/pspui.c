@@ -15,10 +15,13 @@
 #include "timer/timer.h"
 #include "ui/ui.h"
 #include "utils.h"
+#include "tape.h"
 #include "input.h"
 #include "joystick.h"
 #include "keyboard.h"
 #include "string.h"
+#include "if1.h"
+#include "if2.h"
 
 #include "ui/psp/lib/ui.h"
 #include "ui/psp/lib/font.h"
@@ -49,11 +52,10 @@ PSP_MAIN_THREAD_ATTR(PSP_THREAD_ATTR_USER);
 #define OPTION_FRAME_LIMITER 0x02
 #define OPTION_CLOCK_FREQ    0x03
 #define OPTION_SHOW_FPS      0x04
-#define OPTION_SHOW_BORDER   0x05
-#define OPTION_CONTROL_MODE  0x06
-#define OPTION_ANIMATE       0x07
-#define OPTION_AUTOLOAD      0x08
-#define OPTION_TOGGLE_VK     0x09
+#define OPTION_CONTROL_MODE  0x05
+#define OPTION_ANIMATE       0x06
+#define OPTION_AUTOLOAD      0x07
+#define OPTION_TOGGLE_VK     0x08
 
 #define SYSTEM_SCRNSHOT    0x11
 #define SYSTEM_RESET       0x12
@@ -64,10 +66,11 @@ PSP_MAIN_THREAD_ATTR(PSP_THREAD_ATTR_USER);
 #define SYSTEM_AUTOLOAD    0x17
 #define SYSTEM_ISSUE2      0x18
 #define SYSTEM_SOUND_LOAD  0x19
+#define SYSTEM_SHOW_BORDER 0x20
 
 #define SPC_MENU     1
 #define SPC_KYBD     2
-#define SPC_FULL_SPD 3
+#define SPC_2X_SPD   3
 #define SPC_HALF_SPD 4
 
 #define CURRENT_GAME (psp_current_game)
@@ -77,7 +80,7 @@ PSP_MAIN_THREAD_ATTR(PSP_THREAD_ATTR_USER);
 
 static const char 
   PresentSlotText[] = "\026\244\020 Save\t\026\001\020 Load\t\026\243\020 Delete\t\026"PSP_CHAR_START"\020 Export",
-  EmptySlotText[]   = "\026\244\020 Save",
+  EmptySlotText[]   = "\026\244\020 Save\t\026"PSP_CHAR_START"\020 Export",
   ControlHelpText[] = "\026\250\020 Change mapping\t\026\001\020 Save to \271\t"
                       "\026\244\020 Set as default\t\026\243\020 Load defaults";
 
@@ -261,9 +264,10 @@ PL_MENU_OPTIONS_BEGIN(MappableButtons)
   /* Special */
   PL_MENU_OPTION("Special: Open Menu",     (SPC|SPC_MENU))
   PL_MENU_OPTION("Special: Show keyboard", (SPC|SPC_KYBD))
-  PL_MENU_OPTION("Special: Run at max. possible speed", (SPC|SPC_FULL_SPD))
+/*
   PL_MENU_OPTION("Special: Run at 50% speed", (SPC|SPC_HALF_SPD))
-  PL_MENU_OPTION("Special: Show keyboard", (SPC|SPC_KYBD))
+  PL_MENU_OPTION("Special: Run at 200% speed", (SPC|SPC_2X_SPD))
+*/
   /* Hack cursors */
   PL_MENU_OPTION("Up",    (KBD|INPUT_KEY_Up))
   PL_MENU_OPTION("Down",  (KBD|INPUT_KEY_Down))
@@ -340,17 +344,18 @@ PL_MENU_OPTIONS_END
 
 PL_MENU_ITEMS_BEGIN(SystemMenuDef)
   PL_MENU_HEADER("Video")
+  PL_MENU_ITEM("Screen border",SYSTEM_SHOW_BORDER,ToggleOptions,"\026\250\020 Show/hide border surrounding the main display")
   PL_MENU_ITEM("Monitor type",SYSTEM_MONITOR,MonitorTypes,"\026\250\020 Select type of monitor (color/grayscale)")
   PL_MENU_HEADER("System")
   PL_MENU_ITEM("Machine type",SYSTEM_TYPE,MachineTypes,"\026\250\020 Select emulated system")
   PL_MENU_ITEM("Tape autoloading",SYSTEM_AUTOLOAD,ToggleOptions,
                              "\026\250\020 When enabled, emulator will immediately load and run tape")
   PL_MENU_ITEM("Tape fastloading",SYSTEM_FASTLOAD,ToggleOptions,
-                             "\026\250\020 When enabled, emulator will run at max speed while loading tapes")
+                             "\026\250\020 Run at max. speed while loading tapes (does not work with loading sounds)")
   PL_MENU_ITEM("Issue 2 keyboard support",SYSTEM_ISSUE2,ToggleOptions,
                              "\026\250\020 Enable/disable older keyboard model support")
-  PL_MENU_ITEM("Loading sound",SYSTEM_SOUND_LOAD,ToggleOptions,
-                             "\026\250\020 Enable/disable sound while loading tape")
+  PL_MENU_ITEM("Tape loading sounds",SYSTEM_SOUND_LOAD,ToggleOptions,
+                             "\026\250\020 Toogle tape loading sounds (does not work with fastloading)")
   PL_MENU_HEADER("Options")
   PL_MENU_ITEM("Reset",SYSTEM_RESET,NULL,"\026\001\020 Reset system")
   PL_MENU_ITEM("Save screenshot",SYSTEM_SCRNSHOT,NULL,"\026\001\020 Save screenshot")
@@ -358,7 +363,6 @@ PL_MENU_ITEMS_END
 PL_MENU_ITEMS_BEGIN(OptionMenuDef)
   PL_MENU_HEADER("Video")
   PL_MENU_ITEM("Screen size",OPTION_DISPLAY_MODE,ScreenSizeOptions,"\026\250\020 Change screen size")
-  PL_MENU_ITEM("Screen border",OPTION_SHOW_BORDER,ToggleOptions,"\026\250\020 Show/hide border surrounding the main display")
   PL_MENU_HEADER("Input")
   PL_MENU_ITEM("Virtual keyboard mode",OPTION_TOGGLE_VK,VkModeOptions,"\026"PSP_CHAR_RIGHT"\020 Select virtual keyboard mode")
   PL_MENU_HEADER("Enhancements")
@@ -447,6 +451,7 @@ pl_vk_layout vk_spectrum;
 u8 show_kybd_held;
 u8 run_full_spd_held;
 u8 run_half_spd_held;
+u8 keyboard_visible;
 
 static u8 psp_exit_menu;
 static int TabIndex;
@@ -461,7 +466,8 @@ pl_file_path psp_current_game = {'\0'},
              psp_game_path = {'\0'},
              psp_save_state_path,
              psp_screenshot_path,
-             psp_config_path;
+             psp_config_path,
+             psp_temporary_filename = "";
 
 psp_ctrl_mask_to_index_map_t physical_to_emulated_button_map[] =
 {
@@ -499,6 +505,9 @@ int ui_init(int *argc, char ***argv)
   /* Init joystick */
   settings_current.joy_kempston = 1;
   settings_current.joystick_1_output = JOYSTICK_TYPE_KEMPSTON;
+  settings_current.sound_freq = 44100;
+  settings_current.late_timings = 0;
+  settings_current.accelerate_loader = 1;
 
   /* Initialize callbacks */
   pl_psp_register_callback(PSP_EXIT_CALLBACK,
@@ -515,7 +524,7 @@ int ui_init(int *argc, char ***argv)
 
   /* Initialize paths */
   sprintf(psp_save_state_path, "%sstates/", pl_psp_get_app_directory());
-  sprintf(psp_screenshot_path, "/PSP/PHOTO/%s/", PSP_APP_NAME);
+  sprintf(psp_screenshot_path, "ms0:/PSP/PHOTO/%s/", PSP_APP_NAME);
   sprintf(psp_config_path, "%sconfig/", pl_psp_get_app_directory());
 
   /* Initialize menus */
@@ -580,6 +589,7 @@ int ui_init(int *argc, char ***argv)
   TabIndex = TAB_ABOUT;
 
   show_kybd_held = 0;
+  keyboard_visible = 0;
   run_full_spd_held = 0;
   run_half_spd_held = 0;
   clear_screen = 1;
@@ -633,8 +643,6 @@ static void psp_display_menu()
       pl_menu_select_option_by_value(item, (void*)(int)psp_options.clock_freq);
       item = pl_menu_find_item_by_id(&OptionUiMenu.Menu, OPTION_SHOW_FPS);
       pl_menu_select_option_by_value(item, (void*)(int)psp_options.show_fps);
-      item = pl_menu_find_item_by_id(&OptionUiMenu.Menu, OPTION_SHOW_BORDER);
-      pl_menu_select_option_by_value(item, (void*)(int)psp_options.show_border);
       item = pl_menu_find_item_by_id(&OptionUiMenu.Menu, OPTION_CONTROL_MODE);
       pl_menu_select_option_by_value(item, (void*)(int)psp_options.control_mode);
       item = pl_menu_find_item_by_id(&OptionUiMenu.Menu, OPTION_ANIMATE);
@@ -652,6 +660,8 @@ static void psp_display_menu()
       psp_display_state_tab();
       break;
     case TAB_SYSTEM:
+      item = pl_menu_find_item_by_id(&SystemUiMenu.Menu, SYSTEM_SHOW_BORDER);
+      pl_menu_select_option_by_value(item, (void*)(int)psp_options.show_border);
       item = pl_menu_find_item_by_id(&SystemUiMenu.Menu, SYSTEM_MONITOR);
       pl_menu_select_option_by_value(item, (void*)(int)psp_options.enable_bw);
       item = pl_menu_find_item_by_id(&SystemUiMenu.Menu, SYSTEM_TYPE);
@@ -683,10 +693,10 @@ static void psp_display_menu()
     pspCtrlSetPollingMode(PSP_CTRL_NORMAL);
 
     show_kybd_held = 0;
+    keyboard_visible = 0;
     run_full_spd_held = 0;
     run_half_spd_held = 0;
     clear_screen = 1;
-    settings_current.emulation_speed = 100;
 
     keyboard_release_all();
     psp_uidisplay_reinit();
@@ -711,13 +721,7 @@ int ui_event( void )
     return 0;
   }
 
-#ifdef PSP_DEBUG
-  if ((psp_pad_status.Buttons & (PSP_CTRL_SELECT | PSP_CTRL_START))
-    == (PSP_CTRL_SELECT | PSP_CTRL_START))
-      pl_util_save_vram_seq(psp_screenshot_path, "game");
-#endif
-
-  if (!show_kybd_held)
+  if (!keyboard_visible)
     keyboard_release_all();
   joystick_release_all(0);
 
@@ -725,7 +729,7 @@ int ui_event( void )
   static SceCtrlData pad;
   if (pspCtrlPollControls(&pad))
   {
-    if (show_kybd_held)
+    if (keyboard_visible)
       pl_vk_navigate(&vk_spectrum, &pad);
 
     psp_ctrl_mask_to_index_map_t *current_mapping = physical_to_emulated_button_map;
@@ -734,7 +738,7 @@ int ui_event( void )
       u32 code = current_map.button_map[current_mapping->index];
       u8  on = (pad.Buttons & current_mapping->mask) == current_mapping->mask;
 
-      if (!show_kybd_held)
+      if (!keyboard_visible)
       {
         /* Check to see if a button set is pressed. If so, unset it, so it */
         /* doesn't trigger any other combination presses. */
@@ -762,25 +766,26 @@ int ui_event( void )
         case SPC_KYBD:
           if (psp_options.toggle_vk)
           {
-/* TODO: this will keep flashing the VK; fix */
-            if (on)
+            if (show_kybd_held != on && on)
             {
-              if (!show_kybd_held)
+              keyboard_visible = !keyboard_visible;
+
+              if (keyboard_visible) 
                 pl_vk_reinit(&vk_spectrum);
               else
               {
                 clear_screen = 1;
                 keyboard_release_all();
               }
-
-              show_kybd_held = !show_kybd_held;
             }
           }
           else
           {
             if (show_kybd_held != on)
             {
-              if (on) pl_vk_reinit(&vk_spectrum);
+              keyboard_visible = on;
+              if (on) 
+                pl_vk_reinit(&vk_spectrum);
               else
               {
                 clear_screen = 1;
@@ -793,17 +798,13 @@ int ui_event( void )
           break;
         case SPC_HALF_SPD:
           if (run_half_spd_held != on)
-            settings_current.emulation_speed = 
-              (on) ? 50 : 100;
+            settings_current.emulation_speed = (on) ? 50 : 100;
 
           run_half_spd_held = on;
           break;
-        case SPC_FULL_SPD:
+        case SPC_2X_SPD:
           if (run_full_spd_held != on)
-          {
-            if (on) fuse_emulation_pause();
-            else fuse_emulation_unpause();
-          }
+            settings_current.emulation_speed = (on) ? 200 : 100;
 
           run_full_spd_held = on;
           break;
@@ -827,6 +828,9 @@ int ui_end( void )
 
   /* Destroy keyboard */
   pl_vk_destroy(&vk_spectrum);
+
+  if (psp_temporary_filename[0] && pl_file_exists(psp_temporary_filename))
+    pl_file_rm(psp_temporary_filename);
 
   psp_save_options();
 
@@ -1109,10 +1113,18 @@ static int psp_load_game(const char *path)
   libspectrum_id_t type;
   libspectrum_class_t class;
   utils_file file;
-  const char *game_path;
+  const char *game_path = path;
+  int is_compressed = 0;
+
+  /* Eject disks/tapes */
+  if (tape_present()) tape_close();
+  specplus3_disk_eject(SPECPLUS3_DRIVE_A, 0);
+  beta_disk_eject(BETA_DRIVE_A, 0);
+  plusd_disk_eject(PLUSD_DRIVE_1, 0);
 
   if (pl_file_is_of_type(path, "ZIP"))
   {
+    is_compressed = 1;
     char archived_file[512];
     unzFile zipfile = NULL;
     unz_global_info gi;
@@ -1189,36 +1201,80 @@ close_archive:
 
     game_path = archived_file;
   }
+
+  int error = 1;
+  if (!is_compressed)
+  {
+    /* Uncompressed; business as usual */
+    error = utils_open_file(game_path, 
+                            settings_current.auto_load,
+                            NULL);
+  }
   else
   {
-    if (utils_read_file(path, &file))
-      return 0;
+    /* Compressed; first, identify file type */
+    error = libspectrum_identify_file_with_class(&type, 
+                                                 &class, 
+                                                 game_path,
+                                                 file.buffer, 
+                                                 file.length);
 
-    game_path = path;
+    if (error == 0)
+    {
+      if (class == LIBSPECTRUM_CLASS_DISK_TRDOS
+       || class == LIBSPECTRUM_CLASS_DISK_PLUS3
+       || class == LIBSPECTRUM_CLASS_DISK_PLUSD
+       || class == LIBSPECTRUM_CLASS_DISK_GENERIC)
+      {
+        if (psp_temporary_filename[0] 
+         && pl_file_exists(psp_temporary_filename))
+        {
+          /* Remove earlier temporary file */
+          pl_file_rm(psp_temporary_filename);
+          psp_temporary_filename[0] = '\0';
+        }
+
+        /* Define temp filename */
+        sprintf(psp_temporary_filename, "%st%04i_%s", 
+                pl_psp_get_app_directory(),
+                rand() % 10000,
+                game_path);
+
+        /* Disk image; extract to a temporary location and open */
+        FILE *temp_file = fopen(psp_temporary_filename, "w");
+
+        if (!temp_file)
+          error = 1;
+        else
+        {
+          if (!fwrite(file.buffer, file.length, 1, temp_file))
+            error = 1;
+          fclose(temp_file);
+
+          if (error == 0)
+            error = utils_open_file(psp_temporary_filename,
+                                    settings_current.auto_load,
+                                    NULL);
+        }
+      }
+      else
+      {
+        /* Compressed, but basic; open from buffer */
+        error = utils_open_file_buffer(file, 
+                                       game_path, 
+                                       settings_current.auto_load,
+                                       NULL);
+      }
+    }
+
+    /* Free file resource */
+    utils_close_file(&file);
   }
-
-  /* Identify file type */
-  int error;
-  error = libspectrum_identify_file_with_class(&type, 
-                                               &class, 
-                                               game_path,
-                                               file.buffer, 
-                                               file.length);
-
-  /* Load file */
-  if (error == 0) 
-    error = utils_open_file_buffer(file, 
-                                   game_path, 
-                                   settings_current.auto_load,
-                                   NULL);
-
-  /* Free file resource */
-  utils_close_file(&file);
 
   if (error)
     return 0;
 
-  if (class != LIBSPECTRUM_CLASS_SNAPSHOT)
+  if (class != LIBSPECTRUM_CLASS_SNAPSHOT && !settings_current.auto_load)
     machine_reset(0);
 
   return 1;
@@ -1337,8 +1393,8 @@ static void OnSplashRender(const void *splash, const void *null)
     PSP_APP_NAME" version "PSP_APP_VER" ("__DATE__")",
     "\026http://psp.akop.org/fuse",
     " ",
-    "2008 Akop Karapetyan (port)",
-    "2003-2008 Philip Kendall (emulation)",
+    "2008-2009 Akop Karapetyan",
+    "2003-2008 Philip Kendall",
     NULL
   };
 
@@ -1471,7 +1527,7 @@ static int OnMenuItemChanged(const struct PspUiMenu *uimenu,
     case OPTION_SHOW_FPS:
       psp_options.show_fps = (int)option->value;
       break;
-    case OPTION_SHOW_BORDER:
+    case SYSTEM_SHOW_BORDER:
       psp_options.show_border = (int)option->value;
       break;
     case OPTION_TOGGLE_VK:
@@ -1501,6 +1557,8 @@ static int OnMenuItemChanged(const struct PspUiMenu *uimenu,
       break;
     case SYSTEM_FASTLOAD:
       settings_current.fastload = (int)option->value;
+      if (settings_current.sound_load && settings_current.fastload)
+        settings_current.sound_load = 0;
       break;
     case SYSTEM_AUTOLOAD:
       settings_current.auto_load = (int)option->value;
@@ -1510,6 +1568,8 @@ static int OnMenuItemChanged(const struct PspUiMenu *uimenu,
       break;
     case SYSTEM_SOUND_LOAD:
       settings_current.sound_load = (int)option->value;
+      if (settings_current.sound_load && settings_current.fastload)
+        settings_current.fastload = 0;
       break;
     }
   }
@@ -1608,7 +1668,8 @@ static int OnSaveStateButtonPress(const PspUiGallery *gallery,
                                   u32 button_mask)
 {
   if (button_mask & PSP_CTRL_SQUARE 
-    || button_mask & PSP_CTRL_TRIANGLE)
+    || button_mask & PSP_CTRL_TRIANGLE
+    || button_mask & PSP_CTRL_START)
   {
     char *path;
     char caption[32];
@@ -1666,7 +1727,7 @@ static int OnSaveStateButtonPress(const PspUiGallery *gallery,
           "%s%s_%02i.sna", psp_save_state_path, config_name, item->id);
 
         /* Export state */
-        if (!psp_export_state(path))
+        if (!psp_export_state(plain_state_path))
           pspUiAlert("ERROR: State not exported");
         else pspUiAlert("State exported successfully");
       }

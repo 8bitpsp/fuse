@@ -153,7 +153,7 @@ static int mkdir_recursive(const char *path)
   /* First, try creating its parent directory */
   char *slash_pos = strrchr(path, '/');
   if (!slash_pos); /* Top level */
-  else if (slash_pos == path || slash_pos[-1] == ':'); /* Top level */
+  else if (slash_pos != path && slash_pos[-1] == ':'); /* Top level */
   else
   {
     char *parent = strdup(path);

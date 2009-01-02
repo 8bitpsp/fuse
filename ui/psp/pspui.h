@@ -39,7 +39,7 @@ typedef struct psp_ctrl_mask_to_index_map_t
   uint8_t  index;
 } psp_ctrl_mask_to_index_map_t;
 
-extern uint8_t show_kybd_held;
+extern uint8_t keyboard_visible;
 extern psp_ctrl_map_t current_map;
 extern psp_options_t psp_options;
 extern uint8_t psp_menu_active;

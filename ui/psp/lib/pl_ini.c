@@ -63,7 +63,7 @@ int pl_ini_create(pl_ini_file *file)
 
 int pl_ini_load(pl_ini_file *file,
                 const char *path)
-{
+{ 
   file->head = NULL;
 
   FILE *stream;

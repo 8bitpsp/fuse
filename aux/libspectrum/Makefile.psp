@@ -3,7 +3,7 @@ AR=psp-ar
 RANLIB=psp-ranlib
 RM=rm -rf
 PSPSDK=$(shell psp-config --pspsdk-path)
-CFLAGS=-G0 -O2 -Wall -DPSP -I$(PSPSDK)/include -I../../ -I./
+CFLAGS=-G0 -O2 -Wall -DPSP -DHAVE_ZLIB_H -I$(PSPSDK)/include -I../../ -I./
 
 all: libspectrum.a
 

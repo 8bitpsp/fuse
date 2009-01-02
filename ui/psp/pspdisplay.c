@@ -142,7 +142,7 @@ void uidisplay_frame_end()
   pspVideoPutImage(Screen, ScreenX, ScreenY, ScreenW, ScreenH);
 
   /* Draw keyboard */
-  if (show_kybd_held)
+  if (keyboard_visible)
     pl_vk_render(&vk_spectrum);
 
   if (psp_options.show_fps)
