@@ -23,9 +23,9 @@
 #include "if1.h"
 #include "if2.h"
 
-#include "ui/psp/lib/ui.h"
-#include "ui/psp/lib/font.h"
-#include "ui/psp/lib/ctrl.h"
+#include "psp_aux/libpsp/ui.h"
+#include "psp_aux/libpsp/font.h"
+#include "psp_aux/libpsp/ctrl.h"
 #include "pl_snd.h"
 #include "pl_file.h"
 #include "pl_psp.h"

@@ -1,9 +1,9 @@
 PSPSDK=$(shell psp-config --pspsdk-path)
 
 PSPAPP=psp
-LSP=aux/libspectrum
-LMZ=aux/libminizip
-PSPLIB=ui/psp/lib
+LSP=psp_aux/libspectrum
+LMZ=psp_aux/libminizip
+PSPLIB=psp_aux/libpsp
 
 PSP_FW_VERSION=200
 export PSP_FW_VERSION

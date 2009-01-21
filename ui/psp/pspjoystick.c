@@ -2,7 +2,7 @@
 #include <pspkernel.h>
 #include <psprtc.h>
 
-#include "ui/psp/lib/ctrl.h"
+#include "psp_aux/libpsp/ctrl.h"
 
 #include "pspui.h"
 #include "input.h"
