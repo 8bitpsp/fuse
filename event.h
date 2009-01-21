@@ -1,7 +1,7 @@
 /* event.h: Routines needed for dealing with the event list
    Copyright (c) 2000-2004 Philip Kendall
 
-   $Id: event.h 3681 2008-06-16 09:40:29Z pak21 $
+   $Id: event.h 3942 2009-01-10 14:18:46Z pak21 $
 
    This program is free software; you can redistribute it and/or modify
    it under the terms of the GNU General Public License as published by
@@ -75,6 +75,9 @@ int event_force_events( void );
 
 /* Remove all events of a specific type from the stack */
 int event_remove_type( int type );
+
+/* Remove all events of a specific type and user data from the stack */
+int event_remove_type_user_data( int type, gpointer user_data );
 
 /* Clear the event stack */
 int event_reset(void);

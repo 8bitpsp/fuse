@@ -1,6 +1,6 @@
 CVS tags for Fuse
 
-$Id: cvs-tags 3876 2008-12-04 10:32:19Z pak21 $
+$Id: cvs-tags 3897 2008-12-10 18:42:11Z pak21 $
 
 | Release-0_3_1
 | Release-0_3_2pre1
@@ -166,6 +166,7 @@ $Id: cvs-tags 3876 2008-12-04 10:32:19Z pak21 $
 +-\
 | | Release_0_10_0-pre1
 | | Release_0_10_0
+| | Release_0_10_0_1
 | |
 | | Release_0_10_0-branch
 |

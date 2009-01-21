@@ -2,7 +2,7 @@
    Copyright (c) 1999-2007 Stuart Brady, Fredrick Meunier, Philip Kendall,
    Dmitry Sanarin, Darren Salt
 
-   $Id: plusd.c 3681 2008-06-16 09:40:29Z pak21 $
+   $Id: plusd.c 3942 2009-01-10 14:18:46Z pak21 $
 
    This program is free software; you can redistribute it and/or modify
    it under the terms of the GNU General Public License as published by
@@ -306,7 +306,14 @@ plusd_cn_write( libspectrum_word port GCC_UNUSED, libspectrum_byte b )
   }
   fdd_select( &plusd_drives[ (!drive) ].fdd, 0 );
   fdd_select( &plusd_drives[ drive ].fdd, 1 );
-  plusd_fdc->current_drive = &plusd_drives[ drive ];
+
+  if( plusd_fdc->current_drive != &plusd_drives[ drive ] ) {
+    if( plusd_fdc->current_drive->fdd.motoron ) {            /* swap motoron */
+      fdd_motoron( &plusd_drives[ (!drive) ].fdd, 0 );
+      fdd_motoron( &plusd_drives[ drive ].fdd, 1 );
+    }
+    plusd_fdc->current_drive = &plusd_drives[ drive ];
+  }
 
   printer_parallel_strobe_write( b & 0x40 );
 }

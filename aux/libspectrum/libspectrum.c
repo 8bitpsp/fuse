@@ -1,7 +1,7 @@
 /* libspectrum.c: Some general routines
    Copyright (c) 2001-2004 Philip Kendall, Darren Salt, Fredrick Meunier
 
-   $Id: libspectrum.c 3806 2008-11-08 10:42:38Z pak21 $
+   $Id: libspectrum.c 3943 2009-01-10 14:24:56Z pak21 $
 
    This program is free software; you can redistribute it and/or modify
    it under the terms of the GNU General Public License as published by
@@ -540,8 +540,8 @@ libspectrum_identify_file_raw( libspectrum_id_t *type, const char *filename,
       { LIBSPECTRUM_ID_DISK_IMG,      "img", 3, NULL,		    0, 0, 0 },
 
       { LIBSPECTRUM_ID_DISK_UDI,      "udi", 3, "UDI!",		    0, 4, 4 },
-      { LIBSPECTRUM_ID_DISK_ECPC,     "dsk", 3, "EXTENDED CPC DSK File\r\nDisk-Info\r\n", 0, 34, 4 },
-      { LIBSPECTRUM_ID_DISK_CPC,      "dsk", 3, "MV - CPCEMU Disk-File\r\nDisk-Info\r\n", 0, 34, 4 },
+      { LIBSPECTRUM_ID_DISK_ECPC,     "dsk", 3, "EXTENDED", 0, 8, 4 },
+      { LIBSPECTRUM_ID_DISK_CPC,      "dsk", 3, "MV - CPC", 0, 8, 4 },
       { LIBSPECTRUM_ID_DISK_FDI,      "fdi", 3, "FDI",              0, 3, 4 },
       { LIBSPECTRUM_ID_DISK_SAD,      "sad", 3, "Aley's disk backup", 0, 18, 4 },
       { LIBSPECTRUM_ID_DISK_TD0,      "td0", 3, "TD",               0, 2, 4 },

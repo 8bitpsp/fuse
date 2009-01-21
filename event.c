@@ -1,7 +1,7 @@
 /* event.c: Routines needed for dealing with the event list
    Copyright (c) 2000-2008 Philip Kendall
 
-   $Id: event.c 3682 2008-06-19 05:43:54Z pak21 $
+   $Id: event.c 3942 2009-01-10 14:18:46Z pak21 $
 
    This program is free software; you can redistribute it and/or modify
    it under the terms of the GNU General Public License as published by
@@ -51,6 +51,11 @@ typedef struct event_descriptor_t {
   event_fn_t fn;
   char *description;
 } event_descriptor_t; 
+
+typedef struct event_typeuser_t {
+  int type;
+  gpointer data;
+} event_typeuser_t;
 
 static GArray *registered_events;
 
@@ -205,11 +210,33 @@ set_event_null( gpointer data, gpointer user_data )
   if( ptr->type == *type ) ptr->type = event_type_null;
 }
 
+static void
+set_event_null_2( gpointer data, gpointer user_data )
+{
+  event_t *ptr = data;
+  event_typeuser_t *e = user_data;
+
+  if( ptr->type == e->type && ptr->user_data == e->data )
+    ptr->type = event_type_null;
+}
+
 /* Remove all events of a specific type from the stack */
 int
 event_remove_type( int type )
 {
   g_slist_foreach( event_list, set_event_null, &type );
+  return 0;
+}
+
+/* Remove all events of a specific type and user data from the stack */
+int
+event_remove_type_user_data( int type, gpointer user_data )
+{
+  event_typeuser_t e;
+
+  e.type = type;
+  e.data = user_data;
+  g_slist_foreach( event_list, set_event_null_2, &e );
   return 0;
 }
 

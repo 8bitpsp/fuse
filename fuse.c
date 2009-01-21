@@ -1,7 +1,7 @@
 /* fuse.c: The Free Unix Spectrum Emulator
-   Copyright (c) 1999-2008 Philip Kendall
+   Copyright (c) 1999-2009 Philip Kendall
 
-   $Id: fuse.c 3868 2008-12-01 21:00:58Z pak21 $
+   $Id: fuse.c 3942 2009-01-10 14:18:46Z pak21 $
 
    This program is free software; you can redistribute it and/or modify
    it under the terms of the GNU General Public License as published by
@@ -374,7 +374,7 @@ static void fuse_show_copyright(void)
   printf( "\n" );
   fuse_show_version();
   printf(
-   "Copyright (c) 1999-2008 Philip Kendall and others; see the file\n"
+   "Copyright (c) 1999-2009 Philip Kendall and others; see the file\n"
    "'AUTHORS' for more details.\n"
    "\n"
    "For help, please mail <fuse-emulator-devel@lists.sf.net> or use\n"

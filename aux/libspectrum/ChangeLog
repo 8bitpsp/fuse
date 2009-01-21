@@ -1,4 +1,12 @@
-2008-11-??  Philip Kendall  <philip-fuse@shadowmagic.org.uk>
+2009-01-14  Philip Kendall  <philip-fuse@shadowmagic.org.uk>
+
+	* libspectrum 0.5.0.1 released
+
+	* Loosen signature checks for .dsk files to allow files not strictly
+	  compliant with the specification to work (Gergely Szasz; thanks,
+	  zx81 and Simon Owen).
+
+2008-12-03  Philip Kendall  <philip-fuse@shadowmagic.org.uk>
 
         * libspectrum 0.5.0 released.
 
@@ -271,5 +279,5 @@
 	* libspectrum separated from Fuse just before the 0.5.0 release of
 	  Fuse; see Fuse's ChangeLog for changes up to this point
 
-$Id: ChangeLog 3867 2008-11-29 23:43:28Z fredm $
+$Id: ChangeLog 3956 2009-01-14 19:50:48Z pak21 $
 

@@ -1,7 +1,7 @@
 /* disk.c: Routines for handling disk images
    Copyright (c) 2007 Gergely Szasz
 
-   $Id: disk.c 3858 2008-11-29 11:15:22Z fredm $
+   $Id: disk.c 3942 2009-01-10 14:18:46Z pak21 $
 
    This program is free software; you can redistribute it and/or modify
    it under the terms of the GNU General Public License as published by
@@ -993,7 +993,7 @@ open_cpc( buffer_t *buffer, disk_t *d, int preindex )
       break;
     }
     if( buffavail( buffer ) < 256 ||
-	memcmp( buff, "Track-Info\r\n", 12 ) )		/* check track header */
+	memcmp( buff, "Track-Info", 10 ) )		/* check track header */
       return d->status = DISK_OPEN;
 
     gap = (unsigned char)buff[0x16] == 0xff ? GAP_MINIMAL_FM :
