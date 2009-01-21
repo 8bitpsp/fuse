@@ -1126,7 +1126,8 @@ static int psp_load_game(const char *path)
 
   /* Eject disks/tapes */
   if (tape_present()) tape_close();
-  specplus3_disk_eject(SPECPLUS3_DRIVE_A, 0);
+  if (specplus3_drives[ SPECPLUS3_DRIVE_A ].fdd.loaded)
+    specplus3_disk_eject(SPECPLUS3_DRIVE_A, 0);
   beta_disk_eject(BETA_DRIVE_A, 0);
   plusd_disk_eject(PLUSD_DRIVE_1, 0);
 
@@ -1635,7 +1636,6 @@ static int OnQuickloadOk(const void *browser, const void *path)
   if (!psp_load_controls((GAME_LOADED)
                            ? pl_file_get_filename(psp_current_game) : "BASIC",
                          &current_map));
-
 
   /* Autoload saved state */
   if (psp_options.autoload_slot >= 0)
