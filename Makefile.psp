@@ -45,7 +45,7 @@ BUILD_PORT=ui/psp/keysyms.o timer/psp.o ui/psp/paths.o ui/psp/osname.o \
 OBJS=$(BUILD_FUSE) $(BUILD_PORT)
 
 DEFINES=-DFUSEDATADIR="\"system\"" -DSOUND_BUFFER_SIZE=368 \
-        -DPATH_MAX=2048 -DPSP_DEBUG
+        -DPATH_MAX=2048
 BASE_DEFS=-DPSP -DPSP_APP_VER=\"$(PSP_APP_VER)\" -DPSP_APP_NAME="\"$(PSP_APP_NAME)\""
 CFLAGS=-O2 -G0 -Wall $(BASE_DEFS) $(DEFINES)
 CXXFLAGS=$(CFLAGS) -fno-exceptions -fno-rtti

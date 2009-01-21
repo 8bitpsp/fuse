@@ -469,10 +469,9 @@ pl_file_path psp_current_game = {'\0'},
              psp_config_path,
              psp_temporary_filename = "";
 
-psp_ctrl_mask_to_index_map_t physical_to_emulated_button_map[] =
+const psp_ctrl_mask_to_index_map_t physical_to_emulated_button_map[] =
 {
-  { PSP_CTRL_LTRIGGER | PSP_CTRL_RTRIGGER, 16 },
-  { PSP_CTRL_START    | PSP_CTRL_SELECT,   17 },
+  /* These are shift-based (e.g. L/R are not unset when a button pressed) */
   { PSP_CTRL_LTRIGGER | PSP_CTRL_SELECT,   18 },
   { PSP_CTRL_RTRIGGER | PSP_CTRL_SELECT,   19 },
   { PSP_CTRL_LTRIGGER | PSP_CTRL_SQUARE,   20 },
@@ -483,6 +482,10 @@ psp_ctrl_mask_to_index_map_t physical_to_emulated_button_map[] =
   { PSP_CTRL_RTRIGGER | PSP_CTRL_CROSS,    25 },
   { PSP_CTRL_RTRIGGER | PSP_CTRL_CIRCLE,   26 },
   { PSP_CTRL_RTRIGGER | PSP_CTRL_TRIANGLE, 27 },
+
+  /* These are normal */
+  { PSP_CTRL_LTRIGGER | PSP_CTRL_RTRIGGER, 16 },
+  { PSP_CTRL_START    | PSP_CTRL_SELECT,   17 },
   { PSP_CTRL_ANALUP,   0 }, { PSP_CTRL_ANALDOWN,  1 },
   { PSP_CTRL_ANALLEFT, 2 }, { PSP_CTRL_ANALRIGHT, 3 },
   { PSP_CTRL_UP,   4 }, { PSP_CTRL_DOWN,  5 },
@@ -732,7 +735,7 @@ int ui_event( void )
     if (keyboard_visible)
       pl_vk_navigate(&vk_spectrum, &pad);
 
-    psp_ctrl_mask_to_index_map_t *current_mapping = physical_to_emulated_button_map;
+    const psp_ctrl_mask_to_index_map_t *current_mapping = physical_to_emulated_button_map;
     for (; current_mapping->mask; current_mapping++)
     {
       u32 code = current_map.button_map[current_mapping->index];
@@ -740,9 +743,17 @@ int ui_event( void )
 
       if (!keyboard_visible)
       {
-        /* Check to see if a button set is pressed. If so, unset it, so it */
-        /* doesn't trigger any other combination presses. */
-        if (on) pad.Buttons &= ~current_mapping->mask;
+        if (on)
+        {
+          if (current_mapping->index >= MAP_SHIFT_START_POS)
+            /* If a button set is pressed, unset it, so it */
+            /* doesn't trigger any other combination presses. */
+            pad.Buttons &= ~current_mapping->mask;
+          else
+            /* Shift mode: Don't unset the L/R; just the rest */
+            pad.Buttons &= ~(current_mapping->mask &
+                             ~(PSP_CTRL_LTRIGGER|PSP_CTRL_RTRIGGER));
+        }
 
         if (code & KBD)
         {
@@ -769,14 +780,11 @@ int ui_event( void )
             if (show_kybd_held != on && on)
             {
               keyboard_visible = !keyboard_visible;
+              keyboard_release_all();
 
               if (keyboard_visible) 
                 pl_vk_reinit(&vk_spectrum);
-              else
-              {
-                clear_screen = 1;
-                keyboard_release_all();
-              }
+              else clear_screen = 1;
             }
           }
           else
@@ -1303,11 +1311,14 @@ static int psp_load_controls(const char *filename, psp_ctrl_map_t *config)
   FILE *file = fopen(path, "r");
   if (!file) return 0;
 
-  /* Read contents of struct */
-  int nread = fread(config, sizeof(psp_ctrl_map_t), 1, file);
+  /* Load defaults; attempt to read controls from file */
+  psp_init_controls(config);
+  int nread = fread(config, sizeof(uint32_t), MAP_BUTTONS, file);
+
   fclose(file);
 
-  if (nread != 1)
+  /* Reading less than MAP_BUTTONS is ok; may be an older config file */
+  if (nread < 1)
   {
     psp_init_controls(config);
     return 0;
@@ -1394,7 +1405,7 @@ static void OnSplashRender(const void *splash, const void *null)
     "\026http://psp.akop.org/fuse",
     " ",
     "2008-2009 Akop Karapetyan",
-    "2003-2008 Philip Kendall",
+    "2003-2008 Philip Kendall & Fuse team",
     NULL
   };
 
@@ -1558,7 +1569,13 @@ static int OnMenuItemChanged(const struct PspUiMenu *uimenu,
     case SYSTEM_FASTLOAD:
       settings_current.fastload = (int)option->value;
       if (settings_current.sound_load && settings_current.fastload)
+      {
         settings_current.sound_load = 0;
+        pl_menu_item *item = pl_menu_find_item_by_id(&SystemUiMenu.Menu, 
+                                                     SYSTEM_SOUND_LOAD);
+        pl_menu_select_option_by_value(item, 
+                                       (void*)(settings_current.sound_load));
+      }
       break;
     case SYSTEM_AUTOLOAD:
       settings_current.auto_load = (int)option->value;
@@ -1569,7 +1586,13 @@ static int OnMenuItemChanged(const struct PspUiMenu *uimenu,
     case SYSTEM_SOUND_LOAD:
       settings_current.sound_load = (int)option->value;
       if (settings_current.sound_load && settings_current.fastload)
+      {
         settings_current.fastload = 0;
+        pl_menu_item *item = pl_menu_find_item_by_id(&SystemUiMenu.Menu, 
+                                                     SYSTEM_FASTLOAD);
+        pl_menu_select_option_by_value(item, 
+                                       (void*)(settings_current.fastload));
+      }
       break;
     }
   }

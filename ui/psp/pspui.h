@@ -5,7 +5,8 @@
 #define DISPLAY_MODE_FIT_HEIGHT  1
 #define DISPLAY_MODE_FILL_SCREEN 2
 
-#define MAP_BUTTONS 28
+#define MAP_BUTTONS         28
+#define MAP_SHIFT_START_POS 18 /* Shift buttons start here */
 
 #define KBD 0x10000
 #define JST 0x20000
@@ -13,7 +14,7 @@
 
 #define CODE_MASK(x) (x & 0xffff)
 
-typedef struct psp_options_t
+typedef struct psp_options
 {
   uint8_t  display_mode;
   uint8_t  show_fps;
@@ -28,12 +29,12 @@ typedef struct psp_options_t
   uint16_t machine;
 } psp_options_t;
 
-typedef struct psp_ctrl_map_t
+typedef struct psp_ctrl_map
 {
   uint32_t button_map[MAP_BUTTONS];
 } psp_ctrl_map_t;
 
-typedef struct psp_ctrl_mask_to_index_map_t
+typedef struct psp_ctrl_mask_to_index_map
 {
   uint64_t mask;
   uint8_t  index;
@@ -43,7 +44,7 @@ extern uint8_t keyboard_visible;
 extern psp_ctrl_map_t current_map;
 extern psp_options_t psp_options;
 extern uint8_t psp_menu_active;
-extern psp_ctrl_mask_to_index_map_t physical_to_emulated_button_map[];
+extern const psp_ctrl_mask_to_index_map_t physical_to_emulated_button_map[];
 
 void psp_uidisplay_reinit();
 
