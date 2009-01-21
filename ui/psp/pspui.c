@@ -1125,12 +1125,12 @@ static int psp_load_game(const char *path)
   int is_compressed = 0;
 
   /* Eject disks/tapes */
+/*
   if (tape_present()) tape_close();
-  if (specplus3_drives[ SPECPLUS3_DRIVE_A ].fdd.loaded)
-    specplus3_disk_eject(SPECPLUS3_DRIVE_A, 0);
+  specplus3_disk_eject(SPECPLUS3_DRIVE_A, 0);
   beta_disk_eject(BETA_DRIVE_A, 0);
   plusd_disk_eject(PLUSD_DRIVE_1, 0);
-
+*/
   if (pl_file_is_of_type(path, "ZIP"))
   {
     is_compressed = 1;
