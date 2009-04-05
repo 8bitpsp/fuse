@@ -745,7 +745,7 @@ int ui_event( void )
       {
         if (on)
         {
-          if (current_mapping->index >= MAP_SHIFT_START_POS)
+          if (current_mapping->index < MAP_SHIFT_START_POS)
             /* If a button set is pressed, unset it, so it */
             /* doesn't trigger any other combination presses. */
             pad.Buttons &= ~current_mapping->mask;
@@ -772,7 +772,7 @@ int ui_event( void )
         switch (CODE_MASK(code))
         {
         case SPC_MENU:
-          if (on) psp_display_menu();
+          if (on) { psp_display_menu(); return 0; }
           break;
         case SPC_KYBD:
           if (psp_options.toggle_vk)
