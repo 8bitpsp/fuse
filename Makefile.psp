@@ -39,7 +39,7 @@ BUILD_FUSE=debugger/breakpoint.o debugger/command.o debugger/commandl.o \
            ui/scaler/scaler.o ui/scaler/scalers16.o ui/scaler/scalers32.o \
            sound/sfifo.o
 BUILD_PORT=ui/psp/keysyms.o timer/psp.o ui/psp/paths.o ui/psp/osname.o \
-           ui/psp/pspui.o ui/psp/pspdisplay.o ui/psp/debugger.o ui/psp/statusbar.o \
+           ui/psp/pspui.o ui/psp/pspdisplay.o ui/psp/debugger.o \
            sound/pspsound.o ui/psp/pspjoystick.o
 
 OBJS=$(BUILD_FUSE) $(BUILD_PORT)

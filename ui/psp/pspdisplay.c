@@ -19,6 +19,9 @@
 extern pl_vk_layout vk_spectrum;
 PspImage *Screen = NULL;
 static pl_perf_counter perf_counter;
+static int disk_status, tape_status, mdr_status,
+           l_disk_status, l_tape_status, l_mdr_status;
+static int disk_icon_offset, tape_icon_offset;
 int clear_screen;
 
 static int ScreenX, ScreenY, ScreenW, ScreenH;
@@ -119,6 +122,13 @@ void psp_uidisplay_reinit()
   ScreenX = (SCR_WIDTH / 2) - (ScreenW / 2);
   ScreenY = (SCR_HEIGHT / 2) - (ScreenH / 2);
 
+  /* Reset status indicators */
+  disk_status = tape_status = mdr_status =
+    l_disk_status = l_tape_status = l_mdr_status = 0;
+  disk_icon_offset = 0;
+  tape_icon_offset = disk_icon_offset + 
+    pspFontGetTextWidth(&PspStockFont, PSP_CHAR_FLOPPY);
+
   /* Reset FPS counter */
   pl_perf_init_counter(&perf_counter);
   display_refresh_all();
@@ -139,6 +149,16 @@ void uidisplay_frame_end()
     pspVideoClearScreen();
   }
 
+  /* Erase disk indicator, if displayed last frame */
+  if (psp_options.show_osi)
+  {
+    if (!disk_status && l_disk_status)
+      pspVideoPrint(&PspStockFont, disk_icon_offset, 0, PSP_CHAR_FLOPPY, PSP_COLOR_BLACK);
+    if (!tape_status && l_tape_status)
+      pspVideoPrint(&PspStockFont, tape_icon_offset, 0, PSP_CHAR_TAPE, PSP_COLOR_BLACK);
+  }
+
+  /* Render screen */
   pspVideoPutImage(Screen, ScreenX, ScreenY, ScreenW, ScreenH);
 
   /* Draw keyboard */
@@ -155,6 +175,16 @@ void uidisplay_frame_end()
 
     pspVideoFillRect(SCR_WIDTH - width, 0, SCR_WIDTH, height, PSP_COLOR_BLACK);
     pspVideoPrint(&PspStockFont, SCR_WIDTH - width, 0, fps_display, PSP_COLOR_WHITE);
+  }
+
+  /* Display any status indicators */
+  if (psp_options.show_osi)
+  {
+    /* "Disk busy" indicator */
+    if (disk_status)
+      pspVideoPrint(&PspStockFont, disk_icon_offset, 0, PSP_CHAR_FLOPPY, PSP_COLOR_GREEN);
+    if (tape_status)
+      pspVideoPrint(&PspStockFont, tape_icon_offset, 0, PSP_CHAR_TAPE, PSP_COLOR_GREEN);
   }
 
   pspVideoEnd();
@@ -225,5 +255,35 @@ void uidisplay_area(int x, int y, int w, int h)
 int uidisplay_hotswap_gfx_mode()
 {
   display_refresh_all();
+  return 0;
+}
+
+int
+ui_statusbar_update( ui_statusbar_item item, ui_statusbar_state state )
+{
+  switch (item) 
+  {
+  case UI_STATUSBAR_ITEM_DISK:
+    l_disk_status = disk_status;
+    disk_status = (state == UI_STATUSBAR_STATE_ACTIVE);
+    return 0;
+  case UI_STATUSBAR_ITEM_TAPE:
+    l_tape_status = tape_status;
+    tape_status = (state == UI_STATUSBAR_STATE_ACTIVE);
+    return 0;
+  case UI_STATUSBAR_ITEM_MICRODRIVE:
+    l_mdr_status = mdr_status;
+    mdr_status = (state == UI_STATUSBAR_STATE_ACTIVE);
+    return 0;
+  default: 
+    return 0;
+  }
+
+  return 0;
+}
+
+int
+ui_statusbar_update_speed( float speed )
+{
   return 0;
 }

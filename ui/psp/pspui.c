@@ -1,3 +1,4 @@
+/* TODO: add warning if Shift buttons & non-shift buttons are mapped */
 #include <psptypes.h>
 #include <pspkernel.h>
 #include <psprtc.h>
@@ -56,6 +57,7 @@ PSP_MAIN_THREAD_ATTR(PSP_THREAD_ATTR_USER);
 #define OPTION_ANIMATE       0x06
 #define OPTION_AUTOLOAD      0x07
 #define OPTION_TOGGLE_VK     0x08
+#define OPTION_SHOW_OSI      0x09
 
 #define SYSTEM_SCRNSHOT    0x11
 #define SYSTEM_RESET       0x12
@@ -374,6 +376,7 @@ PL_MENU_ITEMS_BEGIN(OptionMenuDef)
 */
   PL_MENU_ITEM("PSP clock frequency",OPTION_CLOCK_FREQ,PspClockFreqOptions,"\026\250\020 Larger values: faster emulation, faster battery depletion (default: 222MHz)")
   PL_MENU_ITEM("Show FPS counter",OPTION_SHOW_FPS,ToggleOptions,"\026\250\020 Show/hide the frames-per-second counter")
+  PL_MENU_ITEM("Peripheral status",OPTION_SHOW_OSI,ToggleOptions, "\026\250\020 Show/hide floppy, disk drive status indicators")
   PL_MENU_HEADER("Menu")
   PL_MENU_ITEM("Button mode",OPTION_CONTROL_MODE,ControlModeOptions,"\026\250\020 Change OK and Cancel button mapping")
   PL_MENU_ITEM("Animations",OPTION_ANIMATE,ToggleOptions,"\026\250\020 Enable/disable menu animations")
@@ -646,6 +649,8 @@ static void psp_display_menu()
       pl_menu_select_option_by_value(item, (void*)(int)psp_options.clock_freq);
       item = pl_menu_find_item_by_id(&OptionUiMenu.Menu, OPTION_SHOW_FPS);
       pl_menu_select_option_by_value(item, (void*)(int)psp_options.show_fps);
+      item = pl_menu_find_item_by_id(&OptionUiMenu.Menu, OPTION_SHOW_OSI);
+      pl_menu_select_option_by_value(item, (void*)(int)psp_options.show_osi);
       item = pl_menu_find_item_by_id(&OptionUiMenu.Menu, OPTION_CONTROL_MODE);
       pl_menu_select_option_by_value(item, (void*)(int)psp_options.control_mode);
       item = pl_menu_find_item_by_id(&OptionUiMenu.Menu, OPTION_ANIMATE);
@@ -1052,6 +1057,7 @@ static void psp_load_options()
   psp_options.limit_frames = pl_ini_get_int(&file, "Video", "Frame Limiter", 1);
   psp_options.clock_freq = pl_ini_get_int(&file, "Video", "PSP Clock Frequency", 222);
   psp_options.show_fps = pl_ini_get_int(&file, "Video", "Show FPS", 0);
+  psp_options.show_osi = pl_ini_get_int(&file, "Video", "Show Peripheral Status", 0);
   psp_options.show_border = pl_ini_get_int(&file, "Video", "Show Border", 1);
   psp_options.enable_bw = pl_ini_get_int(&file, "Video", "Enable B&W", 0);
   psp_options.control_mode = pl_ini_get_int(&file, "Menu", "Control Mode", 0);
@@ -1088,6 +1094,8 @@ static int psp_save_options()
                  psp_options.clock_freq);
   pl_ini_set_int(&file, "Video", "Show FPS", 
                  psp_options.show_fps);
+  pl_ini_set_int(&file, "Video", "Show Peripheral Status", 
+                 psp_options.show_osi);
   pl_ini_set_int(&file, "Video", "Show Border", 
                  psp_options.show_border);
   pl_ini_set_int(&file, "Video", "Enable B&W", 
@@ -1124,13 +1132,6 @@ static int psp_load_game(const char *path)
   const char *game_path = path;
   int is_compressed = 0;
 
-  /* Eject disks/tapes */
-/*
-  if (tape_present()) tape_close();
-  specplus3_disk_eject(SPECPLUS3_DRIVE_A, 0);
-  beta_disk_eject(BETA_DRIVE_A, 0);
-  plusd_disk_eject(PLUSD_DRIVE_1, 0);
-*/
   if (pl_file_is_of_type(path, "ZIP"))
   {
     is_compressed = 1;
@@ -1216,7 +1217,7 @@ close_archive:
   {
     /* Uncompressed; business as usual */
     error = utils_open_file(game_path, 
-                            settings_current.auto_load,
+                            tape_can_autoload(),
                             NULL);
   }
   else
@@ -1262,7 +1263,7 @@ close_archive:
 
           if (error == 0)
             error = utils_open_file(psp_temporary_filename,
-                                    settings_current.auto_load,
+                                    tape_can_autoload(),
                                     NULL);
         }
       }
@@ -1271,7 +1272,7 @@ close_archive:
         /* Compressed, but basic; open from buffer */
         error = utils_open_file_buffer(file, 
                                        game_path, 
-                                       settings_current.auto_load,
+                                       tape_can_autoload(),
                                        NULL);
       }
     }
@@ -1283,7 +1284,7 @@ close_archive:
   if (error)
     return 0;
 
-  if (class != LIBSPECTRUM_CLASS_SNAPSHOT && !settings_current.auto_load)
+  if (class != LIBSPECTRUM_CLASS_SNAPSHOT && !tape_can_autoload())
     machine_reset(0);
 
   return 1;
@@ -1301,12 +1302,12 @@ static int psp_load_controls(const char *filename, psp_ctrl_map_t *config)
   pl_file_path path;
   snprintf(path, sizeof(path), "%s%s.cnf", psp_config_path, filename);
 
-  /* If no configuration, load defaults */
+  /* Initialize default controls */
+  psp_init_controls(config);
+
+  /* No configuration; defaults are fine */
   if (!pl_file_exists(path))
-  {
-    psp_init_controls(config);
     return 1;
-  }
 
   /* Open file for reading */
   FILE *file = fopen(path, "r");
@@ -1538,6 +1539,9 @@ static int OnMenuItemChanged(const struct PspUiMenu *uimenu,
       break;
     case OPTION_SHOW_FPS:
       psp_options.show_fps = (int)option->value;
+      break;
+    case OPTION_SHOW_OSI:
+      psp_options.show_osi = (int)option->value;
       break;
     case SYSTEM_SHOW_BORDER:
       psp_options.show_border = (int)option->value;

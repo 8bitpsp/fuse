@@ -27,6 +27,7 @@ typedef struct psp_options
    int8_t  autoload_slot;
   uint16_t clock_freq;
   uint16_t machine;
+  uint8_t  show_osi;
 } psp_options_t;
 
 typedef struct psp_ctrl_map

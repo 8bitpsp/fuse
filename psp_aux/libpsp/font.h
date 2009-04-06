@@ -50,6 +50,7 @@ extern "C" {
 #define PSP_CHAR_EMPTY_BATT "\266"
 #define PSP_CHAR_FULL_BATT  "\263"
 #define PSP_CHAR_FLOPPY     "\274"
+#define PSP_CHAR_TAPE       "\275"
 
 #define PSP_CHAR_MS         "\271"
 
