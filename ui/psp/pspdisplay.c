@@ -36,6 +36,13 @@ int uidisplay_init( int width, int height )
 
   Screen->PalSize = 16;
 
+  /* Reset status indicators */
+  disk_status = tape_status = mdr_status =
+    l_disk_status = l_tape_status = l_mdr_status = 0;
+  disk_icon_offset = 0;
+  tape_icon_offset = disk_icon_offset + 
+    pspFontGetTextWidth(&PspStockFont, PSP_CHAR_FLOPPY);
+
   psp_uidisplay_reinit();
 
   return 0;
@@ -121,13 +128,6 @@ void psp_uidisplay_reinit()
 
   ScreenX = (SCR_WIDTH / 2) - (ScreenW / 2);
   ScreenY = (SCR_HEIGHT / 2) - (ScreenH / 2);
-
-  /* Reset status indicators */
-  disk_status = tape_status = mdr_status =
-    l_disk_status = l_tape_status = l_mdr_status = 0;
-  disk_icon_offset = 0;
-  tape_icon_offset = disk_icon_offset + 
-    pspFontGetTextWidth(&PspStockFont, PSP_CHAR_FLOPPY);
 
   /* Reset FPS counter */
   pl_perf_init_counter(&perf_counter);
