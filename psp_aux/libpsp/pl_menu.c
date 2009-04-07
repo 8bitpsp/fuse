@@ -271,6 +271,14 @@ pl_menu_option* pl_menu_append_option(pl_menu_item *item,
   return option;
 }
 
+int pl_menu_get_option_count(pl_menu_item *item)
+{
+  int i;
+  pl_menu_option *option;
+  for (i = 0, option = item->options; option; i++, option = option->next);
+  return i;
+}
+
 pl_menu_option* pl_menu_find_option_by_index(const pl_menu_item *item,
                                              int index)
 {

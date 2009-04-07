@@ -109,6 +109,7 @@ pl_menu_option*
                            const char *text,
                            const void *value,
                            int select);
+int  pl_menu_get_option_count(pl_menu_item *item);
 pl_menu_option*
      pl_menu_find_option_by_index(const pl_menu_item *item,
                                   int index);

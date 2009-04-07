@@ -59,16 +59,17 @@ PSP_MAIN_THREAD_ATTR(PSP_THREAD_ATTR_USER);
 #define OPTION_TOGGLE_VK     0x08
 #define OPTION_SHOW_OSI      0x09
 
-#define SYSTEM_SCRNSHOT    0x11
-#define SYSTEM_RESET       0x12
-#define SYSTEM_TYPE        0x13
-#define SYSTEM_MONITOR     0x14
-#define SYSTEM_FASTLOAD    0x15
-#define SYSTEM_TAPE_TRAPS  0x16
-#define SYSTEM_AUTOLOAD    0x17
-#define SYSTEM_ISSUE2      0x18
-#define SYSTEM_SOUND_LOAD  0x19
-#define SYSTEM_SHOW_BORDER 0x20
+#define SYSTEM_SCRNSHOT     0x11
+#define SYSTEM_RESET        0x12
+#define SYSTEM_TYPE         0x13
+#define SYSTEM_MONITOR      0x14
+#define SYSTEM_FASTLOAD     0x15
+#define SYSTEM_TAPE_TRAPS   0x16
+#define SYSTEM_AUTOLOAD     0x17
+#define SYSTEM_ISSUE2       0x18
+#define SYSTEM_SOUND_LOAD   0x19
+#define SYSTEM_SHOW_BORDER  0x20
+#define SYSTEM_TAPE_BROWSER 0x21
 
 #define SPC_MENU     1
 #define SPC_KYBD     2
@@ -127,6 +128,7 @@ int snapshot_write_file(const char *filename, FILE *fptr);
 static void psp_display_menu();
 static void psp_display_state_tab();
 static void psp_display_control_tab();
+static void psp_display_system_tab();
 
 static void psp_load_options();
 static int  psp_save_options();
@@ -348,16 +350,19 @@ PL_MENU_ITEMS_BEGIN(SystemMenuDef)
   PL_MENU_HEADER("Video")
   PL_MENU_ITEM("Screen border",SYSTEM_SHOW_BORDER,ToggleOptions,"\026\250\020 Show/hide border surrounding the main display")
   PL_MENU_ITEM("Monitor type",SYSTEM_MONITOR,MonitorTypes,"\026\250\020 Select type of monitor (color/grayscale)")
+  PL_MENU_HEADER("Tape")
+  PL_MENU_ITEM("Browser", SYSTEM_TAPE_BROWSER, NULL,
+                             "\026\250\020 View/move current tape position")
+  PL_MENU_ITEM("Autoloading",SYSTEM_AUTOLOAD,ToggleOptions,
+                             "\026\250\020 When enabled, emulator will immediately load and run tape")
+  PL_MENU_ITEM("Fastloading",SYSTEM_FASTLOAD,ToggleOptions,
+                             "\026\250\020 Run at max. speed while loading tapes (does not work with loading sounds)")
+  PL_MENU_ITEM("Loading sounds",SYSTEM_SOUND_LOAD,ToggleOptions,
+                             "\026\250\020 Toogle tape loading sounds (does not work with fastloading)")
   PL_MENU_HEADER("System")
   PL_MENU_ITEM("Machine type",SYSTEM_TYPE,MachineTypes,"\026\250\020 Select emulated system")
-  PL_MENU_ITEM("Tape autoloading",SYSTEM_AUTOLOAD,ToggleOptions,
-                             "\026\250\020 When enabled, emulator will immediately load and run tape")
-  PL_MENU_ITEM("Tape fastloading",SYSTEM_FASTLOAD,ToggleOptions,
-                             "\026\250\020 Run at max. speed while loading tapes (does not work with loading sounds)")
   PL_MENU_ITEM("Issue 2 keyboard support",SYSTEM_ISSUE2,ToggleOptions,
                              "\026\250\020 Enable/disable older keyboard model support")
-  PL_MENU_ITEM("Tape loading sounds",SYSTEM_SOUND_LOAD,ToggleOptions,
-                             "\026\250\020 Toogle tape loading sounds (does not work with fastloading)")
   PL_MENU_HEADER("Options")
   PL_MENU_ITEM("Reset",SYSTEM_RESET,NULL,"\026\001\020 Reset system")
   PL_MENU_ITEM("Save screenshot",SYSTEM_SCRNSHOT,NULL,"\026\001\020 Save screenshot")
@@ -668,22 +673,7 @@ static void psp_display_menu()
       psp_display_state_tab();
       break;
     case TAB_SYSTEM:
-      item = pl_menu_find_item_by_id(&SystemUiMenu.Menu, SYSTEM_SHOW_BORDER);
-      pl_menu_select_option_by_value(item, (void*)(int)psp_options.show_border);
-      item = pl_menu_find_item_by_id(&SystemUiMenu.Menu, SYSTEM_MONITOR);
-      pl_menu_select_option_by_value(item, (void*)(int)psp_options.enable_bw);
-      item = pl_menu_find_item_by_id(&SystemUiMenu.Menu, SYSTEM_TYPE);
-      pl_menu_select_option_by_value(item, (void*)(machine_current->machine));
-      item = pl_menu_find_item_by_id(&SystemUiMenu.Menu, SYSTEM_FASTLOAD);
-      pl_menu_select_option_by_value(item, (void*)(settings_current.fastload));
-      item = pl_menu_find_item_by_id(&SystemUiMenu.Menu, SYSTEM_AUTOLOAD);
-      pl_menu_select_option_by_value(item, (void*)(settings_current.auto_load));
-      item = pl_menu_find_item_by_id(&SystemUiMenu.Menu, SYSTEM_ISSUE2);
-      pl_menu_select_option_by_value(item, (void*)(settings_current.issue2));
-      item = pl_menu_find_item_by_id(&SystemUiMenu.Menu, SYSTEM_SOUND_LOAD);
-      pl_menu_select_option_by_value(item, (void*)(settings_current.sound_load));
-
-      pspUiOpenMenu(&SystemUiMenu, NULL);
+      psp_display_system_tab();
       break;
     case TAB_ABOUT:
       pspUiSplashScreen(&SplashScreen);
@@ -890,6 +880,52 @@ static void psp_display_control_tab()
 
   pspUiOpenMenu(&ControlUiMenu, game_name);
   free(game_name);
+}
+
+static void add_block_details(libspectrum_tape_block *block, void *user_data)
+{
+  /* Get tape position data */
+  char caption[256];
+  tape_block_details(caption, 255, block);
+
+  /* Add option */
+  pl_menu_item *item = (pl_menu_item*)user_data;
+  pl_menu_append_option(item, caption, 
+                        (void*)pl_menu_get_option_count(item), 0);
+}
+
+static void psp_display_system_tab()
+{
+  pl_menu_item *item;
+
+  item = pl_menu_find_item_by_id(&SystemUiMenu.Menu, SYSTEM_SHOW_BORDER);
+  pl_menu_select_option_by_value(item, (void*)(int)psp_options.show_border);
+  item = pl_menu_find_item_by_id(&SystemUiMenu.Menu, SYSTEM_MONITOR);
+  pl_menu_select_option_by_value(item, (void*)(int)psp_options.enable_bw);
+  item = pl_menu_find_item_by_id(&SystemUiMenu.Menu, SYSTEM_TYPE);
+  pl_menu_select_option_by_value(item, (void*)(machine_current->machine));
+  item = pl_menu_find_item_by_id(&SystemUiMenu.Menu, SYSTEM_FASTLOAD);
+  pl_menu_select_option_by_value(item, (void*)(settings_current.fastload));
+  item = pl_menu_find_item_by_id(&SystemUiMenu.Menu, SYSTEM_AUTOLOAD);
+  pl_menu_select_option_by_value(item, (void*)(settings_current.auto_load));
+  item = pl_menu_find_item_by_id(&SystemUiMenu.Menu, SYSTEM_ISSUE2);
+  pl_menu_select_option_by_value(item, (void*)(settings_current.issue2));
+  item = pl_menu_find_item_by_id(&SystemUiMenu.Menu, SYSTEM_SOUND_LOAD);
+  pl_menu_select_option_by_value(item, (void*)(settings_current.sound_load));
+
+  /* Initialize tape browser information */
+  item = pl_menu_find_item_by_id(&SystemUiMenu.Menu, SYSTEM_TAPE_BROWSER);
+  tape_foreach(add_block_details, item);
+
+  /* Select currently selected block */
+  int current_block = tape_get_current_block();
+  if (current_block != -1)
+    pl_menu_select_option_by_index(item, current_block);
+
+  pspUiOpenMenu(&SystemUiMenu, NULL);
+
+  /* Clear list of options */
+  pl_menu_clear_options(item);
 }
 
 static void psp_display_state_tab()
@@ -1604,6 +1640,11 @@ static int OnMenuItemChanged(const struct PspUiMenu *uimenu,
         pl_menu_select_option_by_value(item, 
                                        (void*)(settings_current.fastload));
       }
+      break;
+    case SYSTEM_TAPE_BROWSER:
+      /* Reposition tape */
+      if ((int)option->value != tape_get_current_block())
+        tape_select_block_no_update((int)option->value);
       break;
     }
   }
