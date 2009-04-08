@@ -70,6 +70,8 @@ PSP_MAIN_THREAD_ATTR(PSP_THREAD_ATTR_USER);
 #define SYSTEM_SOUND_LOAD   0x19
 #define SYSTEM_SHOW_BORDER  0x20
 #define SYSTEM_TAPE_BROWSER 0x21
+#define SYSTEM_TAPE_PLAY    0x22
+#define SYSTEM_TAPE_REWIND  0x23
 
 #define SPC_MENU     1
 #define SPC_KYBD     2
@@ -348,43 +350,58 @@ PL_MENU_OPTIONS_END
 
 PL_MENU_ITEMS_BEGIN(SystemMenuDef)
   PL_MENU_HEADER("Video")
-  PL_MENU_ITEM("Screen border",SYSTEM_SHOW_BORDER,ToggleOptions,"\026\250\020 Show/hide border surrounding the main display")
-  PL_MENU_ITEM("Monitor type",SYSTEM_MONITOR,MonitorTypes,"\026\250\020 Select type of monitor (color/grayscale)")
+  PL_MENU_ITEM("Screen border",SYSTEM_SHOW_BORDER,ToggleOptions,
+               "\026\250\020 Show/hide border surrounding the main display")
+  PL_MENU_ITEM("Monitor type",SYSTEM_MONITOR,MonitorTypes,
+               "\026\250\020 Select type of monitor (color/grayscale)")
   PL_MENU_HEADER("Tape")
-  PL_MENU_ITEM("Browser", SYSTEM_TAPE_BROWSER, NULL,
-                             "\026\250\020 View/move current tape position")
+  PL_MENU_ITEM("Play", SYSTEM_TAPE_PLAY, NULL,
+               "\026\001\020 Toggle tape playback")
+  PL_MENU_ITEM("Rewind", SYSTEM_TAPE_REWIND, NULL,
+               "\026\001\020 Rewind tape")
+  PL_MENU_ITEM("Browse", SYSTEM_TAPE_BROWSER, NULL,
+               "\026\250\020 View/move current tape position (if loaded)")
+  PL_MENU_ITEM("Tape traps", SYSTEM_TAPE_TRAPS, ToggleOptions,
+               "\026\250\020 Enable/disable tape traps")
   PL_MENU_ITEM("Autoloading",SYSTEM_AUTOLOAD,ToggleOptions,
-                             "\026\250\020 When enabled, emulator will immediately load and run tape")
+               "\026\250\020 When enabled, emulator will immediately load and run tape")
   PL_MENU_ITEM("Fastloading",SYSTEM_FASTLOAD,ToggleOptions,
-                             "\026\250\020 Run at max. speed while loading tapes (does not work with loading sounds)")
+               "\026\250\020 Run at max. speed while loading tapes (does not work with loading sounds)")
   PL_MENU_ITEM("Loading sounds",SYSTEM_SOUND_LOAD,ToggleOptions,
-                             "\026\250\020 Toogle tape loading sounds (does not work with fastloading)")
+               "\026\250\020 Toogle tape loading sounds (does not work with fastloading)")
   PL_MENU_HEADER("System")
-  PL_MENU_ITEM("Machine type",SYSTEM_TYPE,MachineTypes,"\026\250\020 Select emulated system")
+  PL_MENU_ITEM("Machine type",SYSTEM_TYPE,MachineTypes,
+               "\026\250\020 Select emulated system")
   PL_MENU_ITEM("Issue 2 keyboard support",SYSTEM_ISSUE2,ToggleOptions,
-                             "\026\250\020 Enable/disable older keyboard model support")
+               "\026\250\020 Enable/disable older keyboard model support")
   PL_MENU_HEADER("Options")
-  PL_MENU_ITEM("Reset",SYSTEM_RESET,NULL,"\026\001\020 Reset system")
-  PL_MENU_ITEM("Save screenshot",SYSTEM_SCRNSHOT,NULL,"\026\001\020 Save screenshot")
+  PL_MENU_ITEM("Reset",SYSTEM_RESET,NULL,
+               "\026\001\020 Reset system")
+  PL_MENU_ITEM("Save screenshot",SYSTEM_SCRNSHOT,NULL,
+               "\026\001\020 Save screenshot")
 PL_MENU_ITEMS_END
 PL_MENU_ITEMS_BEGIN(OptionMenuDef)
   PL_MENU_HEADER("Video")
-  PL_MENU_ITEM("Screen size",OPTION_DISPLAY_MODE,ScreenSizeOptions,"\026\250\020 Change screen size")
+  PL_MENU_ITEM("Screen size",OPTION_DISPLAY_MODE,ScreenSizeOptions,
+               "\026\250\020 Change screen size")
   PL_MENU_HEADER("Input")
-  PL_MENU_ITEM("Virtual keyboard mode",OPTION_TOGGLE_VK,VkModeOptions,"\026"PSP_CHAR_RIGHT"\020 Select virtual keyboard mode")
+  PL_MENU_ITEM("Virtual keyboard mode",OPTION_TOGGLE_VK,VkModeOptions,
+               "\026\250\020 Select virtual keyboard mode")
   PL_MENU_HEADER("Enhancements")
-  PL_MENU_ITEM("Autoload slot",OPTION_AUTOLOAD,AutoloadSlots,"\026"PSP_CHAR_RIGHT"\020 Select save state to be loaded automatically")
+  PL_MENU_ITEM("Autoload slot",OPTION_AUTOLOAD,AutoloadSlots,
+               "\026\250\020 Select save state to be loaded automatically")
   PL_MENU_HEADER("Performance")
-/*
-  PL_MENU_ITEM("Frame limiter", OPTION_FRAME_LIMITER, ToggleOptions, -1,
-    "\026\250\020 Enable/disable correct FPS emulation"),
-*/
-  PL_MENU_ITEM("PSP clock frequency",OPTION_CLOCK_FREQ,PspClockFreqOptions,"\026\250\020 Larger values: faster emulation, faster battery depletion (default: 222MHz)")
-  PL_MENU_ITEM("Show FPS counter",OPTION_SHOW_FPS,ToggleOptions,"\026\250\020 Show/hide the frames-per-second counter")
-  PL_MENU_ITEM("Peripheral status",OPTION_SHOW_OSI,ToggleOptions, "\026\250\020 Show/hide floppy, disk drive status indicators")
+  PL_MENU_ITEM("PSP clock frequency",OPTION_CLOCK_FREQ,PspClockFreqOptions,
+               "\026\250\020 Larger values: faster emulation, faster battery depletion (default: 222MHz)")
+  PL_MENU_ITEM("Show FPS counter",OPTION_SHOW_FPS,ToggleOptions,
+               "\026\250\020 Show/hide the frames-per-second counter")
+  PL_MENU_ITEM("Peripheral status",OPTION_SHOW_OSI,ToggleOptions, 
+               "\026\250\020 Show/hide floppy, disk drive status indicators")
   PL_MENU_HEADER("Menu")
-  PL_MENU_ITEM("Button mode",OPTION_CONTROL_MODE,ControlModeOptions,"\026\250\020 Change OK and Cancel button mapping")
-  PL_MENU_ITEM("Animations",OPTION_ANIMATE,ToggleOptions,"\026\250\020 Enable/disable menu animations")
+  PL_MENU_ITEM("Button mode",OPTION_CONTROL_MODE,ControlModeOptions,
+               "\026\250\020 Change OK and Cancel button mapping")
+  PL_MENU_ITEM("Animations",OPTION_ANIMATE,ToggleOptions,
+               "\026\250\020 Enable/disable menu animations")
 PL_MENU_ITEMS_END
 PL_MENU_ITEMS_BEGIN(ControlMenuDef)
   PL_MENU_ITEM(PSP_CHAR_ANALUP,0,MappableButtons,ControlHelpText)
@@ -912,6 +929,8 @@ static void psp_display_system_tab()
   pl_menu_select_option_by_value(item, (void*)(settings_current.issue2));
   item = pl_menu_find_item_by_id(&SystemUiMenu.Menu, SYSTEM_SOUND_LOAD);
   pl_menu_select_option_by_value(item, (void*)(settings_current.sound_load));
+  item = pl_menu_find_item_by_id(&SystemUiMenu.Menu, SYSTEM_TAPE_TRAPS);
+  pl_menu_select_option_by_value(item, (void*)(settings_current.tape_traps));
 
   /* Initialize tape browser information */
   item = pl_menu_find_item_by_id(&SystemUiMenu.Menu, SYSTEM_TAPE_BROWSER);
@@ -1109,6 +1128,7 @@ static void psp_load_options()
   settings_current.auto_load = pl_ini_get_int(&file, "System", "Autoload", 1);
   settings_current.issue2 = pl_ini_get_int(&file, "System", "Issue2", 0);
   settings_current.sound_load = pl_ini_get_int(&file, "System", "Loading Sound", 1);
+  settings_current.tape_traps = pl_ini_get_int(&file, "System", "Tape Traps", 1);
 
   /* Clean up */
   pl_ini_destroy(&file);
@@ -1122,37 +1142,24 @@ static int psp_save_options()
   /* Initialize INI structure */
   pl_ini_file file;
   pl_ini_create(&file);
-  pl_ini_set_int(&file, "Video", "Display Mode", 
-                 psp_options.display_mode);
-  pl_ini_set_int(&file, "Video", "Frame Limiter", 
-                 psp_options.limit_frames);
-  pl_ini_set_int(&file, "Video", "PSP Clock Frequency", 
-                 psp_options.clock_freq);
-  pl_ini_set_int(&file, "Video", "Show FPS", 
-                 psp_options.show_fps);
-  pl_ini_set_int(&file, "Video", "Show Peripheral Status", 
-                 psp_options.show_osi);
-  pl_ini_set_int(&file, "Video", "Show Border", 
-                 psp_options.show_border);
-  pl_ini_set_int(&file, "Video", "Enable B&W", 
-                 psp_options.enable_bw);
-  pl_ini_set_int(&file, "Menu", "Control Mode", 
-                 psp_options.control_mode);
-  pl_ini_set_int(&file, "Menu", "Animate", 
-                 psp_options.animate_menu);
-  pl_ini_set_int(&file, "Input", "VK Mode", 
-                 psp_options.toggle_vk);
-  pl_ini_set_int(&file, "System", "Current Machine", 
-                 machine_current->machine);
-  pl_ini_set_int(&file, "System", "Autoload Slot", 
-                 psp_options.autoload_slot);
-  pl_ini_set_string(&file, "File", "Game Path",
-                    psp_game_path);
-
+  pl_ini_set_int(&file, "Video", "Display Mode", psp_options.display_mode);
+  pl_ini_set_int(&file, "Video", "Frame Limiter", psp_options.limit_frames);
+  pl_ini_set_int(&file, "Video", "PSP Clock Frequency", psp_options.clock_freq);
+  pl_ini_set_int(&file, "Video", "Show FPS", psp_options.show_fps);
+  pl_ini_set_int(&file, "Video", "Show Peripheral Status", psp_options.show_osi);
+  pl_ini_set_int(&file, "Video", "Show Border", psp_options.show_border);
+  pl_ini_set_int(&file, "Video", "Enable B&W", psp_options.enable_bw);
+  pl_ini_set_int(&file, "Menu", "Control Mode", psp_options.control_mode);
+  pl_ini_set_int(&file, "Menu", "Animate", psp_options.animate_menu);
+  pl_ini_set_int(&file, "Input", "VK Mode", psp_options.toggle_vk);
+  pl_ini_set_int(&file, "System", "Current Machine", machine_current->machine);
+  pl_ini_set_int(&file, "System", "Autoload Slot", psp_options.autoload_slot);
   pl_ini_set_int(&file, "System", "Fastload", settings_current.fastload);
   pl_ini_set_int(&file, "System", "Autoload", settings_current.auto_load);
   pl_ini_set_int(&file, "System", "Issue2", settings_current.issue2);
   pl_ini_set_int(&file, "System", "Loading Sound", settings_current.sound_load);
+  pl_ini_set_int(&file, "System", "Tape Traps", settings_current.tape_traps);
+  pl_ini_set_string(&file, "File", "Game Path", psp_game_path);
 
   int status = pl_ini_save(&file, path);
   pl_ini_destroy(&file);
@@ -1492,10 +1499,16 @@ static int OnMenuOk(const void *uimenu, const void* sel_item)
     else
       pspUiAlert("ERROR: Changes not saved");
   }
-  else if (uimenu == &SystemUiMenu)
+  else
   {
     switch (((const pl_menu_item*)sel_item)->id)
     {
+    case SYSTEM_TAPE_REWIND:
+      tape_select_block(0);
+      break;
+    case SYSTEM_TAPE_PLAY:
+      tape_toggle_play(0);
+      break;
     case SYSTEM_RESET:
       if (pspUiConfirm("Reset the system?"))
       {
@@ -1630,15 +1643,16 @@ static int OnMenuItemChanged(const struct PspUiMenu *uimenu,
     case SYSTEM_ISSUE2:
       settings_current.issue2 = (int)option->value;
       break;
+    case SYSTEM_TAPE_TRAPS:
+      settings_current.tape_traps = (int)option->value;
+      break;
     case SYSTEM_SOUND_LOAD:
       settings_current.sound_load = (int)option->value;
       if (settings_current.sound_load && settings_current.fastload)
       {
         settings_current.fastload = 0;
-        pl_menu_item *item = pl_menu_find_item_by_id(&SystemUiMenu.Menu, 
-                                                     SYSTEM_FASTLOAD);
-        pl_menu_select_option_by_value(item, 
-                                       (void*)(settings_current.fastload));
+        pl_menu_item *item = pl_menu_find_item_by_id(&SystemUiMenu.Menu, SYSTEM_FASTLOAD);
+        pl_menu_select_option_by_value(item, (void*)(settings_current.fastload));
       }
       break;
     case SYSTEM_TAPE_BROWSER:
