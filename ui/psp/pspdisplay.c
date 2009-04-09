@@ -5,6 +5,8 @@
 #include "settings.h"
 #include "ui/ui.h"
 #include "ui/uidisplay.h"
+#include "z80/z80.h"
+#include "z80/z80_macros.h"
 
 #include "pspui.h"
 
@@ -21,7 +23,8 @@ PspImage *Screen = NULL;
 static pl_perf_counter perf_counter;
 static int disk_status, tape_status, mdr_status,
            l_disk_status, l_tape_status, l_mdr_status;
-static int disk_icon_offset, tape_icon_offset;
+static int disk_icon_offset, tape_icon_offset, pc_offset, 
+           pc_text_width, line_height;
 int clear_screen;
 
 static int ScreenX, ScreenY, ScreenW, ScreenH;
@@ -42,6 +45,8 @@ int uidisplay_init( int width, int height )
   disk_icon_offset = 0;
   tape_icon_offset = disk_icon_offset + 
     pspFontGetTextWidth(&PspStockFont, PSP_CHAR_FLOPPY);
+  pc_offset = tape_icon_offset + 
+    pspFontGetTextWidth(&PspStockFont, PSP_CHAR_TAPE);
 
   psp_uidisplay_reinit();
 
@@ -132,6 +137,9 @@ void psp_uidisplay_reinit()
   /* Reset FPS counter */
   pl_perf_init_counter(&perf_counter);
   display_refresh_all();
+
+  line_height = pspFontGetLineHeight(&PspStockFont);
+  pc_text_width = 0;
 }
 
 void uidisplay_frame_end()
@@ -149,14 +157,9 @@ void uidisplay_frame_end()
     pspVideoClearScreen();
   }
 
-  /* Erase disk indicator, if displayed last frame */
-  if (psp_options.show_osi)
-  {
-    if (!disk_status && l_disk_status)
-      pspVideoPrint(&PspStockFont, disk_icon_offset, 0, PSP_CHAR_FLOPPY, PSP_COLOR_BLACK);
-    if (!tape_status && l_tape_status)
-      pspVideoPrint(&PspStockFont, tape_icon_offset, 0, PSP_CHAR_TAPE, PSP_COLOR_BLACK);
-  }
+  /* Black out the status line */
+  if (psp_options.show_pc || psp_options.show_fps || psp_options.show_osi)
+    pspVideoFillRect(pc_offset, 0, SCR_WIDTH, line_height, PSP_COLOR_BLACK);
 
   /* Render screen */
   pspVideoPutImage(Screen, ScreenX, ScreenY, ScreenW, ScreenH);
@@ -165,15 +168,13 @@ void uidisplay_frame_end()
   if (keyboard_visible)
     pl_vk_render(&vk_spectrum);
 
+  /* Show frames-per-second */
   if (psp_options.show_fps)
   {
     static char fps_display[32];
     sprintf(fps_display, " %3.02f", pl_perf_update_counter(&perf_counter));
 
     int width = pspFontGetTextWidth(&PspStockFont, fps_display);
-    int height = pspFontGetLineHeight(&PspStockFont);
-
-    pspVideoFillRect(SCR_WIDTH - width, 0, SCR_WIDTH, height, PSP_COLOR_BLACK);
     pspVideoPrint(&PspStockFont, SCR_WIDTH - width, 0, fps_display, PSP_COLOR_WHITE);
   }
 
@@ -185,6 +186,14 @@ void uidisplay_frame_end()
       pspVideoPrint(&PspStockFont, disk_icon_offset, 0, PSP_CHAR_FLOPPY, PSP_COLOR_GREEN);
     if (tape_status)
       pspVideoPrint(&PspStockFont, tape_icon_offset, 0, PSP_CHAR_TAPE, PSP_COLOR_GREEN);
+  }
+
+  /* Display program counter */
+  if (psp_options.show_pc)
+  {
+    static char pc_display[32];
+    sprintf(pc_display, " %04X", PC);
+    pc_text_width = pspVideoPrint(&PspStockFont, pc_offset, 0, pc_display, PSP_COLOR_RED);
   }
 
   pspVideoEnd();

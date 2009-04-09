@@ -1,4 +1,3 @@
-/* TODO: add warning if Shift buttons & non-shift buttons are mapped */
 #include <psptypes.h>
 #include <pspkernel.h>
 #include <psprtc.h>
@@ -58,6 +57,7 @@ PSP_MAIN_THREAD_ATTR(PSP_THREAD_ATTR_USER);
 #define OPTION_AUTOLOAD      0x07
 #define OPTION_TOGGLE_VK     0x08
 #define OPTION_SHOW_OSI      0x09
+#define OPTION_SHOW_PC       0x10
 
 #define SYSTEM_SCRNSHOT     0x11
 #define SYSTEM_RESET        0x12
@@ -397,6 +397,8 @@ PL_MENU_ITEMS_BEGIN(OptionMenuDef)
                "\026\250\020 Show/hide the frames-per-second counter")
   PL_MENU_ITEM("Peripheral status",OPTION_SHOW_OSI,ToggleOptions, 
                "\026\250\020 Show/hide floppy, disk drive status indicators")
+  PL_MENU_ITEM("Show program counter",OPTION_SHOW_PC,ToggleOptions, 
+               "\026\250\020 Show/hide program counter (PC)")
   PL_MENU_HEADER("Menu")
   PL_MENU_ITEM("Button mode",OPTION_CONTROL_MODE,ControlModeOptions,
                "\026\250\020 Change OK and Cancel button mapping")
@@ -673,6 +675,8 @@ static void psp_display_menu()
       pl_menu_select_option_by_value(item, (void*)(int)psp_options.show_fps);
       item = pl_menu_find_item_by_id(&OptionUiMenu.Menu, OPTION_SHOW_OSI);
       pl_menu_select_option_by_value(item, (void*)(int)psp_options.show_osi);
+      item = pl_menu_find_item_by_id(&OptionUiMenu.Menu, OPTION_SHOW_PC);
+      pl_menu_select_option_by_value(item, (void*)(int)psp_options.show_pc);
       item = pl_menu_find_item_by_id(&OptionUiMenu.Menu, OPTION_CONTROL_MODE);
       pl_menu_select_option_by_value(item, (void*)(int)psp_options.control_mode);
       item = pl_menu_find_item_by_id(&OptionUiMenu.Menu, OPTION_ANIMATE);
@@ -1113,6 +1117,7 @@ static void psp_load_options()
   psp_options.clock_freq = pl_ini_get_int(&file, "Video", "PSP Clock Frequency", 222);
   psp_options.show_fps = pl_ini_get_int(&file, "Video", "Show FPS", 0);
   psp_options.show_osi = pl_ini_get_int(&file, "Video", "Show Peripheral Status", 0);
+  psp_options.show_pc = pl_ini_get_int(&file, "Options", "Show PC", 0);
   psp_options.show_border = pl_ini_get_int(&file, "Video", "Show Border", 1);
   psp_options.enable_bw = pl_ini_get_int(&file, "Video", "Enable B&W", 0);
   psp_options.control_mode = pl_ini_get_int(&file, "Menu", "Control Mode", 0);
@@ -1149,6 +1154,7 @@ static int psp_save_options()
   pl_ini_set_int(&file, "Video", "Show Peripheral Status", psp_options.show_osi);
   pl_ini_set_int(&file, "Video", "Show Border", psp_options.show_border);
   pl_ini_set_int(&file, "Video", "Enable B&W", psp_options.enable_bw);
+  pl_ini_set_int(&file, "Options", "Show PC", psp_options.show_pc);
   pl_ini_set_int(&file, "Menu", "Control Mode", psp_options.control_mode);
   pl_ini_set_int(&file, "Menu", "Animate", psp_options.animate_menu);
   pl_ini_set_int(&file, "Input", "VK Mode", psp_options.toggle_vk);
@@ -1597,6 +1603,9 @@ static int OnMenuItemChanged(const struct PspUiMenu *uimenu,
       break;
     case OPTION_SHOW_OSI:
       psp_options.show_osi = (int)option->value;
+      break;
+    case OPTION_SHOW_PC:
+      psp_options.show_pc = (int)option->value;
       break;
     case SYSTEM_SHOW_BORDER:
       psp_options.show_border = (int)option->value;

@@ -28,6 +28,7 @@ typedef struct psp_options
   uint16_t clock_freq;
   uint16_t machine;
   uint8_t  show_osi;
+  uint8_t  show_pc;
 } psp_options_t;
 
 typedef struct psp_ctrl_map
