@@ -86,7 +86,7 @@ PSP_MAIN_THREAD_ATTR(PSP_THREAD_ATTR_USER);
 static const char 
   PresentSlotText[] = "\026\244\020 Save\t\026\001\020 Load\t\026\243\020 Delete\t\026"PSP_CHAR_START"\020 Export",
   EmptySlotText[]   = "\026\244\020 Save\t\026"PSP_CHAR_START"\020 Export",
-  ControlHelpText[] = "\026\250\020 Change mapping\t\026\001\020 Save to \271\t"
+  ControlHelpText[] = "\026\250\020 Change mapping\t"
                       "\026\244\020 Set as default\t\026\243\020 Load defaults";
 
 static const char *QuickloadFilter[] =
@@ -484,6 +484,7 @@ static u8 psp_exit_menu;
 static int TabIndex;
 static PspImage *Background;
 static PspImage *NoSaveIcon;
+static int psp_controls_changed;
 
 extern PspImage *Screen;
 extern int clear_screen;
@@ -899,8 +900,17 @@ static void psp_display_control_tab()
   for (item = ControlUiMenu.Menu.items, i = 0; item; item = item->next, i++)
     pl_menu_select_option_by_value(item, (void*)current_map.button_map[i]);
 
+  psp_controls_changed = 0;
+
   pspUiOpenMenu(&ControlUiMenu, game_name);
   free(game_name);
+
+  /* Save controls, if any changes were made */
+  const char *game_name = (GAME_LOADED) 
+    ? pl_file_get_filename(psp_current_game) : "BASIC";
+
+  if (psp_controls_changed && !psp_save_controls(game_name, &current_map))
+    pspUiAlert("ERROR: Changes not saved");
 }
 
 static void add_block_details(libspectrum_tape_block *block, void *user_data)
@@ -1495,44 +1505,31 @@ static const char* OnSplashGetStatusBarText(const struct PspUiSplash *splash)
 
 static int OnMenuOk(const void *uimenu, const void* sel_item)
 {
-  if (uimenu == &ControlUiMenu)
+  switch (((const pl_menu_item*)sel_item)->id)
   {
-    /* Save to MS */
-    if (psp_save_controls((GAME_LOADED)
-                          ? pl_file_get_filename(psp_current_game) : "BASIC", 
-                          &current_map))
-      pspUiAlert("Changes saved");
-    else
-      pspUiAlert("ERROR: Changes not saved");
-  }
-  else
-  {
-    switch (((const pl_menu_item*)sel_item)->id)
+  case SYSTEM_TAPE_REWIND:
+    tape_select_block(0);
+    break;
+  case SYSTEM_TAPE_PLAY:
+    tape_toggle_play(0);
+    break;
+  case SYSTEM_RESET:
+    if (pspUiConfirm("Reset the system?"))
     {
-    case SYSTEM_TAPE_REWIND:
-      tape_select_block(0);
-      break;
-    case SYSTEM_TAPE_PLAY:
-      tape_toggle_play(0);
-      break;
-    case SYSTEM_RESET:
-      if (pspUiConfirm("Reset the system?"))
-      {
-        psp_exit_menu = 1;
-        machine_reset(0);
-        return 1;
-      }
-      break;
-    case SYSTEM_SCRNSHOT:
-      /* Save screenshot */
-      if (!pl_util_save_image_seq(psp_screenshot_path, (GAME_LOADED)
-                                  ? pl_file_get_filename(psp_current_game) : "BASIC",
-                                  Screen))
-        pspUiAlert("ERROR: Screenshot not saved");
-      else
-        pspUiAlert("Screenshot saved successfully");
-      break;
+      psp_exit_menu = 1;
+      machine_reset(0);
+      return 1;
     }
+    break;
+  case SYSTEM_SCRNSHOT:
+    /* Save screenshot */
+    if (!pl_util_save_image_seq(psp_screenshot_path, (GAME_LOADED)
+                                ? pl_file_get_filename(psp_current_game) : "BASIC",
+                                Screen))
+      pspUiAlert("ERROR: Screenshot not saved");
+    else
+      pspUiAlert("Screenshot saved successfully");
+    break;
   }
 
   return 0;
@@ -1584,6 +1581,7 @@ static int OnMenuItemChanged(const struct PspUiMenu *uimenu,
   if (uimenu == &ControlUiMenu)
   {
     current_map.button_map[item->id] = (unsigned int)option->value;
+    psp_controls_changed = 1;
   }
   else
   {
