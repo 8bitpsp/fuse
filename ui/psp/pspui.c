@@ -57,7 +57,8 @@ PSP_MAIN_THREAD_ATTR(PSP_THREAD_ATTR_USER);
 #define OPTION_AUTOLOAD      0x07
 #define OPTION_TOGGLE_VK     0x08
 #define OPTION_SHOW_OSI      0x09
-#define OPTION_SHOW_PC       0x10
+#define OPTION_SHOW_PC       0x0A
+#define OPTION_SHOW_BORDER   0x0B
 
 #define SYSTEM_SCRNSHOT     0x11
 #define SYSTEM_RESET        0x12
@@ -68,10 +69,9 @@ PSP_MAIN_THREAD_ATTR(PSP_THREAD_ATTR_USER);
 #define SYSTEM_AUTOLOAD     0x17
 #define SYSTEM_ISSUE2       0x18
 #define SYSTEM_SOUND_LOAD   0x19
-#define SYSTEM_SHOW_BORDER  0x20
-#define SYSTEM_TAPE_BROWSER 0x21
-#define SYSTEM_TAPE_PLAY    0x22
-#define SYSTEM_TAPE_REWIND  0x23
+#define SYSTEM_TAPE_BROWSER 0x1A
+#define SYSTEM_TAPE_PLAY    0x1B
+#define SYSTEM_TAPE_REWIND  0x1C
 
 #define SPC_MENU     1
 #define SPC_KYBD     2
@@ -350,8 +350,6 @@ PL_MENU_OPTIONS_END
 
 PL_MENU_ITEMS_BEGIN(SystemMenuDef)
   PL_MENU_HEADER("Video")
-  PL_MENU_ITEM("Screen border",SYSTEM_SHOW_BORDER,ToggleOptions,
-               "\026\250\020 Show/hide border surrounding the main display")
   PL_MENU_ITEM("Monitor type",SYSTEM_MONITOR,MonitorTypes,
                "\026\250\020 Select type of monitor (color/grayscale)")
   PL_MENU_HEADER("Tape")
@@ -384,6 +382,8 @@ PL_MENU_ITEMS_BEGIN(OptionMenuDef)
   PL_MENU_HEADER("Video")
   PL_MENU_ITEM("Screen size",OPTION_DISPLAY_MODE,ScreenSizeOptions,
                "\026\250\020 Change screen size")
+  PL_MENU_ITEM("Border",OPTION_SHOW_BORDER,ToggleOptions,
+               "\026\250\020 Show/hide border surrounding the main display area")
   PL_MENU_HEADER("Input")
   PL_MENU_ITEM("Virtual keyboard mode",OPTION_TOGGLE_VK,VkModeOptions,
                "\026\250\020 Select virtual keyboard mode")
@@ -688,6 +688,8 @@ static void psp_display_menu()
       pl_menu_select_option_by_value(item, (void*)(int)psp_options.toggle_vk);
       if ((item = pl_menu_find_item_by_id(&OptionUiMenu.Menu, OPTION_FRAME_LIMITER)))
         pl_menu_select_option_by_value(item, (void*)(int)psp_options.limit_frames);
+      item = pl_menu_find_item_by_id(&OptionUiMenu.Menu, OPTION_SHOW_BORDER);
+      pl_menu_select_option_by_value(item, (void*)(int)psp_options.show_border);
 
       pspUiOpenMenu(&OptionUiMenu, NULL);
       break;
@@ -703,8 +705,6 @@ static void psp_display_menu()
     }
   }
 
-  psp_menu_active = 0;
-
   if (!ExitPSP)
   {
     /* Set clock frequency during emulation */
@@ -712,6 +712,7 @@ static void psp_display_menu()
     /* Set buttons to normal mode */
     pspCtrlSetPollingMode(PSP_CTRL_NORMAL);
 
+    psp_menu_active = 0;
     show_kybd_held = 0;
     keyboard_visible = 0;
     run_full_spd_held = 0;
@@ -906,10 +907,7 @@ static void psp_display_control_tab()
   free(game_name);
 
   /* Save controls, if any changes were made */
-  const char *game_name = (GAME_LOADED) 
-    ? pl_file_get_filename(psp_current_game) : "BASIC";
-
-  if (psp_controls_changed && !psp_save_controls(game_name, &current_map))
+  if (psp_controls_changed && !psp_save_controls(config_name, &current_map))
     pspUiAlert("ERROR: Changes not saved");
 }
 
@@ -929,8 +927,6 @@ static void psp_display_system_tab()
 {
   pl_menu_item *item;
 
-  item = pl_menu_find_item_by_id(&SystemUiMenu.Menu, SYSTEM_SHOW_BORDER);
-  pl_menu_select_option_by_value(item, (void*)(int)psp_options.show_border);
   item = pl_menu_find_item_by_id(&SystemUiMenu.Menu, SYSTEM_MONITOR);
   pl_menu_select_option_by_value(item, (void*)(int)psp_options.enable_bw);
   item = pl_menu_find_item_by_id(&SystemUiMenu.Menu, SYSTEM_TYPE);
@@ -1605,7 +1601,7 @@ static int OnMenuItemChanged(const struct PspUiMenu *uimenu,
     case OPTION_SHOW_PC:
       psp_options.show_pc = (int)option->value;
       break;
-    case SYSTEM_SHOW_BORDER:
+    case OPTION_SHOW_BORDER:
       psp_options.show_border = (int)option->value;
       break;
     case OPTION_TOGGLE_VK:

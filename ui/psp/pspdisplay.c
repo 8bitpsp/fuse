@@ -21,8 +21,7 @@
 extern pl_vk_layout vk_spectrum;
 PspImage *Screen = NULL;
 static pl_perf_counter perf_counter;
-static int disk_status, tape_status, mdr_status,
-           l_disk_status, l_tape_status, l_mdr_status;
+static int disk_status, tape_status, mdr_status;
 static int disk_icon_offset, tape_icon_offset, pc_offset, 
            pc_text_width, line_height;
 int clear_screen;
@@ -40,8 +39,7 @@ int uidisplay_init( int width, int height )
   Screen->PalSize = 16;
 
   /* Reset status indicators */
-  disk_status = tape_status = mdr_status =
-    l_disk_status = l_tape_status = l_mdr_status = 0;
+  disk_status = tape_status = mdr_status = 0;
   disk_icon_offset = 0;
   tape_icon_offset = disk_icon_offset + 
     pspFontGetTextWidth(&PspStockFont, PSP_CHAR_FLOPPY);
@@ -88,27 +86,27 @@ void psp_uidisplay_reinit()
     /* Addition of 0.5 is to avoid rounding errors */
     grey = ( 0.299 * red + 0.587 * green + 0.114 * blue ) + 0.5;
 
-    if (!psp_menu_active)
-    {
-      if (psp_options.show_border)
-      {
-        Screen->Viewport.X = 0;
-        Screen->Viewport.Y = 0;
-        Screen->Viewport.Width = DISPLAY_SCREEN_WIDTH / 2;
-        Screen->Viewport.Height = DISPLAY_SCREEN_HEIGHT;
-      }
-      else
-      {
-        Screen->Viewport.X = DISPLAY_BORDER_WIDTH / 2;
-        Screen->Viewport.Y = DISPLAY_BORDER_HEIGHT;
-        Screen->Viewport.Width = DISPLAY_WIDTH / 2;
-        Screen->Viewport.Height = DISPLAY_HEIGHT;
-      }
-    }
-
     Screen->Palette[i] = (!psp_options.enable_bw)
                            ? RGB(red, green, blue)
                            : RGB(grey, grey, grey);
+  }
+
+  if (!psp_menu_active)
+  {
+    if (psp_options.show_border)
+    {
+      Screen->Viewport.X = 0;
+      Screen->Viewport.Y = 0;
+      Screen->Viewport.Width = DISPLAY_SCREEN_WIDTH / 2;
+      Screen->Viewport.Height = DISPLAY_SCREEN_HEIGHT;
+    }
+    else
+    {
+      Screen->Viewport.X = DISPLAY_BORDER_WIDTH / 2;
+      Screen->Viewport.Y = DISPLAY_BORDER_HEIGHT;
+      Screen->Viewport.Width = DISPLAY_WIDTH / 2;
+      Screen->Viewport.Height = DISPLAY_HEIGHT;
+    }
   }
 
   /* Set up viewing ratios */
@@ -273,15 +271,12 @@ ui_statusbar_update( ui_statusbar_item item, ui_statusbar_state state )
   switch (item) 
   {
   case UI_STATUSBAR_ITEM_DISK:
-    l_disk_status = disk_status;
     disk_status = (state == UI_STATUSBAR_STATE_ACTIVE);
     return 0;
   case UI_STATUSBAR_ITEM_TAPE:
-    l_tape_status = tape_status;
     tape_status = (state == UI_STATUSBAR_STATE_ACTIVE);
     return 0;
   case UI_STATUSBAR_ITEM_MICRODRIVE:
-    l_mdr_status = mdr_status;
     mdr_status = (state == UI_STATUSBAR_STATE_ACTIVE);
     return 0;
   default: 
